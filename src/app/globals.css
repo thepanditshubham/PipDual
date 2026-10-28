@@ -1,0 +1,717 @@
+@import "tailwindcss";
+
+/* ── Design tokens ── */
+:root {
+  /* Core dark palette */
+  --bg: #100e0f;
+  --surface: #151314;
+  --surface-muted: #1a1819;
+  --border: #2f2c2d;
+
+  /* Brand colors */
+  --pink: #e74694;
+  --purple: #9262f9;
+  --purple-deep: #6c2bd9;
+  --purple-light: #ac94fa;
+
+  /* Text */
+  --text: #ffffff;
+  --text-secondary: #c3c1c1;
+  --text-muted: #7a7878;
+
+  /* Green CTA */
+  --green-start: #057a55;
+  --green-end: #84e1bc;
+
+  /* Status */
+  --up: #22c55e;
+  --down: #f43f5e;
+
+  /* Legacy aliases for components that still use these */
+  --panel: var(--surface);
+  --line: var(--border);
+  --signal: var(--pink);
+  --muted: var(--text-secondary);
+  --background: var(--bg);
+  --foreground: var(--text);
+
+  /* ── Terminal Design Tokens — Tradovate / TradingView Dark Theme Exact ── */
+  --term-bg:         #111215;   /* Deep charcoal canvas */
+  --term-surface:    #131417;   /* Top header, right sidebar, bottom bar */
+  --term-panel:      #15161b;   /* Cards, toolbars, sub-panels */
+  --term-panel-deep: #0e0f12;   /* Chart canvas area */
+  --term-border:     #1f2229;   /* Subtle hairline dividers */
+  --term-border-hi:  #2a2e39;   /* Hover / active borders */
+  --term-text:       #d1d4dc;   /* Primary crisp text */
+  --term-muted:      #6c7080;   /* Secondary / icon / subtitle text */
+  --term-label:      #9598a1;   /* Medium brightness label text */
+  --term-buy:        #089981;   /* Authentic TradingView green */
+  --term-buy-dim:    rgba(8,153,129,0.12);
+  --term-sell:       #f23645;   /* Authentic TradingView red */
+  --term-sell-dim:   rgba(242,54,69,0.12);
+  --term-accent:     #2962ff;   /* Authentic TradingView blue */
+  --term-accent-dim: rgba(41,98,255,0.15);
+
+  /* Terminal chrome — switchable with the light/dark toggle */
+  --term-raised:        #181a20;  /* Chips, inputs, raised buttons */
+  --term-strong:        #ffffff;  /* Headings and figures on panels */
+  --term-soft:          #787b86;  /* Secondary copy */
+  --term-dim:           #4d5058;  /* Captions, timestamps */
+  --term-border-hover:  #3a3f4b;
+  --term-accent-hi:     #1e53e5;
+  --term-accent-active: #1746c4;
+  --term-accent-text:   #6f9bff;
+  --term-amber:         #f59e0b;
+  --term-gem:           #38bdf8;
+  --term-canvas:        #0d0f12;  /* Page floor under the arena backdrop */
+  --term-raised-hi:     #20242e;  /* Hover state for raised chips */
+  --term-purple:        #a855f7;
+  --term-buy-bright:    #00d084;
+  --term-buy-2:         #0fae8a;
+  --term-buy-3:         #045f4b;
+  --term-sell-2:        #ff2a5f;
+  /* Primary action accent — the purple used by Find Match, the lobby tabs, the
+     store buttons and the Redeem flow. Kept separate from --term-buy so win/loss
+     colouring on balances and P&L stays semantically green/red. */
+  --term-primary:       #9262f9;
+  --term-primary-hi:    #a97cff;
+  --term-primary-deep:  #6c2bd9;
+  --term-primary-text:  #b491ff;  /* Purple label/icon copy that must read on panels */
+
+  /* Site chrome — the marketing / auth / account pages switch with `html[data-theme]` */
+  --ui-deep:            #0c0f14;  /* Page floor under cards */
+  --ui-panel:           #131822;  /* Section panels */
+  --ui-raised:          #1c2432;  /* Cards, tiles */
+  --ui-raised-hi:       #202a38;  /* Raised hover */
+  --ui-border-alt:      #222d3d;
+  --ui-border-soft:     #1a2230;
+  --green-soft:         #84e1bc;  /* Mint highlights on dark */
+  --accent:             #007bff;
+  --accent-hi:          #0069d9;
+  --accent-active:      #0056b3;
+  --accent-soft:        #3395ff;
+  --green:              #00c853;
+  --warn:               #f59e0b;
+}
+
+/* ── Site light theme ──
+   Light is the default: <html> ships with data-theme="light", so every page
+   paints in daylight until the player picks dark in Settings. */
+html[data-theme='light'] {
+  color-scheme: light;
+  --bg:            #f4f6fa;
+  --surface:       #ffffff;
+  --surface-muted: #eef1f6;
+  --border:        #dce2ea;
+  --text:          #11161f;
+  --text-secondary:#414957;
+  --text-muted:    #6b7280;
+  --ui-deep:       #e8ecf3;
+  --ui-panel:      #f7f9fc;
+  --ui-raised:     #edf1f7;
+  --ui-raised-hi:  #e3e9f2;
+  --ui-border-alt: #d6dde8;
+  --ui-border-soft:#e2e8f1;
+  --green-soft:    #047857;
+  --accent:        #007bff;
+  --accent-hi:     #0069d9;
+  --accent-active: #0056b3;
+  --accent-soft:   #1d6fe0;
+  --green:         #059669;
+  --warn:          #b45309;
+  --pink:          #db2777;
+  --purple:        #7c3aed;
+  --purple-deep:   #5b21b6;
+  --purple-light:  #6d28d9;
+  --green-start:   #047857;
+  --green-end:     #0f766e;
+  --up:            #16a34a;
+  --down:          #dc2626;
+}
+
+/* ── Terminal light theme ──
+   The store page and the lobby mount `.term-theme` with a data-theme attribute,
+   so the terminal chrome switches without repainting the rest of the app. */
+.term-theme {
+  color-scheme: dark;
+}
+
+.term-theme[data-theme='light'] {
+  color-scheme: light;
+  --term-bg:           #f3f4f7;
+  --term-surface:      #ffffff;
+  --term-panel:        #f7f8fa;
+  --term-panel-deep:   #eceff4;
+  --term-raised:       #e9ecf2;
+  --term-border:       #e1e4ea;
+  --term-border-hi:    #c8cdd8;
+  --term-border-hover: #b3b9c6;
+  --term-text:         #15181f;
+  --term-strong:       #0d1017;
+  --term-soft:         #545a68;
+  --term-muted:        #6b7180;
+  --term-label:        #3f4552;
+  --term-dim:          #767c89;
+  --term-accent:       #2962ff;
+  --term-accent-hi:    #1e53e5;
+  --term-accent-active:#163fb8;
+  --term-accent-text:  #1d4ed8;
+  --term-buy:          #067a63;
+  --term-sell:         #d92d3c;
+  --term-amber:        #b45309;
+  --term-gem:          #0369a1;
+  --term-canvas:       #eef1f6;
+  --term-raised-hi:    #dde1e8;
+  --term-purple:       #7c3aed;
+  --term-buy-bright:   #059669;
+  --term-buy-2:        #0f8f74;
+  --term-buy-3:        #065f4a;
+  --term-sell-2:       #e11d48;
+  --term-primary:      #7c3aed;
+  --term-primary-hi:   #8b5cf6;
+  --term-primary-deep: #5b21b6;
+  --term-primary-text: #6d28d9;
+}
+
+.term-theme[data-theme='light']::-webkit-scrollbar-track {
+  background: var(--term-panel-deep);
+}
+
+.term-theme[data-theme='light']::-webkit-scrollbar-thumb {
+  background: var(--term-border-hi);
+}
+
+/* The lobby scrolls the viewport rather than the themed box, so the page-level
+   scrollbar has to follow the switch too. */
+html:has(.term-theme[data-theme='light']) {
+  color-scheme: light;
+}
+
+html:has(.term-theme[data-theme='light']) ::-webkit-scrollbar-track {
+  background: #f3f4f7;
+}
+
+html:has(.term-theme[data-theme='light']) ::-webkit-scrollbar-thumb {
+  background: #c8cdd8;
+}
+
+html:has(.term-theme[data-theme='light']) ::-webkit-scrollbar-thumb:hover {
+  background: #b3b9c6;
+}
+
+/* Light mode keeps the same colour field but thins the vignette, so the pale
+   canvas does not turn muddy and the header and cards stay legible. */
+.term-theme[data-theme='light'] .lobby-glow-veil {
+  background:
+    radial-gradient(120% 90% at 50% 40%, rgba(243, 244, 247, 0) 0%, rgba(243, 244, 247, 0.06) 44%, rgba(243, 244, 247, 0.4) 100%),
+    linear-gradient(180deg, rgba(243, 244, 247, 0.42) 0%, rgba(243, 244, 247, 0) 18%, rgba(243, 244, 247, 0) 78%, rgba(243, 244, 247, 0.42) 100%);
+}
+
+.term-theme[data-theme='light'] .lobby-glow-veil::after {
+  opacity: 0.14;
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-bg: var(--bg);
+  --color-panel: var(--surface);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-line: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--text-secondary);
+  --color-signal: var(--pink);
+  --color-pink: var(--pink);
+  --color-purple: var(--purple);
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --font-sans: var(--font-inter, 'Inter'), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-inter, 'Inter'), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-inter, 'Inter'), ui-sans-serif, system-ui, sans-serif;
+  /* One family for the whole product. `font-mono` is kept as a semantic hook for
+     figures and identifiers, but it resolves to the same Inter stack so nothing
+     looks like a second, bolted-on design. */
+  --font-mono: var(--font-inter, 'Inter'), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ── Base styles ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-inter, 'Inter'), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+/* ── Typography ── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-inter, 'Inter'), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+/* ── Focus styles ── */
+*:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Text fields show their own focus border, so the ring above only reads as a
+   stray outline on them (browsers fire :focus-visible on every text input, even
+   on mouse click). Drop it for inputs / textarea / select; buttons and links
+   keep the ring for keyboard users. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
+/* ── Scrollbar styling ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #3f3c3d; }
+
+/* ═══════════════════════════════════════
+   ANIMATED GRADIENT BORDER (CSS Houdini)
+═══════════════════════════════════════ */
+@property --angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes gradient-spin {
+  to { --angle: 360deg; }
+}
+
+.animated-border {
+  position: relative;
+  border-radius: 16px;
+  background: var(--surface);
+  z-index: 0;
+}
+
+.animated-border::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(from var(--angle), #e74694, #9262f9, #e74694);
+  animation: gradient-spin 3s linear infinite;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  z-index: -1;
+}
+
+/* ═══════════════════════════════════════
+   GRADIENT UTILITIES
+═══════════════════════════════════════ */
+.gradient-brand {
+  background: linear-gradient(315deg, var(--pink) 0%, var(--purple) 100%);
+}
+
+.gradient-text {
+  background: linear-gradient(315deg, var(--pink) 0%, var(--purple) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-green-text {
+  background: linear-gradient(315deg, var(--green-start) 0%, var(--green-end) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-cta {
+  background: linear-gradient(315deg, var(--green-start) 0%, var(--green-end) 100%);
+}
+
+.gradient-active-bg {
+  background: linear-gradient(138.51deg, color-mix(in srgb, var(--green-start) 12%, transparent) 3.04%, color-mix(in srgb, var(--green-soft) 12%, transparent) 97.61%);
+}
+
+/* ═══════════════════════════════════════
+   BUTTON SYSTEM
+═══════════════════════════════════════ */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(315deg, var(--green-start) 0%, var(--green-end) 100%);
+  color: #ffffff;
+  font-family: var(--font-inter, 'Inter'), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: 0.01em;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.2s ease, transform 0.15s ease;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.5rem;
+  border-radius: 9999px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-inter, 'Inter'), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-secondary:hover {
+  border-color: var(--ui-border-alt);
+  background: var(--surface-muted);
+  transform: translateY(-1px);
+}
+
+/* Legacy .btn-angled — remapped to pill style */
+.btn-angled {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.5rem;
+  border-radius: 9999px;
+  font-family: var(--font-inter, 'Inter'), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: filter 0.2s ease, transform 0.15s ease;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-angled:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+/* ═══════════════════════════════════════
+   CARD SYSTEM
+═══════════════════════════════════════ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  border-color: var(--ui-border-alt);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme='light'] .card:hover,
+html[data-theme='light'] .card-signal:hover {
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+}
+
+/* card-signal remapped to dark card */
+.card-signal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* ═══════════════════════════════════════
+   GLASS EFFECT
+═══════════════════════════════════════ */
+.glass {
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+}
+
+/* ═══════════════════════════════════════
+   FORM ELEMENTS
+   Kept in Tailwind's `base` layer: an unlayered rule here outranks every
+   utility, so it used to repaint all inputs with the *site* palette and turn
+   terminal fields white in dark mode. In `base`, a utility such as
+   `bg-[var(--term-bg)]` wins, and bare inputs still get the defaults.
+═══════════════════════════════════════ */
+@layer base {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  select,
+  textarea {
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 10px;
+    font-family: var(--font-inter, 'Inter'), ui-sans-serif, system-ui, sans-serif;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    border-color: var(--pink);
+  }
+}
+
+/* ═══════════════════════════════════════
+   LABEL / BADGE UTILITIES
+═══════════════════════════════════════ */
+.label-xs {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.badge-pink {
+  background: rgba(231, 70, 148, 0.1);
+  border: 1px solid rgba(231, 70, 148, 0.25);
+  color: var(--pink);
+  border-radius: 9999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.badge-purple {
+  background: rgba(146, 98, 249, 0.1);
+  border: 1px solid rgba(146, 98, 249, 0.25);
+  color: var(--purple-light);
+  border-radius: 9999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.badge-green {
+  background: rgba(5, 122, 85, 0.15);
+  border: 1px solid color-mix(in srgb, var(--green-soft) 20%, transparent);
+  color: var(--green-soft);
+  border-radius: 9999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════
+   ACTIVE / SELECTED STATES
+═══════════════════════════════════════ */
+.tab-active {
+  background: linear-gradient(138.51deg, color-mix(in srgb, var(--green-start) 12%, transparent) 3.04%, color-mix(in srgb, var(--green-soft) 12%, transparent) 97.61%);
+  border: 1px solid color-mix(in srgb, var(--green-soft) 20%, transparent);
+  color: var(--green-soft);
+  box-shadow: 0 0 12px rgba(5, 122, 85, 0.15);
+}
+
+/* ═══════════════════════════════════════
+   BACKGROUND GRID
+═══════════════════════════════════════ */
+.bg-grid {
+  background-size: 40px 40px;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
+html[data-theme='light'] .bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 42, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+}
+
+/* ═══════════════════════════════════════
+   LOBBY GLOW BACKDROP
+   There is no photograph behind the arena any more: the canvas colour
+   carries the page and three soft fields — green, red and purple — blur
+   into it from the page itself. This layer only adds the vignette and the
+   faint CRT scanlines that seat the chrome on top.
+═══════════════════════════════════════ */
+.lobby-glow-veil {
+  background:
+    radial-gradient(115% 85% at 50% 38%, rgba(13, 15, 18, 0) 0%, rgba(13, 15, 18, 0.3) 48%, rgba(13, 15, 18, 0.88) 100%),
+    linear-gradient(180deg, rgba(13, 15, 18, 0.94) 0%, rgba(13, 15, 18, 0.52) 16%, rgba(13, 15, 18, 0.08) 42%, rgba(13, 15, 18, 0.55) 74%, rgba(13, 15, 18, 0.95) 100%),
+    linear-gradient(90deg, rgba(8, 153, 129, 0.1) 0%, rgba(13, 15, 18, 0) 34%, rgba(13, 15, 18, 0) 66%, rgba(242, 54, 69, 0.1) 100%);
+}
+
+/* Faint CRT scanlines keep the arena feeling like terminal output */
+.lobby-glow-veil::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(209, 212, 220, 0.028) 0px,
+    rgba(209, 212, 220, 0.028) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════ */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes draw-line {
+  from { stroke-dashoffset: 1000; }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes countdown-pulse {
+  0%   { transform: scale(1); opacity: 1; }
+  50%  { transform: scale(1.2); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pulse-signal {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-4px); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(231, 70, 148, 0.3); }
+  50%       { box-shadow: 0 0 20px rgba(231, 70, 148, 0.6), 0 0 40px rgba(146, 98, 249, 0.3); }
+}
+
+@keyframes radar-sweep {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-slide-up   { animation: slide-up 0.5s ease-out forwards; }
+.animate-fade-in    { animation: fade-in 0.3s ease-out forwards; }
+.animate-draw-line  { stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: draw-line 2s ease-out forwards; }
+.animate-countdown  { animation: countdown-pulse 1s ease-in-out infinite; }
+.animate-pulse-signal { animation: pulse-signal 1.2s ease-in-out infinite; }
+.animate-float      { animation: float-gentle 3.5s ease-in-out infinite; }
+.animate-glow       { animation: glow-pulse 2s ease-in-out infinite; }
+.animate-radar      { animation: radar-sweep 2.2s linear infinite; }
+
+/* `font-mono` now means "figures that line up" rather than "a second typeface":
+   the family is Inter, but digits keep tabular widths so ledgers and tables
+   still align in columns. */
+.font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════
+   TABULAR NUMBERS
+═══════════════════════════════════════ */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════
+   DIVIDER
+═══════════════════════════════════════ */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+/* ---------------------------------------------------------------------
+   ADMIN CONSOLE — SQUARE CHROME
+   The console is a work surface, not a marketing card: every corner in
+   the admin shell is square. This also flattens the shared `.card` and
+   the `select` field rule above — both are unlayered and one comes
+   later in the file, so the !important is what makes the scope hold
+   regardless of source order. Scoped to [data-admin] (set by
+   src/app/admin/layout.tsx) so the rest of the app keeps its rounding.
+--------------------------------------------------------------------- */
+[data-admin],
+[data-admin] *,
+[data-admin] *::before,
+[data-admin] *::after {
+  border-radius: 0 !important;
+}
+
+/* ---------------------------------------------------------------------
+   LOBBY — SQUARE CARDS AND CONTROLS
+   The arena is cut square like the console: every surface carrying a
+   rounding utility loses its radius — `rounded-xl` panels down to the bare
+   `rounded` on a button (that bare class is a separate token, which is why
+   it needs its own selector). The `.btn-*` helpers are flattened too, and
+   circles opt out by keeping `rounded-full` — avatars, live dots and status
+   pills still read as circles. Scoped to [data-lobby] (set by
+   src/app/play/page.tsx, which /lobby re-exports).
+--------------------------------------------------------------------- */
+[data-lobby] [class~='rounded'],
+[data-lobby] [class*='rounded-']:not([class*='rounded-full']),
+[data-lobby] .btn-primary,
+[data-lobby] .btn-secondary,
+[data-lobby] .btn-angled {
+  border-radius: 0 !important;
+}
