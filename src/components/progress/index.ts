@@ -1,4 +1,4 @@
-export { ProgressPanel } from './progress-panel';
+export { StatsPanel } from './stats-panel';
 export { ProgressHeader } from './progress-header';
 export { ProgressCelebrations } from './celebrations';
 export { RankTab } from './rank-tab';

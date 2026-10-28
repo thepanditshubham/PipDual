@@ -2,8 +2,8 @@
  * mail.ts
  * The player's company inbox. Rows are written by Postgres triggers when a
  * deposit or payout changes state, so the same mail follows the player across
- * devices. A client can read its own mail and mark it read; it cannot create,
- * rewrite or delete letters.
+ * devices. A client can read its own mail, mark it read and clear letters it no
+ * longer wants; it cannot create or rewrite them.
  */
 import { getSupabase } from './client';
 
@@ -133,4 +133,28 @@ export async function markMailRead(mailId: string): Promise<void> {
     .is('read_at', null);
 
   if (error) console.warn('[mail] mark-read failed:', error.message);
+}
+
+/**
+ * Delete the player's own letters by id. Ids are passed in rather than an age
+ * filter so the rows that vanish are exactly the rows the button counted, and
+ * the count returned is the number of rows the database actually removed.
+ * Null means the write itself was unavailable.
+ */
+export async function deleteMails(playerId: string, mailIds: string[]): Promise<number | null> {
+  const sb = getSupabase();
+  if (!sb || !UUID_RE.test(playerId) || mailIds.length === 0) return 0;
+
+  const { data, error } = await sb
+    .from('player_mails')
+    .delete()
+    .eq('player_id', playerId)
+    .in('id', mailIds)
+    .select('id');
+
+  if (error) {
+    console.warn('[mail] delete failed:', error.message);
+    return null;
+  }
+  return data?.length ?? 0;
 }

@@ -58,7 +58,7 @@ export default function HowToPlayPage() {
     },
     {
       title: 'Live and Demo Tables',
-      desc: 'Every duel runs on the fixed $10,000 virtual balance. Demo is free and pays nothing. Live charges a coin entry (coins are bought by sending crypto — $1 = 100 coins, credited once a deposit is reviewed) and the winner collects the pooled pot after a 10% arena burn. Coins are real value in both directions: you can also ask for any balance back as USDT from the wallet, minus a $1 network fee, so stake only what you can afford to lose.',
+      desc: 'Every duel runs on the fixed $10,000 virtual balance. Demo is free and pays nothing. Live charges a coin entry (coins are bought by sending crypto — $1 = 100 coins, credited once a deposit is reviewed) and the winner collects the pooled pot after a 15% arena burn. Coins are real value in both directions: you can also ask for any balance back as USDT from the wallet, minus a $1 network fee, so stake only what you can afford to lose.',
     },
   ];
 

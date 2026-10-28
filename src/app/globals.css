@@ -70,9 +70,19 @@
   --term-buy-2:         #0fae8a;
   --term-buy-3:         #045f4b;
   --term-sell-2:        #ff2a5f;
+  --term-sell-deep:     #7a1020;  /* Dark-red end of the alert bar gradient */
+  --term-warn-deep:     #7c2d12;  /* Burnt end — warning alert bars */
+  --term-buy-deep:      #04503c;  /* Dark green end — success alert bars */
+  --term-accent-deep:   #16295e;  /* Dark navy end — info alert bars */
+  /* Warm heat ramp — the challenge board's stake tiers. Amber through deep
+     red, one hue hotter per rung. Dark values first, light overrides below. */
+  --term-heat-1:        #f59e0b;  /* standard — warm amber */
+  --term-heat-2:        #f97316;  /* elevated — orange */
+  --term-heat-3:        #f43f3b;  /* hot      — vermilion */
+  --term-heat-4:        #dc2626;  /* whale    — deep red */
   /* Primary action accent — the purple used by Find Match, the lobby tabs, the
-     store buttons and the Redeem flow. Kept separate from --term-buy so win/loss
-     colouring on balances and P&L stays semantically green/red. */
+     wallet actions and the Affiliate desk. Kept separate from --term-buy so
+     win/loss colouring on balances and P&L stays semantically green/red. */
   --term-primary:       #9262f9;
   --term-primary-hi:    #a97cff;
   --term-primary-deep:  #6c2bd9;
@@ -167,6 +177,14 @@ html[data-theme='light'] {
   --term-buy-2:        #0f8f74;
   --term-buy-3:        #065f4a;
   --term-sell-2:       #e11d48;
+  --term-sell-deep:    #8a1220;
+  --term-warn-deep:    #7c2d12;
+  --term-buy-deep:     #064034;
+  --term-accent-deep:  #1b2f6b;
+  --term-heat-1:       #b45309;
+  --term-heat-2:       #c2410c;
+  --term-heat-3:       #ea580c;
+  --term-heat-4:       #b91c1c;
   --term-primary:      #7c3aed;
   --term-primary-hi:   #8b5cf6;
   --term-primary-deep: #5b21b6;
@@ -651,6 +669,13 @@ html[data-theme='light'] .bg-grid {
   100% { transform: rotate(360deg); }
 }
 
+/* Light shine — a soft sheen drifting across a card (own challenge rows on the
+   board). It sweeps quickly, then rests most of the cycle. */
+@keyframes card-shine {
+  0%        { transform: translateX(-160%) skewX(-14deg); }
+  30%, 100% { transform: translateX(460%) skewX(-14deg); }
+}
+
 .animate-slide-up   { animation: slide-up 0.5s ease-out forwards; }
 .animate-fade-in    { animation: fade-in 0.3s ease-out forwards; }
 .animate-draw-line  { stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: draw-line 2s ease-out forwards; }
@@ -699,19 +724,26 @@ html[data-theme='light'] .bg-grid {
 }
 
 /* ---------------------------------------------------------------------
-   LOBBY — SQUARE CARDS AND CONTROLS
-   The arena is cut square like the console: every surface carrying a
-   rounding utility loses its radius — `rounded-xl` panels down to the bare
-   `rounded` on a button (that bare class is a separate token, which is why
-   it needs its own selector). The `.btn-*` helpers are flattened too, and
-   circles opt out by keeping `rounded-full` — avatars, live dots and status
-   pills still read as circles. Scoped to [data-lobby] (set by
-   src/app/play/page.tsx, which /lobby re-exports).
+   LOBBY AND TRADING TERMINAL — SQUARE CARDS AND CONTROLS
+   The arena and the battle screen are cut square like the console: every
+   surface carrying a rounding utility loses its radius — `rounded-xl`
+   panels down to the bare `rounded` on a button (that bare class is a
+   separate token, which is why it needs its own selector). The `.btn-*`
+   helpers are flattened too, and circles opt out by keeping
+   `rounded-full` — avatars, live dots, side buttons and status pills
+   still read as circles. Scoped to [data-lobby] (src/app/play/page.tsx,
+   which /lobby re-exports) and [data-terminal]
+   (src/app/play/[room]/page.tsx).
 --------------------------------------------------------------------- */
 [data-lobby] [class~='rounded'],
 [data-lobby] [class*='rounded-']:not([class*='rounded-full']),
 [data-lobby] .btn-primary,
 [data-lobby] .btn-secondary,
-[data-lobby] .btn-angled {
+[data-lobby] .btn-angled,
+[data-terminal] [class~='rounded'],
+[data-terminal] [class*='rounded-']:not([class*='rounded-full']),
+[data-terminal] .btn-primary,
+[data-terminal] .btn-secondary,
+[data-terminal] .btn-angled {
   border-radius: 0 !important;
 }

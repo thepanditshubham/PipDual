@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Swords, UserPlus, Check, X, AlertCircle, ArrowLeft, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth/store';
 import { getSupabase } from '@/lib/supabase/client';
+import { lookupReferralCode, normalizeReferralCode } from '@/lib/supabase/referrals';
 
 const RegisterSchema = z
   .object({
@@ -46,12 +47,33 @@ function computePasswordStrength(pwd: string): { score: number; label: string; c
 }
 
 export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[var(--ui-deep)] flex items-center justify-center text-xs text-[var(--text-muted)]">
+          Loading registration…
+        </div>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setUser, user } = useAuthStore();
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // An invite link is /register?ref=<callsign>. Only its shape is checked
+  // here; the database decides what an unknown code is worth (nothing), so a
+  // tampered link can never invent an inviter.
+  const referralCode = normalizeReferralCode(searchParams.get('ref'));
+  const [inviterName, setInviterName] = useState<string | null>(null);
 
   const {
     register,
@@ -68,6 +90,24 @@ export default function RegisterPage() {
   const pwd = watch('password', '');
   const strength = computePasswordStrength(pwd);
 
+  useEffect(() => {
+    if (!referralCode) {
+      setInviterName(null);
+      return;
+    }
+    let active = true;
+    lookupReferralCode(referralCode)
+      .then((name) => {
+        if (active) setInviterName(name);
+      })
+      .catch(() => {
+        if (active) setInviterName(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [referralCode]);
+
   const onSubmit = async (data: RegisterFormValues) => {
     setErrorMsg('');
     setSuccessMsg('');
@@ -83,6 +123,9 @@ export default function RegisterPage() {
             data: {
               username: data.username,
               display_name: data.username,
+              // Read by the trigger on auth.users, which writes the pairing and
+              // pays the inviter. Self-referral is refused there, not here.
+              ...(referralCode ? { ref: referralCode } : {}),
             },
           },
         });
@@ -184,6 +227,27 @@ export default function RegisterPage() {
             Sign up to access rated 1v1 duels and climb the community ladder
           </p>
         </div>
+
+        {/* Invite link read-out. The code is only ever echoed back, never
+            trusted: the pairing is written by the database at signup. */}
+        {referralCode && (
+          inviterName ? (
+            <div className="p-3 bg-[var(--accent)]/10 border border-[var(--accent)]/40 text-[var(--accent)] rounded-xl text-xs flex items-center gap-2.5">
+              <CheckCircle2 size={16} className="shrink-0" />
+              <span>
+                Invited by <span className="font-bold">@{inviterName}</span> — this link is
+                attached to your new account.
+              </span>
+            </div>
+          ) : (
+            <div className="p-3 bg-[var(--surface-muted)] border border-[var(--border)] text-[var(--text-muted)] rounded-xl text-xs flex items-center gap-2.5">
+              <AlertCircle size={16} className="shrink-0" />
+              <span>
+                Invite code “{referralCode}” doesn’t match an account, so it is ignored.
+              </span>
+            </div>
+          )
+        )}
 
         {/* Error / Success Messages */}
         {errorMsg && (

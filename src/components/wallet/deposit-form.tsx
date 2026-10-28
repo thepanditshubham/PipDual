@@ -12,6 +12,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Coins,
   ExternalLink,
   Loader2,
@@ -34,12 +36,16 @@ import { AddressField, HistoryRow, StepLabel, shortId } from './wallet-bits';
 type Feedback = { ok: boolean; text: string } | null;
 
 function DepositHistory({ deposits }: { deposits: CryptoDeposit[] }) {
+  // Three rows sit on the surface; the rest is one deliberate click away.
+  const [showAll, setShowAll] = useState(false);
   if (deposits.length === 0) return null;
+  const shown = showAll ? deposits : deposits.slice(0, 3);
+  const hidden = deposits.length - shown.length;
 
   return (
     <div className="space-y-1.5 pt-3 border-t border-[var(--term-border)]">
       <StepLabel>Your deposits</StepLabel>
-      {deposits.slice(0, 5).map((deposit) => {
+      {shown.map((deposit) => {
         const url = explorerUrl(deposit.assetId, deposit.txid);
         return (
           <HistoryRow
@@ -68,6 +74,22 @@ function DepositHistory({ deposits }: { deposits: CryptoDeposit[] }) {
           </HistoryRow>
         );
       })}
+      {deposits.length > 3 && (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          className="flex items-center gap-1 text-[10px] font-mono text-[var(--term-muted)] hover:text-[var(--term-primary)] transition-colors cursor-pointer"
+        >
+          {showAll ? (
+            <>Show less <ChevronUp size={11} /></>
+          ) : (
+            <>Show all ({deposits.length}) <ChevronDown size={11} /></>
+          )}
+        </button>
+      )}
+      {!showAll && hidden > 0 && (
+        <p className="text-[10px] font-mono text-[var(--term-dim)]">{hidden} older hidden</p>
+      )}
     </div>
   );
 }

@@ -29,9 +29,13 @@ export const LIVE_FEES: Record<MatchDurationId, number> = {
 /**
  * Share of the pot the arena burns instead of paying to the winner. Two
  * entrants put in `stake` each, so the winner receives
- * `2 * stake * (1 - HOUSE_CUT)` and the fee funds the reward pool itself.
+ * `2 * stake * (1 - HOUSE_CUT)`; the burn is the platform fee, and a slice
+ * of it pays the traders' IB uplines as rebate commission.
+ * This number mirrors `house_fee_pct` in `ib_config` — the SQL is what
+ * awards the commissions, so change both or neither, the same rule the
+ * withdrawal limits follow.
  */
-export const HOUSE_CUT = 0.1;
+export const HOUSE_CUT = 0.15;
 
 /** Highest Live fee, used to warn a player before they queue. */
 export const MAX_LIVE_FEE = Math.max(...Object.values(LIVE_FEES));

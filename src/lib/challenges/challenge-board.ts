@@ -19,13 +19,13 @@
  * - `broadcast: { self: false }` keeps each sender from hearing its own event,
  *   so the poster fires onMatchFound directly and the acceptor fires on the
  *   reply — never twice.
+ * - READY CHECK: exactly like the queue, both tabs broadcast `match_ready` for
+ *   the room they just sealed. The lobby holds its loading bar until the other
+ *   side answers, so nobody walks into an arena their rival never reached.
  */
 import { getSupabase } from '@/lib/supabase/client';
 import { generateRoomCode } from '@/lib/matchmaking/matchmaker';
 import type { MatchDurationId } from '@/lib/engine/constants';
-
-/** Hard ceiling on a challenge stake, independent of the poster's wallet. */
-export const CHALLENGE_MAX_STAKE = 10_000;
 
 /** How many open challenges the board ever renders, newest first. */
 export const CHALLENGE_BOARD_LIMIT = 10;
@@ -67,6 +67,8 @@ export interface ChallengeBoardOptions {
   me: ChallengeIdentity;
   onBoard: (challenges: DuelChallenge[]) => void;
   onMatchFound: (match: ChallengeMatchPayload) => void;
+  /** The rival tab answered the ready check for this room. Fires once per match. */
+  onRivalReady?: (roomCode: string) => void;
   onError?: (error: unknown) => void;
 }
 
@@ -134,7 +136,7 @@ export function joinChallengeBoard(options: ChallengeBoardOptions): ChallengeBoa
     return { post: () => {}, retract: () => {}, accept: () => {}, close: () => {} };
   }
 
-  const { me, onBoard, onMatchFound, onError } = options;
+  const { me, onBoard, onMatchFound, onRivalReady, onError } = options;
   const channelName = 'pipduel_challenges_v1';
 
   // This client's own open challenge, plus two one-shot guards: a hosted card
@@ -143,6 +145,32 @@ export function joinChallengeBoard(options: ChallengeBoardOptions): ChallengeBoa
   let myChallenge: DuelChallenge | null = null;
   let hostedMatchStarted = false;
   let acceptPending = false;
+
+  // --- Ready check ---
+  // Set once a duel is sealed on this channel: the room we hold and the tab we
+  // expect an answer from. Guards keep the handshake room-scoped.
+  let pairedRoom: string | null = null;
+  let pairedRivalId: string | null = null;
+  let rivalArmed = false;
+  let boardClosed = false;
+
+  const announceReady = (roomCode: string) => {
+    channel.send({
+      type: 'broadcast',
+      event: 'match_ready',
+      payload: { roomCode, playerId: me.sessionId },
+    });
+  };
+
+  /** Claim the duel, tell the other tab we are holding, and retry once. */
+  const sealPair = (roomCode: string, rivalId: string) => {
+    pairedRoom = roomCode;
+    pairedRivalId = rivalId;
+    announceReady(roomCode);
+    setTimeout(() => {
+      if (pairedRoom === roomCode && !rivalArmed && !boardClosed) announceReady(roomCode);
+    }, 1500);
+  };
 
   const channel = supabase.channel(channelName, {
     config: {
@@ -189,8 +217,11 @@ export function joinChallengeBoard(options: ChallengeBoardOptions): ChallengeBoa
     const { stake, duration } = myChallenge;
     const roomCode = generateRoomCode();
     const seed = Math.floor(100000 + Math.random() * 900000);
-    // 5s lobby reveal + 3s margin for navigation, matching the queue contract.
-    const startAt = Date.now() + 8000;
+    /*
+     * Same contract as the queue: up to 6s for the acceptor's tab to answer the
+     * ready check, then the 5s both-terminals beat, plus navigation margin.
+     */
+    const startAt = Date.now() + 13000;
 
     channel.send({
       type: 'broadcast',
@@ -205,6 +236,8 @@ export function joinChallengeBoard(options: ChallengeBoardOptions): ChallengeBoa
         host: { sessionId: me.sessionId, username: me.username, rating: me.rating },
       },
     });
+
+    sealPair(roomCode, acceptor.sessionId);
 
     onMatchFound({
       roomCode,
@@ -231,6 +264,8 @@ export function joinChallengeBoard(options: ChallengeBoardOptions): ChallengeBoa
     if (!acceptPending) return;          // we already moved on (timed out / navigating)
     acceptPending = false;
 
+    sealPair(roomCode, host.sessionId);
+
     onMatchFound({
       roomCode,
       seed,
@@ -242,6 +277,15 @@ export function joinChallengeBoard(options: ChallengeBoardOptions): ChallengeBoa
   });
 
   channel
+    .on('broadcast', { event: 'match_ready' }, ({ payload }) => {
+      // The rival tab confirming it holds this room and is arming.
+      const { roomCode, playerId } = payload as { roomCode: string; playerId: string };
+      if (!pairedRoom || roomCode !== pairedRoom) return;
+      if (playerId !== pairedRivalId) return;
+      if (rivalArmed) return;
+      rivalArmed = true;
+      onRivalReady?.(roomCode);
+    })
     .on('presence', { event: 'sync' }, publish)
     .on('presence', { event: 'join' }, publish)
     .on('presence', { event: 'leave' }, publish);
@@ -277,6 +321,8 @@ export function joinChallengeBoard(options: ChallengeBoardOptions): ChallengeBoa
     },
     close() {
       myChallenge = null;
+      boardClosed = true;
+      pairedRoom = null;
       channel.untrack().catch(() => {});
       supabase.removeChannel(channel);
     },

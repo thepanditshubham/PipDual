@@ -14,6 +14,8 @@ import {
   AlertCircle,
   ArrowDownLeft,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   ExternalLink,
   Loader2,
   RefreshCw,
@@ -38,12 +40,16 @@ type Feedback = { ok: boolean; text: string } | null;
 const QUICK_AMOUNTS = [500, 1_000, 2_500];
 
 function WithdrawHistory({ withdrawals }: { withdrawals: WithdrawRequest[] }) {
+  // Three rows sit on the surface; the rest is one deliberate click away.
+  const [showAll, setShowAll] = useState(false);
   if (withdrawals.length === 0) return null;
+  const shown = showAll ? withdrawals : withdrawals.slice(0, 3);
+  const hidden = withdrawals.length - shown.length;
 
   return (
     <div className="space-y-1.5 pt-3 border-t border-[var(--term-border)]">
       <StepLabel>Your payouts</StepLabel>
-      {withdrawals.slice(0, 5).map((entry) => {
+      {shown.map((entry) => {
         // On a paid row the note is the payout TxID; on a rejected one it is a
         // reason and there is nothing to look up.
         const url = entry.status === 'paid' ? explorerUrl(entry.assetId, entry.note ?? '') : null;
@@ -69,6 +75,22 @@ function WithdrawHistory({ withdrawals }: { withdrawals: WithdrawRequest[] }) {
           </HistoryRow>
         );
       })}
+      {withdrawals.length > 3 && (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          className="flex items-center gap-1 text-[10px] font-mono text-[var(--term-muted)] hover:text-[var(--term-primary)] transition-colors cursor-pointer"
+        >
+          {showAll ? (
+            <>Show less <ChevronUp size={11} /></>
+          ) : (
+            <>Show all ({withdrawals.length}) <ChevronDown size={11} /></>
+          )}
+        </button>
+      )}
+      {!showAll && hidden > 0 && (
+        <p className="text-[10px] font-mono text-[var(--term-dim)]">{hidden} older hidden</p>
+      )}
     </div>
   );
 }

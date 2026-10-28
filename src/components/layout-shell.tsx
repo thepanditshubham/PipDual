@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
+import { AnnouncementBar } from '@/components/announcement-bar';
 
 function ShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -21,6 +22,10 @@ function ShellInner({ children }: { children: React.ReactNode }) {
     pathname === '/reset-password';
 
   if (isDedicated) {
+    // Each of these pages draws its own chrome, so the shell adds nothing —
+    // the lobby and the landing page mount the announcement bar inside their
+    // own root (adding it here would stack a second min-h-screen column), and
+    // the battle terminal and the admin console never carry one.
     return (
       <main className="min-h-screen w-full flex flex-col bg-bg text-text">
         {children}
@@ -30,6 +35,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      <AnnouncementBar />
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />

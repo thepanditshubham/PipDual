@@ -32,6 +32,11 @@ export interface MatchmakerOptions {
   player: QueuePlayer;
   onStatusChange?: (status: 'searching' | 'matched', activeCount: number) => void;
   onMatchFound: (match: MatchFoundPayload) => void;
+  /**
+   * The paired rival's tab has answered the ready check for this room, so both
+   * sides are holding for the arena. Fires at most once per match.
+   */
+  onRivalReady?: (roomCode: string) => void;
   onError?: (error: unknown) => void;
 }
 
@@ -70,6 +75,9 @@ export function generateRoomCode(): string {
  * - broadcast: { self: false } -- coordinator uses evaluateQueue() result
  *   directly; the non-coordinator receives the broadcast and reacts.
  * - Dedup guards (isMatched flag + userId dedup) prevent double-fires.
+ * - READY CHECK: the moment a pair is sealed, each tab broadcasts `match_ready`
+ *   for that room. The lobby shows a loading bar until the rival's answer
+ *   arrives, so a duel is never entered against a tab that never got the pair.
  *
  * Returns a cleanup function -- call it when leaving the queue.
  */
@@ -80,13 +88,44 @@ export function joinMatchmakingQueue(options: MatchmakerOptions): () => void {
     return () => {};
   }
 
-  const { scope, duration, player, onStatusChange, onMatchFound, onError } = options;
+  const { scope, duration, player, onStatusChange, onMatchFound, onRivalReady, onError } = options;
 
   // Channel name is scope- and duration-scoped so queues never cross conditions
   const channelName = `pipduel_queue_v4_${scope}_${duration}`;
 
   // Single flag to prevent double-match firing
   let isMatched = false;
+
+  // --- Ready check ---
+  // Set the moment this tab is sealed into a match. Both guards below make the
+  // handshake room-scoped, so an ack for an older or a different pair is inert.
+  let pairedRoom: string | null = null;
+  let pairedRivalId: string | null = null;
+  let rivalArmed = false;
+  let queueClosed = false;
+
+  const announceReady = (roomCode: string) => {
+    channel.send({
+      type: 'broadcast',
+      event: 'match_ready',
+      payload: { roomCode, playerId: player.id },
+    });
+  };
+
+  /**
+   * Seal a pair: remember who we are waiting on, tell them we are holding, and
+   * hand the match to the page. The retry covers an ack lost while both tabs
+   * were joining the room at the same instant.
+   */
+  const sealPair = (match: MatchFoundPayload) => {
+    pairedRoom = match.roomCode;
+    pairedRivalId = match.rival.id;
+    announceReady(match.roomCode);
+    setTimeout(() => {
+      if (pairedRoom === match.roomCode && !rivalArmed && !queueClosed) announceReady(match.roomCode);
+    }, 1500);
+    onMatchFound(match);
+  };
 
   const channel = supabase.channel(channelName, {
     config: {
@@ -170,8 +209,13 @@ export function joinMatchmakingQueue(options: MatchmakerOptions): () => void {
 
     const roomCode = generateRoomCode();
     const seed = Math.floor(100000 + Math.random() * 900000);
-    // Synchronized target start time: 5s lobby reveal countdown + 3s margin for navigation & asset prep
-    const startAt = Date.now() + 8000;
+    /*
+     * Synchronized target start time, measured from the pair: up to 6s for the
+     * rival to answer the ready check, then the 5s both-terminals beat, plus a
+     * margin for navigation. Whichever tab is slower to arm simply spends the
+     * difference inside the arena's prep window instead of desyncing the clock.
+     */
+    const startAt = Date.now() + 13000;
     const rival = player.id === p1.id ? p2 : p1;
 
     // Broadcast to the non-coordinator (self: false so we will not receive it)
@@ -182,7 +226,7 @@ export function joinMatchmakingQueue(options: MatchmakerOptions): () => void {
     });
 
     onStatusChange?.('matched', 2);
-    onMatchFound({ roomCode, seed, startAt, rival });
+    sealPair({ roomCode, seed, startAt, rival });
   };
 
   // Listen for match broadcast (non-coordinator path)
@@ -206,7 +250,17 @@ export function joinMatchmakingQueue(options: MatchmakerOptions): () => void {
     const rival = iAmP1 ? p2 : p1;
 
     onStatusChange?.('matched', 2);
-    onMatchFound({ roomCode, seed, startAt, rival });
+    sealPair({ roomCode, seed, startAt, rival });
+  });
+
+  // Ready check: the rival tab confirming it holds this room and is arming.
+  channel.on('broadcast', { event: 'match_ready' }, ({ payload }) => {
+    const { roomCode, playerId } = payload as { roomCode: string; playerId: string };
+    if (!pairedRoom || roomCode !== pairedRoom) return;
+    if (playerId !== pairedRivalId) return;
+    if (rivalArmed) return;
+    rivalArmed = true;
+    onRivalReady?.(roomCode);
   });
 
   // Presence event handlers
@@ -245,6 +299,8 @@ export function joinMatchmakingQueue(options: MatchmakerOptions): () => void {
   // Cleanup
   return () => {
     isMatched = true; // prevent any in-flight callbacks from firing
+    queueClosed = true;
+    pairedRoom = null;
     channel.untrack().catch(() => {});
     supabase.removeChannel(channel);
   };

@@ -63,6 +63,7 @@ const KIND_LABEL: Record<LedgerEntry['kind'], string> = {
   payout: 'Payout',
   payout_refund: 'Refund',
   adjustment: 'Adjustment',
+  referral: 'IB transfer',
 };
 
 const OUTCOME_TONE: Record<PlayerDuel['outcome'], PillTone> = {

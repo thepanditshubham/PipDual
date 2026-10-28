@@ -9,8 +9,9 @@
  * page itself is the inset column. The marketing navbar/footer are hidden on
  * /admin (see layout-shell.tsx), so this is the whole chrome.
  *
- * Economy and System are listed but not built yet: their rows are inert, so
- * the panel reads as a roadmap instead of eight dead links.
+ * Economy is listed but not built yet: its rows are inert, so the panel reads
+ * as a roadmap instead of eight dead links. System has grown its first live
+ * page (Announcements), so its rail icon navigates now.
  */
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -23,6 +24,7 @@ import {
   FileText,
   Layers,
   LayoutDashboard,
+  Megaphone,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -31,6 +33,7 @@ import {
   ShieldCheck,
   Store,
   Swords,
+  UserPlus,
   Users,
   X,
 } from 'lucide-react';
@@ -113,6 +116,13 @@ const SECTIONS: AdminSection[] = [
         icon: Users,
         state: 'new',
       },
+      {
+        href: '/admin/referrals',
+        label: 'Affiliate (IB)',
+        hint: 'Rebate ladder, fee split, desks and pairings',
+        icon: UserPlus,
+        state: 'live',
+      },
     ],
   },
   {
@@ -178,10 +188,17 @@ const SECTIONS: AdminSection[] = [
   {
     id: 'system',
     label: 'System',
-    hint: 'Audit, roles, announcements and health — later',
+    hint: 'Announcements now; audit, roles and health later',
     icon: Settings,
-    href: null,
+    href: '/admin/announcements',
     pages: [
+      {
+        href: '/admin/announcements',
+        label: 'Announcements',
+        hint: 'Publish the strip above the lobby header and the menu bar',
+        icon: Megaphone,
+        state: 'live',
+      },
       {
         href: '/admin/audit',
         label: 'Audit log',
@@ -198,8 +215,8 @@ const SECTIONS: AdminSection[] = [
       },
       {
         href: '/admin/mail',
-        label: 'Mail / announcements',
-        hint: 'Compose the letters that reach every inbox',
+        label: 'Mail composer',
+        hint: 'Write the letters that reach every inbox',
         icon: BookOpen,
         state: 'later',
       },

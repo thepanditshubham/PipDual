@@ -26,7 +26,9 @@
 --   profiles, player_balances, player_friends,
 --   player_progress, rank_state, match_results, trade_events,
 --   user_missions, user_achievements, behavior_tags,
---   crypto_deposits, crypto_withdrawals, wallet_ledger
+--   crypto_deposits, crypto_withdrawals, wallet_ledger,
+--   player_mails, announcements, referrals, ib_config, ib_tiers,
+--   ib_balances, ib_earnings, ib_adjustments
 -- VIEWS
 --   progress_leaderboard, progress_weekly_leaderboard,
 --   leaderboard_all, leaderboard_weekly, leaderboard_daily
@@ -152,6 +154,19 @@ begin
   insert into public.player_balances (player_id)
   values (new.id::text)
   on conflict (player_id) do nothing;
+
+  -- Affiliate attribution. The invite link's ?ref= arrives as user metadata,
+  -- which only the signup itself can set, so the inviter is written down by
+  -- the database at the moment the account appears — no client can name
+  -- itself into someone else's reward. to_regclass is the safety valve: on a
+  -- database that has not run the referrals section yet the signup still
+  -- succeeds, it just goes unattributed.
+  if to_regclass('public.referrals') is not null then
+    perform public.record_referral_signup(
+      new.raw_user_meta_data ->> 'ref',
+      new.id
+    );
+  end if;
 
   return new;
 end;
@@ -1514,8 +1529,9 @@ grant execute on function public.reject_crypto_withdraw(text, text) to authentic
 -- =====================================================================
 -- 11. PLAYER MAILBOX
 --    Every money event writes one company letter to that player's inbox
---    in the same transaction. Clients can read their own mail and mark it
---    read; they cannot insert, rewrite or delete it.
+--    in the same transaction. Clients can read their own mail, mark it
+--    read and delete letters they clear out; they cannot insert or
+--    rewrite it.
 -- =====================================================================
 
 create table if not exists public.player_mails (
@@ -1551,6 +1567,13 @@ create policy player_mails_mark_read
   on public.player_mails for update
   using (auth.uid()::text = player_id)
   with check (auth.uid()::text = player_id);
+
+-- The inbox cleanup button. Scoped to the player's own rows, so a client can
+-- only ever delete mail it could already read.
+drop policy if exists player_mails_delete on public.player_mails;
+create policy player_mails_delete
+  on public.player_mails for delete
+  using (auth.uid()::text = player_id);
 
 -- Realtime: the lobby subscribes to its own inserts so a letter appears the
 -- moment a money trigger writes it. Skipped where the publication is absent.
@@ -1812,7 +1835,911 @@ end;
 $$;
 
 -- =====================================================================
--- 12. LEGACY CLEANUP
+-- 12. ARENA ANNOUNCEMENTS
+--     The strip that sits above the lobby header and the menu bar. Anyone
+--     reads what is switched on — a signed-out visitor on the landing page
+--     included — and nobody writes through the table: the three definer
+--     functions below check public.is_admin() first.
+-- =====================================================================
+
+create table if not exists public.announcements (
+  id uuid primary key default gen_random_uuid(),
+  -- One line of copy. The check keeps the bar to a single row: prose that
+  -- runs long is an admin-page validation problem, not a layout problem.
+  title text not null check (char_length(btrim(title)) between 1 and 140),
+  tone text not null default 'info'
+    check (tone in ('info', 'promo', 'warn', 'critical')),
+  -- Optional call to action on the right edge of the strip.
+  link_url text,
+  link_label text,
+  -- Draft by default, so composing a strip never publishes it by accident.
+  live boolean not null default false,
+  created_by text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- The bar reads only live rows, newest first; the index is partial so a long
+-- archive of retired strips stays cheap to scan.
+create index if not exists idx_announcements_live
+  on public.announcements (created_at desc)
+  where live;
+
+alter table public.announcements enable row level security;
+
+drop policy if exists announcements_read_live on public.announcements;
+create policy announcements_read_live
+  on public.announcements for select
+  using (live or public.is_admin());
+
+-- There is deliberately no insert / update / delete policy: a client has no
+-- way to write a strip, only an admin through the functions below.
+
+-- The landing page reads the bar before anyone signs in, so the select is
+-- spelled out for anon instead of leaning on project defaults. RLS still
+-- filters it down to the rows an admin switched on.
+grant select on public.announcements to anon, authenticated;
+
+-- Writers -------------------------------------------------------------
+-- SECURITY DEFINER, so the write happens even though the table grants a
+-- client nothing. EXECUTE is revoked from public and granted to
+-- authenticated, and each function re-checks public.is_admin().
+
+create or replace function public.admin_save_announcement(
+  p_id uuid,
+  p_title text,
+  p_tone text,
+  p_link_url text,
+  p_link_label text,
+  p_live boolean
+) returns uuid
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_title text := left(btrim(coalesce(p_title, '')), 140);
+  v_id uuid;
+begin
+  if not public.is_admin() then
+    raise exception 'admin_save_announcement: admin only'
+      using hint = 'Set role = ''admin'' on the profile row first.';
+  end if;
+
+  if v_title = '' then
+    raise exception 'admin_save_announcement: the strip needs some copy'
+      using errcode = '22023';
+  end if;
+
+  if coalesce(p_tone, 'info') not in ('info', 'promo', 'warn', 'critical') then
+    raise exception 'admin_save_announcement: unknown tone %', p_tone
+      using errcode = '22023';
+  end if;
+
+  -- p_id null inserts a new strip; an id updates that row in place, so the
+  -- editor is one form for both cases.
+  insert into public.announcements
+    (id, title, tone, link_url, link_label, live, created_by, created_at, updated_at)
+  values (
+    coalesce(p_id, gen_random_uuid()),
+    v_title,
+    coalesce(p_tone, 'info'),
+    nullif(btrim(coalesce(p_link_url, '')), ''),
+    nullif(btrim(coalesce(p_link_label, '')), ''),
+    coalesce(p_live, false),
+    auth.uid()::text,
+    now(),
+    now()
+  )
+  on conflict (id) do update
+    set title      = excluded.title,
+        tone       = excluded.tone,
+        link_url   = excluded.link_url,
+        link_label = excluded.link_label,
+        live       = excluded.live,
+        updated_at = now()
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+-- Switching a strip on or off is the everyday action, so it needs no trip
+-- through the editor.
+create or replace function public.admin_set_announcement_live(p_id uuid, p_live boolean)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'admin_set_announcement_live: admin only'
+      using hint = 'Set role = ''admin'' on the profile row first.';
+  end if;
+
+  update public.announcements
+     set live = coalesce(p_live, false), updated_at = now()
+   where id = p_id;
+
+  if not found then
+    raise exception 'admin_set_announcement_live: no strip with id %', p_id
+      using errcode = 'P0002';
+  end if;
+
+  return true;
+end;
+$$;
+
+create or replace function public.admin_delete_announcement(p_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'admin_delete_announcement: admin only'
+      using hint = 'Set role = ''admin'' on the profile row first.';
+  end if;
+
+  delete from public.announcements where id = p_id;
+
+  if not found then
+    raise exception 'admin_delete_announcement: no strip with id %', p_id
+      using errcode = 'P0002';
+  end if;
+
+  return true;
+end;
+$$;
+
+revoke all on function public.admin_save_announcement(uuid, text, text, text, text, boolean) from public;
+grant execute on function public.admin_save_announcement(uuid, text, text, text, text, boolean) to authenticated;
+revoke all on function public.admin_set_announcement_live(uuid, boolean) from public;
+grant execute on function public.admin_set_announcement_live(uuid, boolean) to authenticated;
+revoke all on function public.admin_delete_announcement(uuid) from public;
+grant execute on function public.admin_delete_announcement(uuid) to authenticated;
+
+-- =====================================================================
+-- 13. IB AFFILIATE PROGRAM
+--     A forex-broker style introducing-broker desk. Attribution stays the
+--     callsign model: an account's referral code is its username, an invite
+--     link is /register?ref=<callsign>, and the trigger in section 1 hands
+--     the code to record_referral_signup() the moment the account appears.
+--     The ongoing income is a rebate, not a bonus. Every Live duel burns a
+--     platform fee off the pooled stakes (house_fee_pct — the same number
+--     the client pot maths in src/lib/economy/config.ts uses; change both
+--     or neither). A slice of that fee is paid to the upline of each player
+--     at the table, at the tier's rate expressed in coins per 100 coins
+--     staked: a 100-coin entry pays a Bronze IB 5 coins, every duel that
+--     account fights. The IB's level rises on the count of FUNDED downline
+--     — invites whose deposit was approved — and the level sets the rate
+--     (5, then 7, then 10 per 100 as the arena ships).
+--     Commissions never land in the game wallet directly. They accrue in
+--     ib_balances, which the player empties with transfer_ib_balance(), and
+--     only that write crosses the coins into the wallet under one
+--     wallet_ledger row of kind 'referral', like every other money move.
+--     Every number the desk touches — switch, fee, house floor, tier rates
+--     and promotion thresholds — lives in ib_config and ib_tiers, and only
+--     an admin edits those through the writers at the bottom of this
+--     section, so the copy a player reads and the coins Postgres moves are
+--     the same rows and cannot drift apart.
+-- =====================================================================
+
+-- The master row. One row, read by every function below.
+create table if not exists public.ib_config (
+  singleton integer primary key default 1 check (singleton = 1),
+  -- The whole program's switch: while false, award_ib_commission() computes
+  -- nothing and moves nothing.
+  enabled boolean not null default true,
+  -- Percent of the two pooled stakes the arena takes as the platform fee.
+  -- Mirrors HOUSE_CUT in src/lib/economy/config.ts — change both or neither.
+  house_fee_pct integer not null default 15 check (house_fee_pct between 0 and 50),
+  -- Percent of every fee that must stay with the arena, so no tier an admin
+  -- tunes can ever rebalance the rebate to zero house income.
+  min_house_pct_of_fee integer not null default 60
+    check (min_house_pct_of_fee between 0 and 100),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.ib_config (singleton)
+values (1)
+on conflict (singleton) do nothing;
+
+-- The rebate ladder. One row per level; the active row with the highest
+-- min_funded a player clears is the rate they earn.
+create table if not exists public.ib_tiers (
+  level integer primary key check (level between 1 and 9),
+  name text not null check (char_length(btrim(name)) between 1 and 40),
+  -- Coins paid per 100 coins an attributed trader stakes, before the house
+  -- floor trims it. Zero is a legal rate: a level that exists but pays flat.
+  rate_per_100 integer not null default 0 check (rate_per_100 between 0 and 100),
+  -- Funded downline needed to sit at this level. Counted from the referral
+  -- rows, never from any money figure a client could shape.
+  min_funded integer not null default 0 check (min_funded between 0 and 100000),
+  active boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+-- The launch ladder: 5 coins per 100 staked, 7 from five funded invites,
+-- 10 from twenty. do-nothing on conflict so an operator's edits survive a
+-- re-run of this file; the rows are only ever created, never re-typed.
+insert into public.ib_tiers (level, name, rate_per_100, min_funded) values
+  (1, 'Bronze IB', 5, 0),
+  (2, 'Silver IB', 7, 5),
+  (3, 'Gold IB', 10, 20)
+on conflict (level) do nothing;
+
+-- Who invited whom. invitee_id is unique: an account can only ever be
+-- attributed once, so two links pointing at the same trader pay one upline.
+create table if not exists public.referrals (
+  id uuid primary key default gen_random_uuid(),
+  inviter_id text not null,
+  invitee_id text not null unique,
+  -- The callsign the link carried, kept so an admin can read an attribution
+  -- back even if the invitee later renames or the row is looked at alone.
+  invite_code text,
+  -- Stamped the moment the downline's first deposit is approved: the count
+  -- of these is the promotion metric, and nothing else raises an IB's level.
+  funded_at timestamptz,
+  created_at timestamptz not null default now(),
+  check (inviter_id <> invitee_id)
+);
+
+-- Databases that ran the earlier bonus-shaped version already carry this
+-- table; they only need the new column and the ladder rebuilt on it.
+alter table public.referrals add column if not exists funded_at timestamptz;
+
+create index if not exists idx_referrals_inviter
+  on public.referrals (inviter_id, created_at desc);
+create index if not exists idx_referrals_funded
+  on public.referrals (inviter_id, funded_at)
+  where funded_at is not null;
+
+-- An old database that already paid the first-deposit bonus has, by
+-- definition, a funded downline — carry the fact over rather than demoting
+-- the inviter back a level. Guarded because a fresh schema never has the
+-- retired column to read.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'referrals'
+       and column_name = 'deposit_bonus_at'
+  ) then
+    execute 'update public.referrals
+                set funded_at = deposit_bonus_at
+              where funded_at is null and deposit_bonus_at is not null';
+  end if;
+end;
+$$;
+
+-- 'referral' joins the ledger kinds: a wallet credit of this kind is written
+-- by transfer_ib_balance() and nothing else, exactly like the others.
+alter table public.wallet_ledger drop constraint if exists wallet_ledger_kind_check;
+alter table public.wallet_ledger
+  add constraint wallet_ledger_kind_check
+  check (kind in
+    ('deposit', 'payout', 'payout_refund', 'adjustment', 'referral'));
+
+-- The commission desk: what an IB has earned and not yet moved to the
+-- wallet. Coins here are real but parked — no withdrawal touches them until
+-- the player transfers, and only the writers below move a single one.
+create table if not exists public.ib_balances (
+  player_id text primary key,
+  balance integer not null default 0 check (balance >= 0),
+  -- What the desk has ever paid, transfer or no transfer: the lifetime
+  -- figure the affiliate screen shows beside the live balance.
+  lifetime_earned integer not null default 0 check (lifetime_earned >= 0),
+  updated_at timestamptz not null default now()
+);
+
+-- One row per (duel, seat) that paid a rebate. The unique key is the whole
+-- replay defence: however often a settling client calls the award, one
+-- side's entry pays at most once, to at most one upline.
+create table if not exists public.ib_earnings (
+  id uuid primary key default gen_random_uuid(),
+  match_id text not null check (char_length(btrim(match_id)) between 3 and 64),
+  trader_id text not null,
+  ib_id text not null,
+  stake integer not null check (stake > 0),
+  fee integer not null check (fee >= 0),
+  commission integer not null check (commission >= 0),
+  -- Snapshot of the ladder at the moment of payment: an admin re-typing a
+  -- tier later never rewrites what a past duel actually paid.
+  tier_level integer not null,
+  tier_rate integer not null,
+  created_at timestamptz not null default now(),
+  unique (match_id, trader_id),
+  check (trader_id <> ib_id)
+);
+
+create index if not exists idx_ib_earnings_ib
+  on public.ib_earnings (ib_id, created_at desc);
+
+-- Audit of the admin's hand on a desk balance. Nothing here moves coins on
+-- its own; it exists so a corrected commission is traceable to who did it.
+create table if not exists public.ib_adjustments (
+  id uuid primary key default gen_random_uuid(),
+  player_id text not null,
+  delta integer not null check (delta <> 0),
+  note text,
+  actor_id text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.referrals enable row level security;
+alter table public.ib_config enable row level security;
+alter table public.ib_tiers enable row level security;
+alter table public.ib_balances enable row level security;
+alter table public.ib_earnings enable row level security;
+alter table public.ib_adjustments enable row level security;
+
+drop policy if exists referrals_read_parties on public.referrals;
+drop policy if exists ib_config_read on public.ib_config;
+drop policy if exists ib_tiers_read on public.ib_tiers;
+drop policy if exists ib_balances_read on public.ib_balances;
+drop policy if exists ib_earnings_read on public.ib_earnings;
+drop policy if exists ib_adjustments_read on public.ib_adjustments;
+
+-- Both halves of a pairing can read the row — the inviter to count their
+-- team, the invitee to see whose rebate line they sit on — and an admin
+-- reads all of them. There is no insert / update / delete policy anywhere
+-- in this section: the writers below own every word.
+create policy referrals_read_parties
+  on public.referrals for select
+  using (
+    auth.uid()::text = inviter_id
+    or auth.uid()::text = invitee_id
+    or public.is_admin()
+  );
+
+-- The terms and the ladder are the copy the affiliate screen prints, so any
+-- signed-in player may read them; nobody but an admin writes them.
+create policy ib_config_read
+  on public.ib_config for select
+  using (auth.uid() is not null);
+
+create policy ib_tiers_read
+  on public.ib_tiers for select
+  using (auth.uid() is not null);
+
+create policy ib_balances_read
+  on public.ib_balances for select
+  using (auth.uid()::text = player_id or public.is_admin());
+
+create policy ib_earnings_read
+  on public.ib_earnings for select
+  using (auth.uid()::text = ib_id or public.is_admin());
+
+create policy ib_adjustments_read
+  on public.ib_adjustments for select
+  using (public.is_admin());
+
+grant select on public.referrals, public.ib_config, public.ib_tiers,
+  public.ib_balances, public.ib_earnings, public.ib_adjustments to authenticated;
+
+-- Writers -------------------------------------------------------------
+
+-- Called from handle_new_user(), never from the browser: EXECUTE stays with the
+-- owner and the auth.uid() guard inside refuses an API call outright, so no
+-- client can attribute an account of its choosing. The row it writes pays
+-- nothing by itself — it is the line the rebate below is measured against.
+create or replace function public.record_referral_signup(
+  p_code text,
+  p_invitee uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_code text := lower(btrim(coalesce(p_code, '')));
+  v_inviter text;
+  v_id uuid;
+begin
+  -- Trigger-only. The signup trigger runs with no request JWT attached, so an
+  -- `auth.uid()` that is set means somebody called this over the API instead of
+  -- the account appearing — which is exactly how a free desk would be farmed.
+  if auth.uid() is not null then
+    return false;
+  end if;
+
+  if p_invitee is null or v_code = '' then
+    return false;
+  end if;
+
+  -- The code is a callsign, so a link that named nobody simply pairs nobody.
+  select id::text into v_inviter
+    from public.profiles
+   where username = v_code
+   limit 1;
+
+  if v_inviter is null or v_inviter = p_invitee::text then
+    return false;
+  end if;
+
+  insert into public.referrals (inviter_id, invitee_id, invite_code)
+  values (v_inviter, p_invitee::text, v_code)
+  on conflict (invitee_id) do nothing
+  returning id into v_id;
+
+  -- The unique invitee_id is the whole anti-duplication story: this account is
+  -- already attributed somewhere else, so a second link changes nothing.
+  return v_id is not null;
+end;
+$$;
+
+revoke all on function public.record_referral_signup(text, uuid) from public;
+
+-- The funded marker runs as a trigger rather than inside approve_crypto_deposit()
+-- for the same reason the mailbox does: it fires on the row flipping to `paid`,
+-- so it sees every approval path — including one a future build adds — without
+-- that path having to remember to promote anyone. It stamps the pairing only:
+-- no coin moves here, the ladder the award reads is measured off these stamps.
+create or replace function public.ib_mark_funded()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if new.status <> 'paid' then
+    return new;
+  end if;
+
+  -- First approved deposit only: the `is null` guard means a second, larger
+  -- deposit re-stamps nothing and an IB never re-clears a threshold early.
+  update public.referrals
+     set funded_at = coalesce(new.reviewed_at, now())
+   where invitee_id = new.player_id
+     and funded_at is null;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.ib_mark_funded() from public;
+
+drop trigger if exists trg_crypto_deposits_referral on public.crypto_deposits;
+drop trigger if exists trg_crypto_deposits_ib_funded on public.crypto_deposits;
+create trigger trg_crypto_deposits_ib_funded
+  after update of status on public.crypto_deposits
+  for each row execute function public.ib_mark_funded();
+
+drop function if exists public.referral_on_deposit_paid();
+
+-- The rebate itself. The settling client of each seat calls this with the
+-- duel id and that player's own entry; everything else — who is upline, what
+-- tier they sit at, what the fee was, what the house floor leaves — is decided
+-- here, from the rows Postgres already holds. The caller can name nothing but
+-- its own stake, and the (match_id, trader_id) key makes a second call pay 0.
+create or replace function public.award_ib_commission(p_match_id text, p_stake integer)
+returns integer
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_trader text := auth.uid()::text;
+  v_cfg public.ib_config%rowtype;
+  v_upline text;
+  v_level integer;
+  v_rate integer;
+  v_fee integer;
+  v_commission integer;
+  v_max_ib integer;
+  v_id uuid;
+begin
+  if v_trader is null
+     or p_match_id is null
+     or char_length(btrim(p_match_id)) not between 3 and 64 then
+    return 0;
+  end if;
+
+  -- Live entries only: the arena's tickets start at 100 and run up to whatever
+  -- a wallet can cover (no house ceiling on a challenge). Anything outside a
+  -- sane band is a bug or a probe, and neither is worth a coin.
+  if coalesce(p_stake, 0) < 100 or p_stake > 1000000 then
+    return 0;
+  end if;
+
+  select * into v_cfg from public.ib_config where singleton = 1;
+  if not found or not v_cfg.enabled then
+    return 0;
+  end if;
+
+  select inviter_id into v_upline
+    from public.referrals
+   where invitee_id = v_trader;
+  if v_upline is null then
+    return 0;
+  end if;
+
+  -- The ladder is read here, not trusted from the client: highest active
+  -- tier whose funded-downline threshold the upline clears.
+  select t.level, t.rate_per_100 into v_level, v_rate
+    from public.ib_tiers t
+   where t.active
+     and t.min_funded <= (
+       select count(*)
+         from public.referrals
+        where inviter_id = v_upline
+          and funded_at is not null
+     )
+   order by t.min_funded desc, t.level desc
+   limit 1;
+  if not found then
+    return 0;
+  end if;
+
+  v_fee := floor(2 * p_stake * v_cfg.house_fee_pct / 100.0)::int;
+  v_commission := floor(p_stake * v_rate / 100.0)::int;
+  -- The house floor outlives any tier an admin types: the rebate is trimmed
+  -- until at least min_house_pct_of_fee of this duel's fee stays upstairs.
+  v_max_ib := floor(v_fee * (100 - v_cfg.min_house_pct_of_fee) / 100.0)::int;
+  v_commission := greatest(0, least(v_commission, v_max_ib));
+
+  insert into public.ib_earnings
+    (match_id, trader_id, ib_id, stake, fee, commission, tier_level, tier_rate)
+  values (btrim(p_match_id), v_trader, v_upline, p_stake, v_fee,
+          v_commission, v_level, v_rate)
+  on conflict (match_id, trader_id) do nothing
+  returning id into v_id;
+
+  if v_id is null then
+    return 0;
+  end if;
+
+  if v_commission > 0 then
+    insert into public.ib_balances (player_id, balance, lifetime_earned, updated_at)
+    values (v_upline, v_commission, v_commission, now())
+    on conflict (player_id) do update
+      set balance         = public.ib_balances.balance + v_commission,
+          lifetime_earned = public.ib_balances.lifetime_earned + v_commission,
+          updated_at      = now();
+  end if;
+
+  return v_commission;
+end;
+$$;
+
+revoke all on function public.award_ib_commission(text, integer) from public;
+grant execute on function public.award_ib_commission(text, integer) to authenticated;
+
+-- The one door out of the desk and into the wallet. The player owns the move:
+-- the coins leave ib_balances, land in player_balances, and the trip is
+-- booked once to the wallet ledger as kind 'referral'. From there the normal
+-- reviewed crypto-withdrawal flow pays them out like any other coin — an IB
+-- never withdraws commissions directly, which keeps one money path for audit.
+create or replace function public.transfer_ib_balance()
+returns integer
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_player text := auth.uid()::text;
+  v_amt integer;
+begin
+  if v_player is null then
+    return 0;
+  end if;
+
+  -- Lock the desk row: two tabs pressing Transfer at the same moment move
+  -- the coins once, not twice.
+  select balance into v_amt
+    from public.ib_balances
+   where player_id = v_player
+   for update;
+
+  if v_amt is null or v_amt <= 0 then
+    return 0;
+  end if;
+
+  update public.ib_balances
+     set balance = 0, updated_at = now()
+   where player_id = v_player;
+
+  insert into public.player_balances (player_id, virtual_balance, updated_at)
+  values (v_player, v_amt, now())
+  on conflict (player_id) do update
+    set virtual_balance = public.player_balances.virtual_balance + v_amt,
+        updated_at      = now();
+
+  perform public.record_ledger(
+    v_player, 'referral', v_amt,
+    'IB commission transfer to wallet',
+    'ib_transfer', 'transfer:' || extract(epoch from now())::bigint::text
+  );
+
+  return v_amt;
+end;
+$$;
+
+revoke all on function public.transfer_ib_balance() from public;
+grant execute on function public.transfer_ib_balance() to authenticated;
+
+-- What the desk looks like to the one player who owns it — the tier line,
+-- the funded count it was measured from, and the next rung. Reads through the
+-- definer so the pairings behind the count stay invisible to everyone else.
+create or replace function public.ib_tier_for(p_player text)
+returns table (
+  level integer,
+  tier_name text,
+  rate_per_100 integer,
+  funded_referrals bigint,
+  next_level integer,
+  next_min_funded integer,
+  need_for_next bigint
+)
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_funded bigint;
+begin
+  if p_player is null
+     or (auth.uid()::text <> p_player and not public.is_admin()) then
+    return;
+  end if;
+
+  select count(*) into v_funded
+    from public.referrals
+   where inviter_id = p_player
+     and funded_at is not null;
+
+  return query
+  with here_tier as (
+    select t.level, t.name, t.rate_per_100
+      from public.ib_tiers t
+     where t.active and t.min_funded <= v_funded
+     order by t.min_funded desc, t.level desc
+     limit 1
+  ), next_tier as (
+    select t.level, t.min_funded
+      from public.ib_tiers t
+     where t.active and t.min_funded > v_funded
+     order by t.min_funded asc, t.level asc
+     limit 1
+  )
+  select c.level,
+         c.name,
+         c.rate_per_100,
+         v_funded,
+         n.level,
+         n.min_funded,
+         greatest(0, coalesce(n.min_funded, 0)::bigint - v_funded)
+    from here_tier c
+    left join next_tier n on true;
+end;
+$$;
+
+revoke all on function public.ib_tier_for(text) from public;
+grant execute on function public.ib_tier_for(text) to authenticated;
+
+-- The rebate ladder, counted by the database instead of handed out as raw
+-- rows: a player sees the league table — team size, funded heads, commission
+-- ever paid — without being able to read anybody else's pairings or desks.
+-- The shape changed with the IB rebuild, so the old signature goes first:
+-- Postgres refuses to alter a return type in place.
+drop function if exists public.referral_leaderboard(integer);
+create or replace function public.referral_leaderboard(p_limit integer default 10)
+returns table (callsign text, invites bigint, funded bigint, coins bigint)
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  return query
+  select p.username,
+         s.invites,
+         s.funded,
+         coalesce(e.coins, 0)::bigint
+    from (
+      select r.inviter_id,
+             count(*)::bigint as invites,
+             count(r.funded_at)::bigint as funded
+        from public.referrals r
+       group by r.inviter_id
+    ) s
+    join public.profiles p on p.id::text = s.inviter_id
+    left join (
+      select e.ib_id, sum(e.commission) as coins
+        from public.ib_earnings e
+       group by e.ib_id
+    ) e on e.ib_id = s.inviter_id
+   order by coalesce(e.coins, 0) desc, s.funded desc, s.invites desc
+   limit greatest(1, least(coalesce(p_limit, 10), 50));
+end;
+$$;
+
+revoke all on function public.referral_leaderboard(integer) from public;
+grant execute on function public.referral_leaderboard(integer) to authenticated;
+
+-- Admin writers --------------------------------------------------------
+-- SECURITY DEFINER, EXECUTE revoked from public and granted to
+-- authenticated, and each one re-checks public.is_admin() first — the same
+-- shape the announcement console uses. These are the only doors that let a
+-- human retune the program; everything player-side is read-only or the two
+-- fixed actions above.
+
+create or replace function public.admin_save_ib_config(
+  p_enabled boolean,
+  p_house_fee_pct integer,
+  p_min_house_pct integer
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'admin_save_ib_config: admin only'
+      using hint = 'Set role = ''admin'' on the profile row first.';
+  end if;
+
+  update public.ib_config
+     set enabled = coalesce(p_enabled, enabled),
+         house_fee_pct = coalesce(p_house_fee_pct, house_fee_pct),
+         min_house_pct_of_fee = coalesce(p_min_house_pct, min_house_pct_of_fee),
+         updated_at = now()
+   where singleton = 1;
+
+  if not found then
+    insert into public.ib_config (singleton, enabled, house_fee_pct, min_house_pct_of_fee)
+    values (1, coalesce(p_enabled, true), coalesce(p_house_fee_pct, 15),
+            coalesce(p_min_house_pct, 60))
+    on conflict (singleton) do nothing;
+  end if;
+
+  return true;
+end;
+$$;
+
+-- One row of the ladder at a time. Levels are 1..9 and the checks on the
+-- table do the clamping, so a fat-fingered rate cannot silently out-earn the
+-- house: award_ib_commission() still trims every payment against the floor.
+create or replace function public.admin_save_ib_tier(
+  p_level integer,
+  p_name text,
+  p_rate integer,
+  p_min_funded integer,
+  p_active boolean
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_name text := left(btrim(coalesce(p_name, '')), 40);
+begin
+  if not public.is_admin() then
+    raise exception 'admin_save_ib_tier: admin only'
+      using hint = 'Set role = ''admin'' on the profile row first.';
+  end if;
+
+  if p_level is null or p_level not between 1 and 9 then
+    raise exception 'admin_save_ib_tier: levels run 1 to 9'
+      using errcode = '22023';
+  end if;
+
+  if v_name = '' then
+    raise exception 'admin_save_ib_tier: the rung needs a name'
+      using errcode = '22023';
+  end if;
+
+  insert into public.ib_tiers (level, name, rate_per_100, min_funded, active, updated_at)
+  values (p_level, v_name, coalesce(p_rate, 0), coalesce(p_min_funded, 0),
+          coalesce(p_active, true), now())
+  on conflict (level) do update
+    set name         = excluded.name,
+        rate_per_100 = excluded.rate_per_100,
+        min_funded   = excluded.min_funded,
+        active       = excluded.active,
+        updated_at   = now();
+
+  return true;
+end;
+$$;
+
+-- History keeps its tier_level ints, so retiring a rung never strands the
+-- earnings rows already paid at it.
+create or replace function public.admin_delete_ib_tier(p_level integer)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'admin_delete_ib_tier: admin only'
+      using hint = 'Set role = ''admin'' on the profile row first.';
+  end if;
+
+  delete from public.ib_tiers where level = p_level;
+
+  if not found then
+    raise exception 'admin_delete_ib_tier: no rung at level %', p_level
+      using errcode = 'P0002';
+  end if;
+
+  return true;
+end;
+$$;
+
+-- The operator's hand on a desk: a credit when the arena owes a commission
+-- it failed to pay, a debit when one was paid that should not have been.
+-- Credits raise lifetime earnings too — money the desk genuinely made;
+-- debits claw the parked balance back and leave the lifetime record alone.
+-- Every move writes one ib_adjustments row with the admin behind it.
+create or replace function public.admin_adjust_ib_balance(
+  p_player_id text,
+  p_delta integer,
+  p_note text
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_player text := btrim(coalesce(p_player_id, ''));
+  v_balance integer;
+begin
+  if not public.is_admin() then
+    raise exception 'admin_adjust_ib_balance: admin only'
+      using hint = 'Set role = ''admin'' on the profile row first.';
+  end if;
+
+  if v_player = '' or coalesce(p_delta, 0) = 0 then
+    raise exception 'admin_adjust_ib_balance: a player and a non-zero delta are required'
+      using errcode = '22023';
+  end if;
+
+  if not exists (select 1 from public.profiles where id::text = v_player) then
+    raise exception 'admin_adjust_ib_balance: no such player %', v_player
+      using errcode = 'P0002';
+  end if;
+
+  insert into public.ib_balances (player_id, balance, lifetime_earned, updated_at)
+  values (v_player, greatest(0, p_delta), greatest(0, p_delta), now())
+  on conflict (player_id) do update
+    set balance = greatest(0, public.ib_balances.balance + p_delta),
+        lifetime_earned = case when p_delta > 0
+          then public.ib_balances.lifetime_earned + p_delta
+          else public.ib_balances.lifetime_earned end,
+        updated_at = now();
+
+  select balance into v_balance from public.ib_balances where player_id = v_player;
+
+  insert into public.ib_adjustments (player_id, delta, note, actor_id)
+  values (v_player, p_delta,
+          nullif(btrim(coalesce(p_note, '')), ''),
+          coalesce(auth.uid()::text, 'system'));
+
+  return v_balance;
+end;
+$$;
+
+revoke all on function public.admin_save_ib_config(boolean, integer, integer) from public;
+grant execute on function public.admin_save_ib_config(boolean, integer, integer) to authenticated;
+revoke all on function public.admin_save_ib_tier(integer, text, integer, integer, boolean) from public;
+grant execute on function public.admin_save_ib_tier(integer, text, integer, integer, boolean) to authenticated;
+revoke all on function public.admin_delete_ib_tier(integer) from public;
+grant execute on function public.admin_delete_ib_tier(integer) to authenticated;
+revoke all on function public.admin_adjust_ib_balance(text, integer, text) from public;
+grant execute on function public.admin_adjust_ib_balance(text, integer, text) to authenticated;
+
+-- =====================================================================
+-- 14. LEGACY CLEANUP
 --    The store / frame / rupee-gateway era is gone. Drop whatever an
 --    older database still carries so it converges on the shape above.
 --    Safe on a fresh project (everything is IF EXISTS).
@@ -1823,6 +2750,9 @@ drop function if exists public.grant_starter_frame();
 
 drop table if exists public.creator_attributions;
 drop table if exists public.creator_codes;
+-- The bonus-shaped desk this program replaced: the config table goes, and
+-- the pairing rows in referrals stay — they are the attribution, not a payout.
+drop table if exists public.referral_config;
 drop table if exists public.market_trades;
 drop table if exists public.market_listings;
 drop table if exists public.orders;
@@ -1844,7 +2774,7 @@ comment on column public.player_balances.virtual_balance is
   'The coin wallet: bought by crypto deposit, spent on Live entries, topped up by pot payouts and rewards.';
 
 -- =====================================================================
--- 13. SMOKE TEST (read-only — optional)
+-- 15. SMOKE TEST (read-only — optional)
 --     Run these one at a time after the script succeeds:
 --
 --   select table_name from information_schema.tables
@@ -1857,5 +2787,11 @@ comment on column public.player_balances.virtual_balance is
 --                      'request_crypto_withdraw','approve_crypto_withdraw',
 --                      'reject_crypto_withdraw','is_admin','handle_new_user',
 --                      'admin_adjust_coins','admin_set_player_status',
---                      'record_ledger');
+--                      'record_ledger','admin_save_announcement',
+--                      'admin_set_announcement_live',
+--                      'admin_delete_announcement','record_referral_signup',
+--                      'ib_mark_funded','ib_tier_for','award_ib_commission',
+--                      'transfer_ib_balance','referral_leaderboard',
+--                      'admin_save_ib_config','admin_save_ib_tier',
+--                      'admin_delete_ib_tier','admin_adjust_ib_balance');
 -- =====================================================================

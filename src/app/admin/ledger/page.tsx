@@ -3,9 +3,9 @@
 /**
  * /admin/ledger
  * The wallet's own history: one row per coin movement, whatever moved it.
- * Deposits, payout escrows, refunds and manual adjustments all land in the
- * same table from inside the Postgres functions that touch a balance, so this
- * page cannot disagree with a player's wallet.
+ * Deposits, payout escrows, refunds, affiliate rewards and manual adjustments
+ * all land in the same table from inside the Postgres functions that touch a
+ * balance, so this page cannot disagree with a player's wallet.
  *
  * A manual adjustment is the one write here. It opens a reason-first form and
  * calls admin_adjust_coins(), which refuses to overdraw and writes its own
@@ -45,6 +45,7 @@ const KIND: Record<LedgerKind, { label: string; tone: PillTone }> = {
   payout: { label: 'Payout', tone: 'accent' },
   payout_refund: { label: 'Refund', tone: 'pending' },
   adjustment: { label: 'Adjustment', tone: 'neutral' },
+  referral: { label: 'IB transfer', tone: 'ok' },
 };
 
 const KIND_FILTERS: { id: LedgerFilter; label: string }[] = [
@@ -52,6 +53,7 @@ const KIND_FILTERS: { id: LedgerFilter; label: string }[] = [
   { id: 'deposit', label: 'Deposits' },
   { id: 'payout', label: 'Payouts' },
   { id: 'payout_refund', label: 'Refunds' },
+  { id: 'referral', label: 'IB transfers' },
   { id: 'adjustment', label: 'Adjustments' },
 ];
 

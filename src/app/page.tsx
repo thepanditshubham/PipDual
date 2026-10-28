@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Swords, LogIn, Play, ArrowRight, UserPlus } from 'lucide-react';
+import { AnnouncementBar } from '@/components/announcement-bar';
 
 export default function CleanLandingPage() {
   return (
@@ -14,6 +15,9 @@ export default function CleanLandingPage() {
           background: 'radial-gradient(circle, rgba(0, 123, 255, 0.12) 0%, rgba(0, 200, 83, 0.04) 40%, transparent 70%)',
         }}
       />
+
+      {/* Published announcements — the same strip the lobby carries */}
+      <AnnouncementBar />
 
       {/* Top minimal bar */}
       <header className="w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between relative z-10">

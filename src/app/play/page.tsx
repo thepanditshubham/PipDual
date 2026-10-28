@@ -4,36 +4,37 @@ import { useCallback, useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Swords, Bot, KeyRound, Trophy, HelpCircle, Crosshair,
-  Settings as SettingsIcon, Mail, Gift, Headphones,
-  Shield, Coins, ChevronDown,
+  Swords, Bot, KeyRound, BarChart3, HelpCircle, Crosshair,
+  Settings as SettingsIcon, Mail, Share2, Headphones,
+  Coins, ChevronDown, ChevronUp, Flame,
   Volume2, VolumeX, Clock, ArrowLeft, AlertCircle, CheckCircle2,
   ExternalLink, User, Ticket, Pencil, LogIn, LogOut,
-  AlertTriangle
+  AlertTriangle, Info, X
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth/store';
 import { DEFAULT_AVATAR } from '@/lib/auth/avatar';
 import { getSupabase } from '@/lib/supabase/client';
+import { fetchPlayerNames } from '@/lib/supabase/wallet';
 import { sound } from '@/components/terminal/sound';
 import { joinMatchmakingQueue, generateRoomCode, type QueuePlayer, type QueueScope, type MatchFoundPayload } from '@/lib/matchmaking/matchmaker';
 import {
-  joinChallengeBoard, makeChallengeId, CHALLENGE_MAX_STAKE,
+  joinChallengeBoard, makeChallengeId,
   withDemoChallenges, isDemoChallenge,
   type DuelChallenge, type ChallengeBoardHandle, type ChallengeMatchPayload,
 } from '@/lib/challenges/challenge-board';
 import { MATCH_DURATIONS, DEFAULT_MATCH_DURATION, type MatchDurationId } from '@/lib/engine/constants';
 import { stashRoomSession } from '@/lib/rooms/session';
 import { FriendsPanel } from '@/components/lobby/friends-panel';
+import { AnnouncementBar } from '@/components/announcement-bar';
 import { WalletCard, WalletPanel, WALLET_TABS, type WalletTab } from '@/components/wallet';
 import { TerminalModeToggle, useTerminalMode } from '@/components/terminal/theme-mode';
-import { ProgressPanel, ProgressCelebrations } from '@/components/progress';
+import { ProgressCelebrations, StatsPanel } from '@/components/progress';
 import { useProgressStore } from '@/lib/progress/store';
-import { rankPosition } from '@/lib/progress/rank';
-import { levelFromXp } from '@/lib/progress/xp';
-import { claimableMissionCount } from '@/lib/progress/missions';
 import { ACHIEVEMENTS } from '@/lib/progress/config';
-import { liveFeeFor, potFor } from '@/lib/economy/stakes';
+import { liveFeeFor, potFor, houseBurnFor } from '@/lib/economy/stakes';
+import { HOUSE_CUT } from '@/lib/economy/config';
 import {
+  deleteMails,
   fetchMyMails,
   formatMailStamp,
   markMailRead,
@@ -41,6 +42,14 @@ import {
   saveMailCache,
   type PlayerMail,
 } from '@/lib/supabase/mail';
+import {
+  buildInviteLink,
+  fetchIbDesk,
+  fetchIbLeaderboard,
+  transferIbBalance,
+  type IbBoardRow,
+  type IbDesk,
+} from '@/lib/supabase/referrals';
 
 const PAIRS = [
   { symbol: 'XAU/USD', name: 'Gold / US Dollar', spread: '0.3' },
@@ -60,6 +69,66 @@ const DURATIONS: { id: MatchDurationId; label: string }[] = (
 // but funnelling it through this helper keeps the call out of the component.
 const epochMs = () => Date.now();
 
+// The wait the ticket button prints: plain seconds up to a minute, then a
+// minute-first shape. Shared by the queue clock and a posted challenge, so both
+// waiting states read the same way.
+function formatWait(seconds: number): string {
+  if (seconds < 60) return `00:${seconds.toString().padStart(2, '0')}`;
+  if (seconds % 60 === 0) return `${Math.floor(seconds / 60)} min`;
+  return `${Math.floor(seconds / 60)}m ${(seconds % 60).toString().padStart(2, '0')}s`;
+}
+
+// Inbox cleanup window: the mailbox button and the row filter read the same
+// number, so the label can never promise a different cut-off than it applies.
+const MAIL_STALE_DAYS = 2;
+const MAIL_STALE_MS = MAIL_STALE_DAYS * 86_400_000;
+
+// How many duels the Match History card lists before the pager kicks in.
+const HISTORY_PAGE_SIZE = 15;
+
+/* The Match Found reveal waits for the rival's tab before it moves on: the
+   ready check runs until the other side answers, and READY_CHECK_MS is the
+   ceiling past which the rival counts as armed anyway — a tab on an older
+   build, or an ack lost on the wire, must never strand the lobby. */
+const READY_CHECK_MS = 6000;
+// Bar crawl: it reaches 90% quickly, then holds until the answer lands.
+const READY_BAR_FILL_MS = 2000;
+const READY_BAR_HOLD_PCT = 90;
+// Once both sides are armed, the fixed beat for the two terminals to load.
+const ARENA_LOAD_SECONDS = 5;
+
+/* Topbar alerts. A lobby notice (short wallet, a stepped-off match, an offline
+   board) drops a full-width bar above the menu bar, each one closed by its own
+   cross. They expire on their own so a stale warning never parks at the top of
+   the lobby. */
+const ALERT_TTL_MS = 9000;
+const ALERT_STACK_MAX = 3;
+type AlertTone = 'danger' | 'warn' | 'success' | 'info';
+type LobbyAlert = { id: number; text: string; tone: AlertTone };
+
+/* The bar wears the news: a refused action burns red, a nudge runs amber-orange,
+   good news goes green, a plain status update blue — white copy on every one.
+   The deep end of each gradient is a token, so the light theme re-inks it. Full
+   class strings, never assembled, so Tailwind can see them. */
+const ALERT_TONES: Record<AlertTone, { bar: string; Icon: typeof Info }> = {
+  danger: {
+    bar: 'bg-[linear-gradient(100deg,var(--term-sell),var(--term-sell-deep))]',
+    Icon: AlertTriangle,
+  },
+  warn: {
+    bar: 'bg-[linear-gradient(100deg,var(--term-heat-2),var(--term-warn-deep))]',
+    Icon: AlertTriangle,
+  },
+  success: {
+    bar: 'bg-[linear-gradient(100deg,var(--term-buy),var(--term-buy-deep))]',
+    Icon: CheckCircle2,
+  },
+  info: {
+    bar: 'bg-[linear-gradient(100deg,var(--term-accent),var(--term-accent-deep))]',
+    Icon: Info,
+  },
+};
+
 function getTierBadge(rating: number) {
   if (rating >= 1600) return { label: 'Grandmaster', color: '#f59e0b' };
   if (rating >= 1500) return { label: 'Master', color: '#a855f7' };
@@ -69,17 +138,117 @@ function getTierBadge(rating: number) {
   return { label: 'Silver II', color: '#94a3b8' };
 }
 
+/*
+ * Challenge bet chips. No in-between figures like 150, 550 or 650: a wager
+ * is a 100 chip, a 200 chip, or a clean jump of 500 (500, 1000, 1500 …).
+ * The ticket steppers and the hand-typed input both snap onto this ladder.
+ */
+function stakeLadderHas(n: number): boolean {
+  return n === 100 || n === 200 || (n >= 500 && n % 500 === 0);
+}
+function snapStakeChip(n: number): number {
+  if (n <= 150) return 100;
+  if (n <= 350) return 200;
+  return Math.max(500, Math.round(n / 500) * 500);
+}
+/** Smallest chip strictly above n. */
+function nextStakeChip(n: number): number {
+  if (n < 100) return 100;
+  if (n < 200) return 200;
+  if (n < 500) return 500;
+  return (Math.floor(n / 500) + 1) * 500;
+}
+/** Largest chip strictly below n; 0 when n is at or under the smallest. */
+function prevStakeChip(n: number): number {
+  if (n > 500) return n % 500 === 0 ? n - 500 : Math.floor(n / 500) * 500;
+  if (n > 200) return 200;
+  if (n > 100) return 100;
+  return 0;
+}
+
+/*
+ * Challenge board colour tiers, painted with the terminal's warm heat ramp
+ * (--term-heat-1..4) so the board re-inks itself with the light/dark
+ * switch like the rest of the lobby. The ticket graphics read one small
+ * table: a full gradient rail, a matching badge and Accept button, and a
+ * glow that only the top rung lights. Classes (never inline colours) so
+ * /35 tints stay theme-aware.
+ */
+type StakeTier = {
+  key: 'standard' | 'elevated' | 'hot' | 'whale';
+  label: string;    // tooltip copy
+  rail: string;     // left gradient rail + meter fill
+  text: string;     // the stake figure
+  chip: string;     // avatar initial tile
+  glow: string;     // whale-only warm aura behind the card
+  action: string;   // Accept button
+};
+const STAKE_TIERS: StakeTier[] = [
+  {
+    key: 'standard',
+    label: 'Standard',
+    rail: 'bg-[linear-gradient(180deg,var(--term-heat-1),var(--term-heat-2))]',
+    text: 'text-[var(--term-heat-1)]',
+    chip: 'text-[var(--term-heat-1)] ring-[var(--term-heat-1)]/30',
+    glow: '',
+    action: 'border-[var(--term-heat-1)]/50 bg-[var(--term-heat-1)]/85 text-white hover:bg-[var(--term-heat-1)]',
+  },
+  {
+    key: 'elevated',
+    label: 'Elevated',
+    rail: 'bg-[linear-gradient(180deg,var(--term-heat-1),var(--term-heat-2))]',
+    text: 'text-[var(--term-heat-2)]',
+    chip: 'text-[var(--term-heat-2)] ring-[var(--term-heat-2)]/30',
+    glow: '',
+    action: 'border-[var(--term-heat-2)]/50 bg-[var(--term-heat-2)]/85 text-white hover:bg-[var(--term-heat-2)]',
+  },
+  {
+    key: 'hot',
+    label: 'Hot',
+    rail: 'bg-[linear-gradient(180deg,var(--term-heat-2),var(--term-heat-3))]',
+    text: 'text-[var(--term-heat-3)]',
+    chip: 'text-[var(--term-heat-3)] ring-[var(--term-heat-3)]/30',
+    glow: '',
+    action: 'border-[var(--term-heat-3)]/50 bg-[var(--term-heat-3)]/85 text-white hover:bg-[var(--term-heat-3)]',
+  },
+  {
+    key: 'whale',
+    label: 'Whale',
+    rail: 'bg-[linear-gradient(180deg,var(--term-heat-3),var(--term-heat-4))]',
+    text: 'text-[var(--term-heat-4)]',
+    chip: 'text-[var(--term-heat-4)] ring-[var(--term-heat-4)]/40',
+    glow: 'shadow-[0_0_22px_-8px_var(--term-heat-4)]',
+    action: 'border-[var(--term-heat-4)]/50 bg-[linear-gradient(135deg,var(--term-heat-3),var(--term-heat-4))] text-white hover:brightness-110',
+  },
+];
+function stakeTierFor(stake: number, ticketFee: number): StakeTier {
+  if (stake >= 10_000) return STAKE_TIERS[3];
+  if (stake >= ticketFee * 5) return STAKE_TIERS[2];
+  if (stake >= ticketFee * 2) return STAKE_TIERS[1];
+  return STAKE_TIERS[0];
+}
+
+/** "3m ago" / "just now" — how long a card has been sitting open. */
+function elapsedStamp(createdAt: number, now: number): string {
+  const secs = Math.max(0, Math.floor((now - createdAt) / 1000));
+  if (secs < 60) return 'just now';
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  return `${Math.floor(mins / 60)}h ago`;
+}
+
 function PlayLobbyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, logout, syncFromSupabase, addCoins, spendCoins, history } = useAuthStore();
+  const { user, logout, syncFromSupabase, spendCoins, history } = useAuthStore();
   const [mounted, setMounted] = useState(false);
 
   // Core Ticket Configuration
   const [selectedPair] = useState('XAU/USD');
   const [selectedDuration, setSelectedDuration] = useState<MatchDurationId>(DEFAULT_MATCH_DURATION);
   /** Live stake in coins, editable in the ticket. Defaults to the 100-coin entry;
-   *  raising it (in steps of 100) turns the button into a challenge post. */
+   *  raising it onto the chip ladder (100, 200, then 500s) turns the button into
+   *  a challenge post. */
   const [stakeInput, setStakeInput] = useState('100');
   /** Live charges a coin entry and pays the pot; Demo and bot are free. */
   const [mode, setMode] = useState<'live' | 'demo' | 'bot'>('live');
@@ -89,6 +258,12 @@ function PlayLobbyContent() {
   // Matchmaking Queue
   const [queueing, setQueueing] = useState(false);
   const [queueTimer, setQueueTimer] = useState(0);
+  // Elapsed wait on a posted challenge: it sits on the board, not in the queue,
+  // so the queue clock never runs for it.
+  const [challengeTimer, setChallengeTimer] = useState(0);
+  // Coarse clock behind the board's "3m ago" stamps — wall time kept in
+  // state by an interval, so no impure read slips into the render itself.
+  const [boardNow, setBoardNow] = useState(() => Date.now());
   // Unique session ID per tab (stable for lifetime of this page load)
   const [sessionId] = useState<string>(() => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -96,14 +271,59 @@ function PlayLobbyContent() {
     }
     return 'ply_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 11);
   });
-  const [queueStatus, setQueueStatus] = useState<'searching' | 'matched'>('searching');
-  /** Why a Live queue could not be entered (short wallet), shown under the button. */
-  const [queueNotice, setQueueNotice] = useState<string | null>(null);
+  /** Why a Live queue could not be entered, a challenge was refused, a match was
+   *  stepped off — stacked as dismissible alerts under the topbar. */
+  const [alerts, setAlerts] = useState<LobbyAlert[]>([]);
+  const alertSeqRef = useRef(0);
+  const alertTimersRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
+
+  const dismissAlert = useCallback((id: number) => {
+    const timer = alertTimersRef.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      alertTimersRef.current.delete(id);
+    }
+    setAlerts((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
+  /* Same call shape as the old single notice — text raises an alert, null wipes
+     the strip — so every notice site keeps working in its louder home. Nothing
+     worth colouring is left to the default: pass a tone with the text. */
+  const setQueueNotice = useCallback((text: string | null, tone: AlertTone = 'danger') => {
+    if (text === null) {
+      alertTimersRef.current.forEach(clearTimeout);
+      alertTimersRef.current.clear();
+      setAlerts([]);
+      return;
+    }
+    alertSeqRef.current += 1;
+    const id = alertSeqRef.current;
+    // A repeat of the line already on screen does not stack twice.
+    setAlerts((prev) => [...prev.filter((a) => a.text !== text), { id, text, tone }].slice(-ALERT_STACK_MAX));
+    alertTimersRef.current.set(id, setTimeout(() => dismissAlert(id), ALERT_TTL_MS));
+  }, [dismissAlert]);
+
+  // Nobody's timer should outlive the lobby.
+  useEffect(() => () => {
+    alertTimersRef.current.forEach(clearTimeout);
+    alertTimersRef.current.clear();
+  }, []);
   const [matchedRival, setMatchedRival] = useState<QueuePlayer | null>(null);
   const [activeQueueCount, setActiveQueueCount] = useState<number>(0);
   const [matchFoundData, setMatchFoundData] = useState<{ payload: import('@/lib/matchmaking/matchmaker').MatchFoundPayload; mode: string } | null>(null);
-  const [matchFoundCountdown, setMatchFoundCountdown] = useState(5);
+  const [matchFoundCountdown, setMatchFoundCountdown] = useState(ARENA_LOAD_SECONDS);
+  // Beat one is the ready check ('arming'), beat two loads both terminals
+  // ('loading'). The ticket shows a crawling bar for the first and the ring
+  // countdown for the second, so the wait always reads as progress.
+  const [revealPhase, setRevealPhase] = useState<'arming' | 'loading'>('arming');
+  const [readyPct, setReadyPct] = useState(0);
   const matchCdTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const readyBarRef = useRef<NodeJS.Timeout | null>(null);
+  const readyCapRef = useRef<NodeJS.Timeout | null>(null);
+  // The room the reveal is holding for, and what runs when the countdown lands:
+  // the queue and the challenge board each hand in their own commit.
+  const revealRoomRef = useRef<string | null>(null);
+  const revealCommitRef = useRef<(() => void) | null>(null);
   // Stable refs so the queue effect doesn't restart on every user/mode state change
   const userRef = useRef(user);
   const modeRef = useRef(mode);
@@ -125,11 +345,11 @@ function PlayLobbyContent() {
   // Pending simulated accept against a demo opponent (no real host to answer).
   const demoAcceptRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Center column tab: the Match Ticket, the Progress screen (5 sub-tabs), or
-  // one of the utility screens the rail and the wallet card open. Money is a
+  // Center column tab: the Match Ticket, the Stats screen, or one of the
+  // utility screens the rail and the wallet card open. Money is a
   // center-column screen too — the wallet card only points at it.
   const [centerTab, setCenterTab] = useState<
-    'ticket' | 'progress' | 'settings' | 'mail' | 'redeem' | 'support' | 'wallet'
+    'ticket' | 'stats' | 'settings' | 'mail' | 'affiliate' | 'support' | 'wallet'
   >('ticket');
   // Which half of the money flow the wallet card asked for.
   const [walletTab, setWalletTab] = useState<WalletTab>('deposit');
@@ -145,11 +365,35 @@ function PlayLobbyContent() {
   const [mailItems, setMailItems] = useState<PlayerMail[]>([]);
   const [mailUnavailable, setMailUnavailable] = useState(false);
   const [expandedMailId, setExpandedMailId] = useState<string | null>(null);
+  const [mailClearing, setMailClearing] = useState(false);
+  // Pixels left between the mailbox list's top and the bottom of the screen.
+  // Measured when the mailbox opens so the pane stretches to the fold instead
+  // of a hard-coded box that cuts a row in half.
+  const [mailListMaxH, setMailListMaxH] = useState<number | null>(null);
+  const mailListRef = useRef<HTMLDivElement | null>(null);
   const mailUserId = user && !user.isGuest ? user.id : '';
 
-  // Redeem Promo
-  const [redeemCode, setRedeemCode] = useState('');
-  const [redeemFeedback, setRedeemFeedback] = useState<{ status: 'success' | 'error' | ''; msg: string }>({ status: '', msg: '' });
+  // Match History never leaves the lobby — the card lists a page of duels and
+  // pages through the archive in place.
+  const [historyPage, setHistoryPage] = useState(0);
+  const historyPages = Math.max(1, Math.ceil(history.length / HISTORY_PAGE_SIZE));
+  const historyWindowStart = Math.min(historyPage, historyPages - 1) * HISTORY_PAGE_SIZE;
+  const historySlice = history.slice(historyWindowStart, historyWindowStart + HISTORY_PAGE_SIZE);
+
+  // Affiliate desk, forex-broker style: a tiered rebate off the platform fee
+  // of every Live duel the downline trades. Reads only — the pairing, the
+  // tier, and every commission are decided inside Postgres — with one write:
+  // the player's own transfer of the desk balance into the wallet.
+  const [affiliateDesk, setAffiliateDesk] = useState<IbDesk | null>(null);
+  const [affiliateBoard, setAffiliateBoard] = useState<IbBoardRow[]>([]);
+  const [affiliateUnavailable, setAffiliateUnavailable] = useState(false);
+  const [affiliateLoading, setAffiliateLoading] = useState(false);
+  const [affiliateTransferring, setAffiliateTransferring] = useState(false);
+  const [affiliateNotice, setAffiliateNotice] = useState<string | null>(null);
+  const [affiliateCopied, setAffiliateCopied] = useState(false);
+  // The callsign as the database holds it: a signup whose name was taken got a
+  // suffix, and only the stored one resolves an invite link.
+  const [affiliateCode, setAffiliateCode] = useState('');
 
   // Sound
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -165,12 +409,9 @@ function PlayLobbyContent() {
   const userCoins = Math.floor(currentUser?.virtualBalance ?? 0);
   const [balanceSyncing, setBalanceSyncing] = useState(true);
 
-  // Progress system (local snapshot, mirrored to Supabase when available)
-  const progressUserId = useProgressStore((s) => s.userId);
-  const progressXp = useProgressStore((s) => s.xp);
-  const progressRank = useProgressStore((s) => s.rank);
+  // Progress stats (local snapshot, mirrored to Supabase when available). Only
+  // the settled record is surfaced — no levels, XP, rank or missions here.
   const progressStats = useProgressStore((s) => s.stats);
-  const progressMissions = useProgressStore((s) => s.missions);
   const progressPinned = useProgressStore((s) => s.pinned);
   const progressTitle = useProgressStore((s) => s.activeTitle);
   const bindProgress = useProgressStore((s) => s.bindUser);
@@ -187,26 +428,36 @@ function PlayLobbyContent() {
 
   /*
    * Ticket stake drives the challenge flow. At the standard entry the Live
-   * button quick-matches; any multiple of 100 above it turns that button into a
-   * challenge post, and the lobby waits for a rival to accept it.
+   * button quick-matches; a chip-ladder figure above it (100, 200, 500, 1000,
+   * 1500 …) turns that button into a challenge post, and the lobby waits for a
+   * rival to accept it. No in-between bets: 150, 550, 650 do not exist.
    */
   const ticketStake = Math.floor(Number(stakeInput));
   const isChallengeMode = mode === 'live' && Number.isFinite(ticketStake) && ticketStake > ticketFee;
+  /* No house ceiling — a challenge can run all the way to the whole wallet.
+     The only rules: it must beat the standard entry, sit on the chip ladder,
+     and the poster must be able to cover it. */
   const challengeValid =
-    Number.isFinite(ticketStake) && ticketStake > ticketFee && ticketStake <= CHALLENGE_MAX_STAKE;
+    Number.isFinite(ticketStake) && ticketStake > ticketFee && stakeLadderHas(ticketStake) && ticketStake <= userCoins;
   const challengeAffordable = Number.isFinite(ticketStake) && ticketStake <= userCoins;
-  const clampStake = (n: number) =>
-    Number.isFinite(n)
-      ? Math.max(ticketFee, Math.min(CHALLENGE_MAX_STAKE, Math.round(n / 100) * 100))
-      : ticketFee;
+  const clampStake = (n: number) => {
+    if (!Number.isFinite(n)) return ticketFee;
+    // Snap onto the chip ladder, then keep it between the smallest bettable
+    // chip and the tallest chip the balance covers.
+    return Math.max(minChallengeStake, Math.min(maxChipForBalance, snapStakeChip(n)));
+  };
+  /* Lowest stake the steppers can reach: the entry itself when it is already a
+     chip (100/500 fees), otherwise the first chip above it (250 fee → 500). */
+  const minChallengeStake = stakeLadderHas(ticketFee) ? ticketFee : nextStakeChip(ticketFee);
+  /* Tallest chip the wallet can fully cover; never below the lowest step. */
+  const maxChipForBalance = Math.max(minChallengeStake, snapStakeChip(userCoins));
 
-  const level = levelFromXp(progressXp);
-  const rankPositionValue = rankPosition(progressRank.rp);
   const progressPlayed = progressStats.matches;
   const progressWinRate = progressPlayed > 0 ? Math.round((progressStats.wins / progressPlayed) * 100) : 0;
-  const claimableMissions = claimableMissionCount(progressMissions);
-  const progressReady = mounted && Boolean(progressUserId);
   const unreadMailCount = mailItems.filter((m) => !m.read).length;
+  const staleMailIds = mailItems
+    .filter((m) => new Date(m.createdAt).getTime() < epochMs() - MAIL_STALE_MS)
+    .map((m) => m.id);
 
   const mailFetchedAt = useRef(0);
 
@@ -292,6 +543,43 @@ function PlayLobbyContent() {
     return () => clearInterval(timer);
   }, [centerTab, mailUserId, loadMail]);
 
+  // One-click inbox cleanup. The rows go from the database first, so a reload
+  // cannot bring them back; the local list and the device cache follow it.
+  const clearStaleMails = async () => {
+    if (!mailUserId || staleMailIds.length === 0) return;
+    sound.playClick();
+    setMailClearing(true);
+    const removed = await deleteMails(mailUserId, staleMailIds);
+    setMailClearing(false);
+
+    if (removed === null) {
+      setQueueNotice('Mailbox cleanup needs the live database — try again when it is reachable.');
+      return;
+    }
+
+    const next = mailItems.filter((m) => !staleMailIds.includes(m.id));
+    setMailItems(next);
+    saveMailCache(mailUserId, next);
+    setQueueNotice(`Cleared ${removed} stale message${removed === 1 ? '' : 's'}.`, 'success');
+    if (expandedMailId && staleMailIds.includes(expandedMailId)) setExpandedMailId(null);
+  };
+
+  // Stretch the mailbox list down to the bottom of the screen. The offset is
+  // measured, not guessed, so the tab strip above and the page padding below
+  // can change without a row ever being clipped mid-height.
+  useEffect(() => {
+    if (centerTab !== 'mail') return;
+    const el = mailListRef.current;
+    if (!el) return;
+    const measure = () => {
+      setMailListMaxH(Math.max(240, Math.round(window.innerHeight - el.getBoundingClientRect().top - 16)));
+    };
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [centerTab]);
+
   const [authChecked, setAuthChecked] = useState(false);
 
   // Mount-only: reset stale match/queue state + fetch live leaderboard (runs once)
@@ -300,7 +588,6 @@ function PlayLobbyContent() {
     setMatchFoundData(null);
     setMatchedRival(null);
     setQueueing(false);
-    setQueueStatus('searching');
 
     const modeParam = searchParams.get('mode');
     // Older links carry friendly/ranked; they map onto Demo/Live. 'standard' and
@@ -396,10 +683,83 @@ function PlayLobbyContent() {
     bindProgress(user.id);
   }, [user?.id, bindProgress]);
 
+  /* ──────────────────────────────────────────────────────────
+     MATCH FOUND REVEAL — two beats, both inside the Match Ticket:
+     a ready check on the rival's tab (the loading bar), then a fixed
+     beat while both terminals load. The owner of the match — the queue or
+     the challenge board — hands in the commit that runs at the end.
+  ────────────────────────────────────────────────────────── */
+  const stopReadyCheck = useCallback(() => {
+    if (readyBarRef.current) {
+      clearInterval(readyBarRef.current);
+      readyBarRef.current = null;
+    }
+    if (readyCapRef.current) {
+      clearTimeout(readyCapRef.current);
+      readyCapRef.current = null;
+    }
+  }, []);
+
+  // Beat two: the bar is full, so both sides are armed and loading.
+  const startArenaLoad = useCallback(() => {
+    stopReadyCheck();
+    setReadyPct(100);
+    setRevealPhase('loading');
+    setMatchFoundCountdown(ARENA_LOAD_SECONDS);
+    let count = ARENA_LOAD_SECONDS;
+
+    if (matchCdTimerRef.current) clearInterval(matchCdTimerRef.current);
+    matchCdTimerRef.current = setInterval(() => {
+      count -= 1;
+      setMatchFoundCountdown(count);
+      if (count > 0) return;
+      if (matchCdTimerRef.current) {
+        clearInterval(matchCdTimerRef.current);
+        matchCdTimerRef.current = null;
+      }
+      revealCommitRef.current?.();
+    }, 1000);
+  }, [stopReadyCheck]);
+
+  // Beat one: paint the reveal and crawl the bar until the rival answers.
+  const beginReveal = useCallback(
+    (roomCode: string, commit: () => void, rivalAlreadyArmed = false) => {
+      revealRoomRef.current = roomCode;
+      revealCommitRef.current = commit;
+      stopReadyCheck();
+      if (matchCdTimerRef.current) {
+        clearInterval(matchCdTimerRef.current);
+        matchCdTimerRef.current = null;
+      }
+      setRevealPhase('arming');
+      setReadyPct(0);
+
+      const startedAt = Date.now();
+      readyBarRef.current = setInterval(() => {
+        const spent = Date.now() - startedAt;
+        setReadyPct(Math.min(READY_BAR_HOLD_PCT, Math.round((spent / READY_BAR_FILL_MS) * READY_BAR_HOLD_PCT)));
+      }, 80);
+
+      /* A simulated opponent has no second tab to answer, so the bar is only
+         given time to visibly finish. A real rival gets the full window. */
+      readyCapRef.current = setTimeout(startArenaLoad, rivalAlreadyArmed ? 700 : READY_CHECK_MS);
+    },
+    [startArenaLoad, stopReadyCheck],
+  );
+
+  // The rival's tab answered for the room we are holding — finish the check.
+  const handleRivalReady = useCallback(
+    (roomCode: string) => {
+      if (roomCode !== revealRoomRef.current) return;
+      if (!readyBarRef.current) return; // beat one already ended
+      startArenaLoad();
+    },
+    [startArenaLoad],
+  );
+
   // Matchmaking Queue listener — only re-runs when queueing toggles
   useEffect(() => {
     if (!queueing) {
-      setQueueStatus('searching');
       setMatchedRival(null);
       setQueueTimer(0);
       return;
@@ -430,64 +790,51 @@ function PlayLobbyContent() {
       scope,
       duration: selectedDuration,
       player,
-      onStatusChange: (status, count) => {
-        setQueueStatus(status);
+      onStatusChange: (_status, count) => {
         setActiveQueueCount(count);
       },
       onMatchFound: (match: MatchFoundPayload) => {
-        setQueueStatus('matched');
         setMatchedRival(match.rival);
         sound.playAlert();
-        // Show 5-second opponent reveal modal before navigating
+        // Reveal the rival inside the Match Ticket, starting the ready check
+        setCenterTab('ticket');
         setMatchFoundData({ payload: match, mode: 'standard' });
-        setMatchFoundCountdown(5);
-        let count = 5;
-
-        if (matchCdTimerRef.current) clearInterval(matchCdTimerRef.current);
-        matchCdTimerRef.current = setInterval(() => {
-          count -= 1;
-          setMatchFoundCountdown(count);
-          if (count <= 0) {
-            if (matchCdTimerRef.current) {
-              clearInterval(matchCdTimerRef.current);
-              matchCdTimerRef.current = null;
-            }
-
-            /*
-             * The entry is charged here, not when the queue started: leaving a
-             * queue costs nothing. Reading the wallet at the last moment also
-             * means a deposit made mid-queue is honoured by this match.
-             */
-            if (entry > 0 && !spendCoins(entry)) {
-              setQueueNotice(
-                `Live entry needs ${entry.toLocaleString()} coins and the wallet fell short. Deposit or drop to Demo.`,
-              );
-              setQueueing(false);
-              return;
-            }
-
-            // Navigate directly without clearing matchFoundData first so the
-            // Match Found screen stays smoothly visible until the terminal page mounts.
+        beginReveal(match.roomCode, () => {
+          /*
+           * The entry is charged here, not when the queue started: leaving a
+           * queue costs nothing. Reading the wallet at the last moment also
+           * means a deposit made mid-queue is honoured by this match.
+           */
+          if (entry > 0 && !spendCoins(entry)) {
+            setQueueNotice(
+              `Live entry needs ${entry.toLocaleString()} coins and the wallet fell short. Deposit or drop to Demo.`,
+            );
             setQueueing(false);
-
-            // Store match details in sessionStorage to keep the URL ultra clean: /play/ABCDE-FGHIJ
-            stashRoomSession(match.roomCode, {
-              mode: 'standard',
-              opponent: 'live',
-              seed: match.seed,
-              startAt: match.startAt,
-              duration: selectedDuration,
-              rivalName: match.rival.username,
-              rivalRating: match.rival.rating,
-              ranked: scope === 'live',
-              stake: entry > 0 ? entry : undefined,
-            });
-
-            // Clean short URL
-            router.push(`/play/${match.roomCode}`);
+            return;
           }
-        }, 1000);
+
+          // Navigate without clearing the reveal first, so the ticket stays
+          // painted until the terminal page mounts.
+          setQueueing(false);
+
+          // Store match details in sessionStorage to keep the URL ultra clean: /play/ABCDE-FGHIJ
+          stashRoomSession(match.roomCode, {
+            mode: 'standard',
+            opponent: 'live',
+            seed: match.seed,
+            startAt: match.startAt,
+            duration: selectedDuration,
+            rivalName: match.rival.username,
+            rivalRating: match.rival.rating,
+            ranked: scope === 'live',
+            stake: entry > 0 ? entry : undefined,
+          });
+
+          // Clean short URL
+          router.push(`/play/${match.roomCode}`);
+        });
       },
+      onRivalReady: handleRivalReady,
       onError: (err) => {
         console.warn('Realtime matchmaking error:', err);
       },
@@ -495,15 +842,37 @@ function PlayLobbyContent() {
 
     return () => {
       clearInterval(timerInterval);
-      if (matchCdTimerRef.current) {
-        clearInterval(matchCdTimerRef.current);
-        matchCdTimerRef.current = null;
-      }
       cleanupQueue();
     };
     // Only re-run when queueing toggles or the ticket duration changes — user/mode read from refs
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queueing, selectedDuration]);
+
+  /* The reveal's timers belong to the match, not to the queue effect: accepting
+     a challenge stops the queue in the same breath it arms the reveal, so the
+     queue teardown must not touch them. This is the one place they are cut. */
+  useEffect(
+    () => () => {
+      stopReadyCheck();
+      if (matchCdTimerRef.current) {
+        clearInterval(matchCdTimerRef.current);
+        matchCdTimerRef.current = null;
+      }
+    },
+    [stopReadyCheck],
+  );
+
+  /* A posted challenge waits on the board instead of in the queue, so it ticks
+     its own clock — the ticket button prints "Matching…" plus the wait in both
+     cases and nothing else. */
+  useEffect(() => {
+    if (!myChallenge) return;
+    const startedAt = myChallenge.createdAt;
+    const tick = setInterval(() => {
+      setChallengeTimer(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [myChallenge]);
 
   const handleLaunchBotMatch = () => {
     sound.playClick();
@@ -553,8 +922,9 @@ function PlayLobbyContent() {
   // Stake that starts a duel: reuse the Match Found reveal, then charge both
   // entrants and open the room. Everything here is stable setters/refs, so the
   // board can capture it once without going stale.
-  const startChallengeMatch = (match: ChallengeMatchPayload) => {
-    if (matchCdTimerRef.current) clearInterval(matchCdTimerRef.current);
+  // `simulatedRival` is set for a demo opponent — there is no second tab to
+  // answer the ready check, so the reveal does not wait for one.
+  const startChallengeMatch = (match: ChallengeMatchPayload, simulatedRival = false) => {
     if (demoAcceptRef.current) {
       clearTimeout(demoAcceptRef.current);
       demoAcceptRef.current = null;
@@ -572,63 +942,64 @@ function PlayLobbyContent() {
       joinedAt: epochMs(),
     };
     setMatchedRival(rival);
+    // The reveal lives in the ticket, so pull the centre column back to it —
+    // a challenge can be accepted by its host while the Stats tab is open.
+    setCenterTab('ticket');
     setMatchFoundData({
       payload: { roomCode: match.roomCode, seed: match.seed, startAt: match.startAt, rival },
       mode: 'standard',
     });
-    setMatchFoundCountdown(5);
     setAcceptingId(null);
     sound.playAlert();
 
-    let count = 5;
-    matchCdTimerRef.current = setInterval(() => {
-      count -= 1;
-      setMatchFoundCountdown(count);
-      if (count > 0) return;
-      if (matchCdTimerRef.current) {
-        clearInterval(matchCdTimerRef.current);
-        matchCdTimerRef.current = null;
-      }
+    beginReveal(
+      match.roomCode,
+      () => {
+        // The stake is only charged here — backing out (or a short wallet) before
+        // this point costs nothing, mirroring the Live queue.
+        if (!spendCoins(match.stake)) {
+          stopReadyCheck();
+          setMatchFoundData(null);
+          setQueueNotice(
+            `That duel needs ${match.stake.toLocaleString()} coins and the wallet fell short. Deposit more.`,
+          );
+          return;
+        }
 
-      // The stake is only charged here — backing out (or a short wallet) before
-      // this point costs nothing, mirroring the Live queue.
-      if (!spendCoins(match.stake)) {
-        setMatchFoundData(null);
-        setQueueNotice(
-          `That duel needs ${match.stake.toLocaleString()} coins and the wallet fell short. Deposit more.`,
-        );
-        return;
-      }
-
-      stashRoomSession(match.roomCode, {
-        mode: 'standard',
-        opponent: 'live',
-        seed: match.seed,
-        startAt: match.startAt,
-        duration: match.duration,
-        rivalName: match.rival.username,
-        rivalRating: match.rival.rating,
-        ranked: true,
-        stake: match.stake,
-      });
-      setMyChallenge(null);
-      boardRef.current?.retract();
-      router.push(`/play/${match.roomCode}`);
-    }, 1000);
+        stashRoomSession(match.roomCode, {
+          mode: 'standard',
+          opponent: 'live',
+          seed: match.seed,
+          startAt: match.startAt,
+          duration: match.duration,
+          rivalName: match.rival.username,
+          rivalRating: match.rival.rating,
+          ranked: true,
+          stake: match.stake,
+        });
+        setMyChallenge(null);
+        boardRef.current?.retract();
+        router.push(`/play/${match.roomCode}`);
+      },
+      simulatedRival,
+    );
   };
 
   const handlePostChallengeFromTicket = () => {
     sound.playClick();
     const stake = ticketStake;
-    // Snap a hand-typed value back to a multiple of 100 before anything else.
-    if (Number.isFinite(stake) && stake > ticketFee && stake % 100 !== 0) {
+    // Snap a hand-typed value back onto the chip ladder before anything else.
+    if (Number.isFinite(stake) && stake > ticketFee && !stakeLadderHas(stake)) {
       setStakeInput(String(clampStake(stake)));
-      setQueueNotice('Challenge stakes move in steps of 100 coins.');
+      setQueueNotice('Bets move on the chip ladder: 100, 200, then 500s.', 'warn');
       return;
     }
     if (!challengeValid) {
       setQueueNotice(
-        `A challenge must beat the ${ticketFee.toLocaleString()}-coin entry and stay at or under ${CHALLENGE_MAX_STAKE.toLocaleString()} coins.`,
+        challengeAffordable
+          ? `A challenge must beat the ${ticketFee.toLocaleString()}-coin entry.`
+          : `A challenge runs at most to your whole balance — ${userCoins.toLocaleString()} coins.`,
+        'warn',
       );
       return;
     }
@@ -653,13 +1024,42 @@ function PlayLobbyContent() {
       createdAt: epochMs(),
     };
     boardRef.current.post(challenge);
+    setChallengeTimer(0);
     setMyChallenge(challenge);
+    setQueueNotice(`Challenge posted — ${stake.toLocaleString()} coins on the board.`, 'success');
   };
 
   const handleCancelChallenge = () => {
     sound.playClick();
     boardRef.current?.retract();
     setMyChallenge(null);
+    setQueueNotice('Your challenge is off the board.', 'info');
+  };
+
+  /* Backing out of a Match Found reveal. The entry is only taken by the commit
+     at the end of the countdown, so stopping here costs the wallet nothing —
+     the rival's tab simply loads the arena without us. */
+  const handleCancelReveal = () => {
+    sound.playClick();
+    stopReadyCheck();
+    if (matchCdTimerRef.current) {
+      clearInterval(matchCdTimerRef.current);
+      matchCdTimerRef.current = null;
+    }
+    // Cut the commit loose so a beat already in flight cannot charge or jump.
+    revealRoomRef.current = null;
+    revealCommitRef.current = null;
+    setMatchFoundData(null);
+    setRevealPhase('arming');
+    setReadyPct(0);
+    setMatchedRival(null);
+    setQueueing(false);
+    // A board slot that paired us is not left hanging for a third trader.
+    if (myChallenge) {
+      boardRef.current?.retract();
+      setMyChallenge(null);
+    }
+    setQueueNotice('You stepped off the match before it loaded — no coins charged.', 'info');
   };
 
   const handleAcceptChallenge = (challenge: DuelChallenge) => {
@@ -682,11 +1082,11 @@ function PlayLobbyContent() {
         startChallengeMatch({
           roomCode: generateRoomCode(),
           seed: Math.floor(100000 + Math.random() * 900000),
-          startAt: epochMs() + 8000,
+          startAt: epochMs() + 13000,
           stake: challenge.stake,
           duration: challenge.duration,
           rival: { username: challenge.username, rating: challenge.rating },
-        });
+        }, true);
       }, 1400);
       return;
     }
@@ -712,6 +1112,7 @@ function PlayLobbyContent() {
       },
       onBoard: (live) => setChallenges(withDemoChallenges(live)),
       onMatchFound: startChallengeMatch,
+      onRivalReady: handleRivalReady,
       onError: (err) => console.warn('Challenge board error:', err),
     });
     boardRef.current = handle;
@@ -726,29 +1127,85 @@ function PlayLobbyContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, user?.id, user?.username, user?.rating]);
 
+  // Coarse 15s heartbeat behind the board's elapsed stamps.
+  useEffect(() => {
+    const t = setInterval(() => setBoardNow(Date.now()), 15_000);
+    return () => clearInterval(t);
+  }, []);
+
   // If a host never replies (they closed the tab, or the accept missed them),
   // release the "Waiting…" state so the board stays usable.
   useEffect(() => {
     if (!acceptingId) return;
     const t = setTimeout(() => {
       setAcceptingId(null);
-      setQueueNotice('No answer from that trader yet — try another challenge.');
+      setQueueNotice('No answer from that trader yet — try another challenge.', 'warn');
     }, 20000);
     return () => clearTimeout(t);
   }, [acceptingId]);
 
-  const handleRedeemSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  /* Affiliate: the code is the callsign, so there is nothing to mint here. The
+     desk reads what Postgres already paid — tier, balance, every commission —
+     and moves no coins of its own. Re-read on every open, the mailbox way. */
+  const affiliateUserId = currentUser && !currentUser.isGuest ? currentUser.id : '';
+
+  const loadAffiliate = useCallback(async (playerId: string) => {
+    setAffiliateLoading(true);
+    const [desk, board, names] = await Promise.all([
+      fetchIbDesk(playerId),
+      fetchIbLeaderboard(8),
+      fetchPlayerNames([playerId]),
+    ]);
+    setAffiliateDesk(desk);
+    setAffiliateUnavailable(desk === null);
+    setAffiliateBoard(board ?? []);
+    setAffiliateCode(names[playerId] ?? '');
+    setAffiliateLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (centerTab !== 'affiliate' || !affiliateUserId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadAffiliate(affiliateUserId);
+  }, [centerTab, affiliateUserId, loadAffiliate]);
+
+  // "Copied" is a two-second confirmation, not a thing to remember.
+  useEffect(() => {
+    if (!affiliateCopied) return;
+    const t = setTimeout(() => setAffiliateCopied(false), 2000);
+    return () => clearTimeout(t);
+  }, [affiliateCopied]);
+
+  const copyInviteLink = async () => {
+    const link = buildInviteLink(affiliateCode || (currentUser?.username ?? ''));
+    if (!link) return;
     sound.playClick();
-    const clean = redeemCode.trim().toUpperCase();
-    if (clean === 'PIPDUEL2026' || clean === 'BULLRUN' || clean === 'WELCOME100') {
-      // Credit 1,000 coins to the Supabase-backed wallet
-      addCoins(1000);
-      setRedeemFeedback({ status: 'success', msg: 'Code redeemed. +1,000 coins deposited.' });
-      setRedeemCode('');
-    } else {
-      setRedeemFeedback({ status: 'error', msg: 'Invalid or expired redemption code.' });
+    try {
+      await navigator.clipboard.writeText(link);
+      setAffiliateCopied(true);
+    } catch {
+      setQueueNotice('Your browser blocked the clipboard — select the link and copy it by hand.');
     }
+  };
+
+  /* Empty the desk into the game wallet. The coins cross inside Postgres
+     (one ledger row, kind 'referral'), so the wallet only becomes truthful
+     after a re-sync — then the ordinary withdrawal flow cashes them out. */
+  const transferDeskToWallet = async () => {
+    if (!affiliateUserId || affiliateTransferring) return;
+    sound.playClick();
+    setAffiliateTransferring(true);
+    setAffiliateNotice(null);
+    const moved = await transferIbBalance();
+    if (moved === null) {
+      setAffiliateNotice('The desk is unreachable right now — try again when the database is back.');
+    } else if (moved > 0) {
+      await syncFromSupabase(affiliateUserId);
+      setAffiliateNotice(`${moved.toLocaleString()} coins moved to the wallet. Withdraw them any time from Money.`);
+    }
+    const fresh = await fetchIbDesk(affiliateUserId);
+    if (fresh) setAffiliateDesk(fresh);
+    setAffiliateTransferring(false);
   };
 
   /* ──────────────────────────────────────────────────────────
@@ -792,112 +1249,37 @@ function PlayLobbyContent() {
       <div className="fixed bottom-0 inset-x-0 h-px -z-10 pointer-events-none bg-gradient-to-r from-[var(--term-buy)]/70 via-[var(--term-border)] to-[var(--term-sell)]/70" />
       <div className="fixed bottom-[-18%] left-[-6%] w-[420px] h-[420px] rounded-full bg-[var(--term-sell)]/10 blur-[130px] -z-10 pointer-events-none" />
 
-      {/* ── Match Found Opponent Reveal Modal ── */}
-      {matchFoundData && (() => {
-        const rival = matchFoundData.payload.rival;
-        const rivalTier = getTierBadge(rival.rating);
-        const rivalInitials = rival.username.slice(0, 2).toUpperCase();
-        const dashOffset = 163 - (163 * (5 - matchFoundCountdown)) / 5;
-        return (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--term-canvas)] px-4">
-            {/* no blur, clean dark bg */}
+      {/* ── Announcement strip — the first thing on the page, above the header ── */}
+      <AnnouncementBar />
 
-            {/* Spinning border wrapper */}
-            <div className="relative w-full max-w-lg p-[2px] rounded-xl overflow-hidden">
-              {/* Spinning conic gradient border */}
-              <div className="absolute inset-[-100%] animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_0deg,#089981,#f23645,#089981)] pointer-events-none" />
-
-              {/* Ticket card */}
-              <div className="relative w-full bg-[var(--term-surface)] rounded-[10px] overflow-hidden">
-              <div className="grid grid-cols-1 md:grid-cols-12 relative">
-
-                {/* Left Section col-span-8 */}
-                <div className="md:col-span-8 p-5 space-y-4">
-                  {/* Header */}
-                  <div className="flex items-center justify-between pb-3 border-b border-[var(--term-border)]">
-                    <span className="text-sm font-bold uppercase tracking-wider text-[var(--term-strong)] font-mono">MATCH FOUND</span>
-                    <span className="text-xs font-mono font-medium text-[var(--term-sell)] flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[var(--term-sell)] animate-pulse" />
-                      Opponent Located
-                    </span>
-                  </div>
-
-                  {/* VS row */}
-                  <div className="flex items-center gap-3">
-                    {/* You */}
-                    <div className="flex-1 flex flex-col items-center gap-1.5 p-3 rounded-lg bg-[var(--term-bg)] border border-[var(--term-accent)]/20">
-                      <div className="w-11 h-11 rounded-full overflow-hidden bg-[var(--term-accent)]/20 border-2 border-[var(--term-accent)]/50">
-                        <img
-                          src={currentUser?.avatarUrl || DEFAULT_AVATAR}
-                          alt={currentUser?.username ?? 'You'}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <span className="text-xs font-bold text-[var(--term-strong)] truncate max-w-[80px] text-center">{currentUser?.username ?? 'You'}</span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ color: tier.color, background: tier.color + '15', border: `1px solid ${tier.color}35` }}>{tier.label}</span>
-                      <span className="text-[10px] font-mono text-[var(--term-soft)]">{userRating} ELO</span>
-                    </div>
-                    {/* VS */}
-                    <span className="text-lg font-black text-[var(--term-border-hi)] shrink-0">VS</span>
-                    {/* Rival */}
-                    <div className="flex-1 flex flex-col items-center gap-1.5 p-3 rounded-lg bg-[var(--term-bg)] border border-[var(--term-sell)]/20">
-                      <div className="w-11 h-11 rounded-full bg-[var(--term-sell)]/20 border-2 border-[var(--term-sell)]/50 flex items-center justify-center text-base font-black text-[var(--term-sell)]">
-                        {rivalInitials}
-                      </div>
-                      <span className="text-xs font-bold text-[var(--term-strong)] truncate max-w-[80px] text-center">{rival.username}</span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ color: rivalTier.color, background: rivalTier.color + '15', border: `1px solid ${rivalTier.color}35` }}>{rivalTier.label}</span>
-                      <span className="text-[10px] font-mono text-[var(--term-soft)]">{rival.rating} ELO</span>
-                    </div>
-                  </div>
-
-                  {/* Info strip */}
-                  <div className="p-3 rounded bg-[var(--term-bg)] border border-[var(--term-border)] flex items-center justify-between text-xs font-mono text-[var(--term-label)]">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[var(--term-strong)] font-bold">XAU/USD</span>
-                      <span>·</span>
-                      <span className="text-[var(--term-buy)] font-bold">$10,000 Balance</span>
-                    </div>
-                    <span className="text-[var(--term-text)] font-semibold">{selectedDuration} game</span>
-                  </div>
-                </div>
-
-                {/* Perforated Stub col-span-4 */}
-                <div className="md:col-span-4 p-5 bg-[var(--term-panel-deep)] md:border-l md:border-dashed md:border-[var(--term-border-hi)] flex flex-col items-center justify-center gap-3 relative">
-                  {/* Semicircle notch cutouts */}
-                  <div className="hidden md:block absolute -top-3 -left-3 w-6 h-6 rounded-full bg-[var(--term-bg)] border border-[var(--term-border)] shadow-inner pointer-events-none" />
-                  <div className="hidden md:block absolute -bottom-3 -left-3 w-6 h-6 rounded-full bg-[var(--term-bg)] border border-[var(--term-border)] shadow-inner pointer-events-none" />
-
-                  {/* SVG countdown ring */}
-                  <div className="relative w-16 h-16">
-                    <svg className="w-16 h-16 -rotate-90" viewBox="0 0 56 56">
-                      <circle cx="28" cy="28" r="26" fill="none" stroke="var(--term-border)" strokeWidth="3" />
-                      <circle
-                        cx="28" cy="28" r="26"
-                        fill="none"
-                        stroke={matchFoundCountdown <= 2 ? '#f23645' : '#089981'}
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeDasharray="163"
-                        strokeDashoffset={dashOffset}
-                        style={{ transition: 'stroke-dashoffset 0.9s linear, stroke 0.3s' }}
-                      />
-                    </svg>
-                    <span className="absolute inset-0 flex items-center justify-center text-2xl font-black text-[var(--term-strong)]">
-                      {matchFoundCountdown}
-                    </span>
-                  </div>
-                  <div className="text-center space-y-0.5">
-                    <p className="text-xs font-bold text-[var(--term-strong)] font-mono">Entering Arena</p>
-                    <p className="text-[10px] font-mono text-[var(--term-soft)] tracking-widest">in {matchFoundCountdown}s…</p>
-                  </div>
-                </div>
-
+      {/* ── Alert bars — above the menu bar: one solid gradient stripe per
+          notice, coloured by what happened, white copy centred, cross on the
+          right edge ── */}
+      {alerts.length > 0 && (
+        <div className="relative z-40 space-y-px">
+          {alerts.map((a) => {
+            const { bar, Icon } = ALERT_TONES[a.tone];
+            return (
+              <div
+                key={a.id}
+                role="status"
+                className={`relative flex items-center ${bar} px-11 py-2 text-[11px] font-mono font-bold text-white shadow-md animate-in slide-in-from-top-2 duration-200`}
+              >
+                <Icon size={13} className="absolute left-3 top-1/2 -translate-y-1/2 shrink-0" aria-hidden="true" />
+                <span className="flex-1 text-center leading-snug">{a.text}</span>
+                <button
+                  onClick={() => { sound.playClick(); dismissAlert(a.id); }}
+                  title="Dismiss"
+                  aria-label="Dismiss this alert"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded flex items-center justify-center text-white/75 hover:text-white hover:bg-white/15 transition-colors cursor-pointer"
+                >
+                  <X size={13} />
+                </button>
               </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+            );
+          })}
+        </div>
+      )}
 
       {/* ── Top Terminal Header (Tradovate / TradingView dark theme exact) ── */}
       <header className="h-12 shrink-0 bg-[var(--term-surface)]/80 backdrop-blur-xl border-b border-[var(--term-border)] px-4 flex items-center justify-between text-sm sticky top-0 z-30">
@@ -979,10 +1361,24 @@ function PlayLobbyContent() {
           ══════════════════════════════════════════════════════════ */}
           <div className="lg:col-span-3 space-y-3.5">
 
-            {/* Profile Card with Bright Red-Green Gradient Cover and Zero-Corner Square Avatar */}
+            {/* Profile Card: artwork-blended cover banner, zero-corner square avatar */}
             <div className="bg-[var(--term-surface)]/70 backdrop-blur-md border border-[var(--term-border)] rounded-xl overflow-hidden">
-              {/* Cover Banner: Bright Direct Red to Green Gradient (No Black in Between) */}
+              {/* Cover Banner: the arena artwork laid over the red→green
+                  gradient and multiplied into it, so the image reads as the
+                  banner's own surface instead of a pasted rectangle. The mask
+                  fades it out along the bottom edge into the card body. */}
               <div className="relative h-20 w-full overflow-hidden bg-gradient-to-r from-[var(--term-sell-2)] via-[var(--term-sell)] to-[var(--term-buy-bright)]">
+                <div
+                  className="absolute inset-0 bg-cover bg-center mix-blend-multiply opacity-40"
+                  style={{
+                    backgroundImage: "url('/lobby-arena-bg.jpg')",
+                    WebkitMaskImage:
+                      'linear-gradient(to bottom, #000 55%, rgba(0,0,0,0.6) 80%, transparent 100%)',
+                    maskImage:
+                      'linear-gradient(to bottom, #000 55%, rgba(0,0,0,0.6) 80%, transparent 100%)',
+                  }}
+                  aria-hidden="true"
+                />
                 <span className="absolute top-2 right-2 text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--term-bg)]/80 backdrop-blur-sm border border-[var(--term-border)] text-[var(--term-strong)] font-bold">
                   PRO SCALE
                 </span>
@@ -1026,33 +1422,11 @@ function PlayLobbyContent() {
                     {currentUser?.displayName || 'Trader'}
                   </h3>
                   <p className="text-xs font-mono text-[var(--term-soft)] mt-0.5">
-                    Lv. {progressReady ? level.level : '—'} · {progressReady ? rankPositionValue.tierLabel : 'Unranked'} · {progressWinRate}% Win Rate
+                    {progressWinRate}% Win Rate
                   </p>
                   {progressTitle && (
                     <p className="text-[10px] font-mono text-[var(--term-amber)] mt-0.5 truncate">“{progressTitle}”</p>
                   )}
-                </div>
-
-                {/* XP Bar — fed by the progress system */}
-                <div className="space-y-1.5 pt-2 border-t border-[var(--term-border)]">
-                  <div className="flex justify-between text-xs font-mono text-[var(--term-soft)]">
-                    <span>XP Progress</span>
-                    <span className="text-[var(--term-label)] font-semibold">
-                      {progressReady ? `${level.intoLevel.toLocaleString()} / ${level.needed.toLocaleString()}` : '0 / 100'}
-                    </span>
-                  </div>
-                  <div className="w-full h-2 rounded-full bg-[var(--term-raised)] overflow-hidden">
-                    <div className="h-full rounded-full bg-[var(--term-accent)] transition-all duration-500" style={{ width: `${progressReady ? level.percent : 0}%` }} />
-                  </div>
-                  <button
-                    onClick={() => { sound.playClick(); setCenterTab('progress'); }}
-                    className="w-full flex items-center justify-between text-[10px] font-mono text-[var(--term-muted)] hover:text-[var(--term-strong)] transition-colors cursor-pointer pt-0.5"
-                  >
-                    <span className="flex items-center gap-1" style={{ color: progressReady ? rankPositionValue.color : 'var(--term-soft)' }}>
-                      <Shield size={10} /> {progressReady ? `${progressRank.rp.toLocaleString()} RP` : 'Placement pending'}
-                    </span>
-                    <span>View progress ›</span>
-                  </button>
                 </div>
 
                 {progressPinned.length > 0 && (
@@ -1070,7 +1444,7 @@ function PlayLobbyContent() {
             {/* Friends Card: add by username, requests, presence, duel invites */}
             <FriendsPanel user={currentUser} inviteCode={friendsInviteCode} />
 
-            {/* Vertical Action Buttons: [ Settings ] [ Mail ] [ Redeem ] [ Support ] */}
+            {/* Vertical Action Buttons: [ Settings ] [ Mail ] [ Affiliate ] [ Support ] */}
             <div className="space-y-2">
               <button
                 onClick={() => {
@@ -1118,19 +1492,19 @@ function PlayLobbyContent() {
               <button
                 onClick={() => {
                   sound.playClick();
-                  setCenterTab('redeem');
+                  setCenterTab('affiliate');
                 }}
                 className={`w-full h-10 px-3.5 rounded backdrop-blur-sm border text-sm font-semibold flex items-center justify-between transition-all cursor-pointer ${
-                  centerTab === 'redeem'
+                  centerTab === 'affiliate'
                     ? 'bg-[var(--term-raised)] border-[var(--term-primary)] text-[var(--term-strong)]'
                     : 'bg-[var(--term-surface)]/70 hover:bg-[var(--term-raised)] border-[var(--term-border)] hover:border-[var(--term-border-hi)] text-[var(--term-text)]'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <Gift size={16} className={centerTab === 'redeem' ? 'text-[var(--term-primary)]' : 'text-[var(--term-muted)]'} />
-                  <span>Redeem</span>
+                  <Share2 size={16} className={centerTab === 'affiliate' ? 'text-[var(--term-primary)]' : 'text-[var(--term-muted)]'} />
+                  <span>Affiliate</span>
                 </div>
-                <span className="text-xs font-mono font-bold text-[var(--term-primary)]">CODE</span>
+                <span className="text-xs font-mono font-bold text-[var(--term-primary)]">REF</span>
               </button>
 
               <button
@@ -1155,14 +1529,14 @@ function PlayLobbyContent() {
           </div>
 
           {/* ══════════════════════════════════════════════════════════
-              CENTER COLUMN: [ Match Ticket ] [ Progress ]
+              CENTER COLUMN: [ Battle ] [ Stats ]
                              MATCH TICKET (Perforated Pass)
                              — or, opened from the wallet card:
                              [ Deposit ] [ Withdraw ]
           ══════════════════════════════════════════════════════════ */}
           <div className="lg:col-span-6 space-y-3.5">
 
-            {/* Top Navigation Tabs: [ Match Ticket ] [ Progress ] — always
+            {/* Top Navigation Tabs: [ Battle ] [ Stats ] — always
                 present, so opening the wallet never hides the arena's own tabs */}
             <div className="grid grid-cols-2 gap-2.5">
               <button
@@ -1177,28 +1551,22 @@ function PlayLobbyContent() {
                 }`}
               >
                 <Ticket size={16} className={centerTab === 'ticket' ? 'text-[var(--term-primary)]' : 'text-[var(--term-muted)]'} />
-                <span className="truncate">Match Ticket</span>
+                <span className="truncate">Battle</span>
               </button>
 
               <button
                 onClick={() => {
                   sound.playClick();
-                  setCenterTab('progress');
+                  setCenterTab('stats');
                 }}
-                className={`h-10 rounded backdrop-blur-sm border text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer relative ${
-                  centerTab === 'progress'
+                className={`h-10 rounded backdrop-blur-sm border text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  centerTab === 'stats'
                     ? 'bg-[var(--term-raised)] border-[var(--term-primary)] text-[var(--term-strong)]'
                     : 'bg-[var(--term-surface)]/70 border-[var(--term-border)] hover:border-[var(--term-border-hi)] text-[var(--term-text)] hover:text-[var(--term-strong)]'
                 }`}
               >
-                <Trophy size={16} className={centerTab === 'progress' ? 'text-[var(--term-primary)]' : 'text-[var(--term-muted)]'} />
-                <span>Progress</span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--term-bg)] border border-[var(--term-border)] text-[var(--term-soft)]">
-                  Lv. {progressReady ? level.level : '—'}
-                </span>
-                {claimableMissions > 0 && (
-                  <span className="w-2 h-2 rounded-full bg-[var(--term-buy)] absolute top-2 right-2.5 animate-pulse" />
-                )}
+                <BarChart3 size={16} className={centerTab === 'stats' ? 'text-[var(--term-primary)]' : 'text-[var(--term-muted)]'} />
+                <span>Stats</span>
               </button>
             </div>
 
@@ -1242,8 +1610,164 @@ function PlayLobbyContent() {
               </div>
             )}
 
-            {/* ── TAB CONTENT: MATCH TICKET ── */}
-            {centerTab === 'ticket' && (
+            {/* ── TAB CONTENT: MATCH TICKET ──
+                A found match does not open a page of its own: the MATCH FOUND
+                reveal takes the ticket slot, in the place the player is already
+                looking at, and the arena opens from there. */}
+            {centerTab === 'ticket' && matchFoundData && (() => {
+              const rival = matchFoundData.payload.rival;
+              const rivalTier = getTierBadge(rival.rating);
+              const rivalInitials = rival.username.slice(0, 2).toUpperCase();
+              const dashOffset = 163 - (163 * (5 - matchFoundCountdown)) / 5;
+              return (
+                <div id="match-ticket-card" className="relative p-[2px] rounded-xl overflow-hidden animate-in fade-in duration-200">
+                  {/* Spinning conic border — the same halo as the Find Match button */}
+                  <div className="absolute inset-[-100%] animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_0deg,#089981,#f23645,#089981)] pointer-events-none" />
+
+                  <div className="relative bg-[var(--term-surface)]/95 backdrop-blur-md rounded-[10px] overflow-hidden">
+                    <div className="grid grid-cols-1 md:grid-cols-12 relative">
+                      {/* Left: who the duel is against */}
+                      <div className="md:col-span-8 p-4 space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-[var(--term-border)]">
+                          <span className="text-sm font-bold uppercase tracking-wider text-[var(--term-strong)] font-mono">
+                            MATCH FOUND
+                          </span>
+                          <span className="text-xs font-mono font-medium text-[var(--term-sell)] flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-[var(--term-sell)] animate-pulse" />
+                            {revealPhase === 'arming' ? 'Verifying Opponent' : 'Arena Opening'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          {/* You */}
+                          <div className="flex-1 flex flex-col items-center gap-1.5 p-3 rounded-lg bg-[var(--term-bg)] border border-[var(--term-accent)]/20">
+                            <div className="w-11 h-11 rounded-full overflow-hidden bg-[var(--term-accent)]/20 border-2 border-[var(--term-accent)]/50">
+                              <img
+                                src={currentUser?.avatarUrl || DEFAULT_AVATAR}
+                                alt={currentUser?.username ?? 'You'}
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                            <span className="text-xs font-bold text-[var(--term-strong)] truncate max-w-[80px] text-center">{currentUser?.username ?? 'You'}</span>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ color: tier.color, background: tier.color + '15', border: `1px solid ${tier.color}35` }}>{tier.label}</span>
+                            <span className="text-[10px] font-mono text-[var(--term-soft)]">{userRating} ELO</span>
+                          </div>
+                          {/* VS */}
+                          <span className="text-lg font-black text-[var(--term-border-hi)] shrink-0">VS</span>
+                          {/* Rival */}
+                          <div className="flex-1 flex flex-col items-center gap-1.5 p-3 rounded-lg bg-[var(--term-bg)] border border-[var(--term-sell)]/20">
+                            <div className="w-11 h-11 rounded-full bg-[var(--term-sell)]/20 border-2 border-[var(--term-sell)]/50 flex items-center justify-center text-base font-black text-[var(--term-sell)]">
+                              {rivalInitials}
+                            </div>
+                            <span className="text-xs font-bold text-[var(--term-strong)] truncate max-w-[80px] text-center">{rival.username}</span>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ color: rivalTier.color, background: rivalTier.color + '15', border: `1px solid ${rivalTier.color}35` }}>{rivalTier.label}</span>
+                            <span className="text-[10px] font-mono text-[var(--term-soft)]">{rival.rating} ELO</span>
+                          </div>
+                        </div>
+
+                        <div className="p-2.5 rounded bg-[var(--term-bg)] border border-[var(--term-border)] flex items-center justify-between text-xs font-mono text-[var(--term-label)]">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[var(--term-strong)] font-bold">XAU/USD</span>
+                            <span>·</span>
+                            <span className="text-[var(--term-buy)] font-bold">$10,000 Balance</span>
+                          </div>
+                          <span className="text-[var(--term-text)] font-semibold">{selectedDuration} game</span>
+                        </div>
+
+                        {/* Ready check bar: beat one crawls while the rival's tab is
+                            asked to arm, beat two sits full while both terminals load. */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider">
+                            <span className="text-[var(--term-label)]">
+                              {revealPhase === 'arming' ? 'Opponent ready check' : 'Both sides armed'}
+                            </span>
+                            <span className="text-[var(--term-strong)]">{readyPct}%</span>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded bg-[var(--term-bg)] border border-[var(--term-border)]">
+                            <div
+                              className={`h-full transition-[width] duration-150 ease-out ${revealPhase === 'arming' ? 'bg-[var(--term-accent)]' : 'bg-[var(--term-buy)]'}`}
+                              style={{ width: `${readyPct}%` }}
+                            />
+                          </div>
+                          <p className="text-[10px] font-mono text-[var(--term-soft)]">
+                            {revealPhase === 'arming'
+                              ? readyPct >= READY_BAR_HOLD_PCT
+                                ? `Waiting on ${rival.username}'s tab to arm…`
+                                : 'Asking the rival tab to load the match…'
+                              : `Loading terminals on both sides — arena opens in ${matchFoundCountdown}s.`}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Stub: the ready check spins, the terminal beat counts down */}
+                      <div className="md:col-span-4 p-4 bg-[var(--term-panel-deep)] md:border-l md:border-dashed md:border-[var(--term-border-hi)] flex flex-col items-center justify-center gap-3 relative">
+                        <div className="hidden md:block absolute -top-3 -left-3 w-6 h-6 rounded-full bg-[var(--term-bg)] border border-[var(--term-border)] shadow-inner pointer-events-none" />
+                        <div className="hidden md:block absolute -bottom-3 -left-3 w-6 h-6 rounded-full bg-[var(--term-bg)] border border-[var(--term-border)] shadow-inner pointer-events-none" />
+
+                        {revealPhase === 'arming' ? (
+                          <>
+                            <div className="relative w-16 h-16">
+                              <svg className="w-16 h-16 animate-spin" viewBox="0 0 56 56">
+                                <circle cx="28" cy="28" r="26" fill="none" stroke="var(--term-border)" strokeWidth="3" />
+                                <circle
+                                  cx="28" cy="28" r="26"
+                                  fill="none"
+                                  stroke="#089981"
+                                  strokeWidth="3"
+                                  strokeLinecap="round"
+                                  strokeDasharray="42 121"
+                                />
+                              </svg>
+                            </div>
+                            <div className="text-center space-y-0.5">
+                              <p className="text-xs font-bold text-[var(--term-strong)] font-mono">Checking Rival</p>
+                              <p className="text-[10px] font-mono text-[var(--term-soft)] tracking-widest">holding for reply</p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="relative w-16 h-16">
+                              <svg className="w-16 h-16 -rotate-90" viewBox="0 0 56 56">
+                                <circle cx="28" cy="28" r="26" fill="none" stroke="var(--term-border)" strokeWidth="3" />
+                                <circle
+                                  cx="28" cy="28" r="26"
+                                  fill="none"
+                                  stroke={matchFoundCountdown <= 2 ? '#f23645' : '#089981'}
+                                  strokeWidth="3"
+                                  strokeLinecap="round"
+                                  strokeDasharray="163"
+                                  strokeDashoffset={dashOffset}
+                                  style={{ transition: 'stroke-dashoffset 0.9s linear, stroke 0.3s' }}
+                                />
+                              </svg>
+                              <span className="absolute inset-0 flex items-center justify-center text-2xl font-black text-[var(--term-strong)]">
+                                {matchFoundCountdown}
+                              </span>
+                            </div>
+                            <div className="text-center space-y-0.5">
+                              <p className="text-xs font-bold text-[var(--term-strong)] font-mono">Loading Terminals</p>
+                              <p className="text-[10px] font-mono text-[var(--term-soft)] tracking-widest">both sides · {matchFoundCountdown}s</p>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Way out: both beats happen before the charge, so the
+                            ticket always offers a retreat. */}
+                        <button
+                          onClick={handleCancelReveal}
+                          className="text-[10px] font-mono font-bold uppercase tracking-widest text-[var(--term-sell)] hover:underline cursor-pointer"
+                          title="Step off before the arena opens — nothing is charged yet"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {centerTab === 'ticket' && !matchFoundData && (
               <div id="match-ticket-card" className="bg-[var(--term-surface)]/70 backdrop-blur-md border border-[var(--term-border)] rounded-xl overflow-hidden relative animate-in fade-in duration-200">
                 <div className="grid grid-cols-1 md:grid-cols-12 relative">
 
@@ -1347,37 +1871,17 @@ function PlayLobbyContent() {
                         })}
                       </div>
 
-                      {/* What the chosen mode costs, before the player commits */}
-                      {mode === 'live' ? (
-                        isChallengeMode ? (
-                          <div className="rounded border border-[var(--term-amber)]/40 bg-[var(--term-amber)]/10 px-3 py-2 space-y-1">
-                            {!challengeAffordable && (
-                              <p className="text-[10px] font-mono text-[var(--term-sell)]">
-                                Wallet holds {userCoins.toLocaleString()} · lower the stake or deposit.
-                              </p>
-                            )}
-                            {challengeAffordable && (
-                              <p className="text-[10px] font-mono text-[var(--term-soft)]">
-                                Searching for a rival at this stake — we pair you automatically if someone is already waiting.
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          !canAffordEntry && (
-                            <p className="text-[10px] font-mono text-[var(--term-sell)]">
-                              ▸ Live entry is {entryFee.toLocaleString()} coins · you hold {userCoins.toLocaleString()}. Deposit below or drop to Demo.
-                            </p>
-                          )
-                        )
-                      ) : (
+                      {/* The live ticket stays quiet — no stake warnings, no
+                          matching notice. Only Demo gets a one-line explanation. */}
+                      {mode !== 'live' && (
                         <p className="text-[11px] font-mono text-[var(--term-soft)]">
                           No coins at risk. Demo pays XP only — no rank RP and no pot.
                         </p>
                       )}
                     </div>
 
-                    {/* STAKE: the default Live entry, or a bigger challenge in
-                        steps of 100 — past the entry the button turns into a post */}
+                    {/* STAKE: the default Live entry, or a bigger challenge on
+                        the chip ladder — past the entry the button turns into a post */}
                     {mode === 'live' && (
                       <div className="space-y-2.5">
                         <label className="flex items-center gap-1.5 text-xs font-bold text-[var(--term-label)] uppercase tracking-wider font-mono leading-none">
@@ -1388,9 +1892,9 @@ function PlayLobbyContent() {
                           <button
                             type="button"
                             disabled={myChallenge !== null}
-                            onClick={() => { sound.playClick(); setStakeInput(String(clampStake((Number.isFinite(ticketStake) ? ticketStake : ticketFee) - 100))); }}
+                            onClick={() => { sound.playClick(); const cur = Number.isFinite(ticketStake) ? ticketStake : ticketFee; setStakeInput(String(cur <= minChallengeStake ? ticketFee : clampStake(prevStakeChip(cur)))); }}
                             className="w-10 shrink-0 rounded bg-[var(--term-raised)] border border-[var(--term-border)] text-[var(--term-strong)] text-lg font-bold hover:bg-[var(--term-raised-hi)] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                            aria-label="Decrease stake by 100"
+                            aria-label="One chip lower"
                           >
                             −
                           </button>
@@ -1400,23 +1904,21 @@ function PlayLobbyContent() {
                             value={stakeInput}
                             disabled={myChallenge !== null}
                             onChange={(e) => setStakeInput(e.target.value.replace(/[^0-9]/g, ''))}
-                            onBlur={() => setStakeInput(String(clampStake(Number(stakeInput) || ticketFee)))}
+                            onBlur={() => { const raw = Number(stakeInput); setStakeInput(String(raw > ticketFee ? clampStake(raw) : Math.min(Math.max(raw || ticketFee, ticketFee), maxChipForBalance))); }}
                             className="flex-1 h-9 min-w-0 bg-[var(--term-bg)] border border-[var(--term-border)] focus:border-[var(--term-primary)] rounded px-3 text-center text-base font-mono font-bold text-[var(--term-strong)] focus:outline-none disabled:opacity-60"
                           />
                           <button
                             type="button"
                             disabled={myChallenge !== null}
-                            onClick={() => { sound.playClick(); setStakeInput(String(clampStake((Number.isFinite(ticketStake) ? ticketStake : ticketFee) + 100))); }}
+                            onClick={() => { sound.playClick(); const cur = Number.isFinite(ticketStake) ? ticketStake : ticketFee; setStakeInput(String(cur < minChallengeStake ? minChallengeStake : clampStake(nextStakeChip(cur)))); }}
                             className="w-10 shrink-0 rounded bg-[var(--term-raised)] border border-[var(--term-border)] text-[var(--term-strong)] text-lg font-bold hover:bg-[var(--term-raised-hi)] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                            aria-label="Increase stake by 100"
+                            aria-label="One chip higher"
                           >
                             +
                           </button>
                         </div>
-                        <p className={`text-[10px] font-mono ${isChallengeMode ? 'text-[var(--term-amber)]' : 'text-[var(--term-soft)]'}`}>
-                          {isChallengeMode
-                            ? `Above the ${ticketFee.toLocaleString()}-coin entry — the button posts a challenge instead of instant matching.`
-                            : `Default is ${ticketFee.toLocaleString()} coins. Raise it in steps of 100 to challenge for a bigger stake.`}
+                        <p className="text-[10px] font-mono text-[var(--term-soft)]">
+                          Default is {ticketFee.toLocaleString()} coins. Bets come in chips — 100, 200, then jumps of 500.
                         </p>
                       </div>
                     )}
@@ -1458,10 +1960,12 @@ function PlayLobbyContent() {
                     <div className="hidden md:block absolute -bottom-3 -left-3 w-6 h-6 rounded-full bg-[var(--term-bg)] border border-[var(--term-border)] shadow-inner pointer-events-none" />
 
                     <div className="relative z-10 space-y-3 my-auto">
-                      {/* Primary Button: [ Find Match ] / [ Matching... 00:08 ] with spinning border */}
+                      {/* Primary Button: [ Find Match ] / [ Matching... 00:08 ] with spinning border.
+                          Always wears the arena purple — posted challenges read apart from a plain
+                          search through the board row, not a colour change on this button. */}
                       <div className="relative p-[2px] rounded-xl overflow-hidden group">
                         {/* Spinning border background */}
-                        <div className="absolute inset-[-100%] animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_0deg,var(--term-primary-deep),var(--term-primary),var(--term-primary-hi))] pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity" />
+                        <div className="absolute inset-[-100%] animate-[spin_3s_linear_infinite] pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity bg-[conic-gradient(from_0deg,var(--term-primary-deep),var(--term-primary),var(--term-primary-hi))]" />
                         
                         <button
                           id="find-match-btn"
@@ -1476,7 +1980,6 @@ function PlayLobbyContent() {
                             if (queueing) {
                               sound.playClick();
                               setQueueing(false);
-                              setQueueStatus('searching');
                               setMatchedRival(null);
                               setQueueTimer(0);
                               return;
@@ -1500,29 +2003,19 @@ function PlayLobbyContent() {
                             }
                             handleFindMatch();
                           }}
-                          className="relative z-10 w-full h-12 text-white font-bold text-base rounded-[10px] flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed bg-[linear-gradient(135deg,var(--term-primary)_0%,var(--term-primary-deep)_100%)] hover:bg-[linear-gradient(135deg,var(--term-primary-hi)_0%,var(--term-primary)_100%)] cursor-pointer"
+                          className="relative z-10 w-full h-12 font-bold text-base rounded-[10px] flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent cursor-pointer text-white bg-[linear-gradient(135deg,var(--term-primary)_0%,var(--term-primary-deep)_100%)] hover:bg-[linear-gradient(135deg,var(--term-primary-hi)_0%,var(--term-primary)_100%)]"
                         >
                           {myChallenge || queueing ? (
                             <div className="flex flex-col items-center gap-0.5">
                               <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-[var(--term-buy)] animate-ping shrink-0" />
-                                <span className="tracking-wide font-bold">
-                                  {queueing && queueStatus === 'matched' ? 'Rival Matched!' : 'Matching…'}
-                                </span>
+                                <span className="w-2 h-2 rounded-full animate-ping shrink-0 bg-[var(--term-buy)]" />
+                                <span className="tracking-wide font-bold">Matching…</span>
                               </div>
-                              {myChallenge ? (
-                                <span className="text-[10px] font-mono text-white/60 tracking-widest">
-                                  {myChallenge.stake.toLocaleString()}-coin match · tap to cancel
-                                </span>
-                              ) : queueStatus !== 'matched' ? (
-                                <span className="text-[10px] font-mono text-white/60 tracking-widest">
-                                  {queueTimer < 60
-                                    ? `00:${queueTimer.toString().padStart(2, '0')}`
-                                    : queueTimer % 60 === 0
-                                      ? `${Math.floor(queueTimer / 60)} min`
-                                      : `${Math.floor(queueTimer / 60)}m ${(queueTimer % 60).toString().padStart(2, '0')}s`}
-                                </span>
-                              ) : null}
+                              {/* Only the wait, never the stake or the cancel hint:
+                                  cancelling lives on the row below the button. */}
+                              <span className="text-[10px] font-mono tracking-widest text-white/60">
+                                {formatWait(myChallenge ? challengeTimer : queueTimer)}
+                              </span>
                             </div>
                           ) : (
                             <>
@@ -1538,13 +2031,6 @@ function PlayLobbyContent() {
                         </button>
                       </div>
 
-                      {queueNotice && (
-                        <p className="flex items-start gap-1.5 rounded border border-[var(--term-sell)]/30 bg-[var(--term-sell-dim)] px-2.5 py-2 text-[10px] font-mono text-[var(--term-sell)]">
-                          <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-                          {queueNotice}
-                        </p>
-                      )}
-
                       <div className="flex items-center justify-between text-xs font-mono text-[var(--term-soft)]">
                         <span>{myChallenge ? `${onlineCount} traders online` : queueing ? `${activeQueueCount} in queue pool` : `About 8s wait · ${activeQueueCount} in queue`}</span>
                         {(queueing || myChallenge) && (
@@ -1556,7 +2042,6 @@ function PlayLobbyContent() {
                                 return;
                               }
                               setQueueing(false);
-                              setQueueStatus('searching');
                               setMatchedRival(null);
                               setQueueTimer(0);
                             }}
@@ -1652,7 +2137,8 @@ function PlayLobbyContent() {
               </a>
             )}
 
-            {/* Recent duels — the same record the archive page reads, newest first. */}
+            {/* Recent duels — the same record the archive page reads, newest
+                first, expanding downward inside the lobby. */}
             {centerTab === 'ticket' && (
               <div className="bg-[var(--term-surface)]/70 backdrop-blur-md border border-[var(--term-border)] overflow-hidden">
                 <div className="flex items-center justify-between border-b border-[var(--term-border)] px-4 py-2.5">
@@ -1660,12 +2146,9 @@ function PlayLobbyContent() {
                     Match History
                   </span>
                   {history.length > 0 && (
-                    <Link
-                      href="/history"
-                      className="text-[10px] font-bold uppercase tracking-wider text-[var(--term-accent)] hover:text-[var(--term-strong)] transition-colors"
-                    >
-                      View all →
-                    </Link>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--term-accent)] font-mono">
+                      {history.length} duels
+                    </span>
                   )}
                 </div>
 
@@ -1686,7 +2169,7 @@ function PlayLobbyContent() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[var(--term-border)]">
-                        {history.slice(0, 5).map((item) => (
+                        {historySlice.map((item) => (
                           <tr key={item.id} className="hover:bg-[var(--term-raised)]/50 transition-colors">
                             <td className="px-4 py-2">
                               <span
@@ -1724,11 +2207,44 @@ function PlayLobbyContent() {
                     </table>
                   </div>
                 )}
+
+                {/* Pager — stays inside the card, so reading the archive never
+                    means leaving the lobby. */}
+                {history.length > HISTORY_PAGE_SIZE && (
+                  <div className="flex items-center justify-between gap-2 border-t border-[var(--term-border)] px-4 py-2 text-[10px] font-mono uppercase tracking-wide text-[var(--term-muted)]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        setHistoryPage((page) => Math.max(0, page - 1));
+                      }}
+                      disabled={historyWindowStart === 0}
+                      className="px-2 py-0.5 rounded border border-[var(--term-border-hi)] text-[var(--term-soft)] hover:text-[var(--term-strong)] hover:border-[var(--term-primary)]/50 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      ‹ Prev
+                    </button>
+                    <span className="tabular-nums">
+                      {historyWindowStart + 1}–{historyWindowStart + historySlice.length} of {history.length}
+                      <span className="ml-1.5 text-[var(--term-dim)]">· p {Math.min(historyPage, historyPages - 1) + 1}/{historyPages}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        setHistoryPage((page) => Math.min(historyPages - 1, page + 1));
+                      }}
+                      disabled={historyWindowStart + historySlice.length >= history.length}
+                      className="px-2 py-0.5 rounded border border-[var(--term-border-hi)] text-[var(--term-soft)] hover:text-[var(--term-strong)] hover:border-[var(--term-primary)]/50 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Next ›
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* ── TAB CONTENT: PROGRESS (header + Rank / Missions / Achievements / Leaderboard / Stats) ── */}
-            {centerTab === 'progress' && <ProgressPanel />}
+            {/* ── TAB CONTENT: STATS ── */}
+            {centerTab === 'stats' && <StatsPanel />}
 
             {/* ── TAB CONTENT: SETTINGS ── */}
             {centerTab === 'settings' && (
@@ -1813,8 +2329,8 @@ function PlayLobbyContent() {
                   </button>
                 </div>
 
-                {/* Compact strip: mailbox counters */}
-                <div className="flex items-center gap-2 px-4 py-1.5 border-y border-[var(--term-border)] bg-[var(--term-panel-deep)]/70 text-[10px] font-mono uppercase tracking-wide text-[var(--term-muted)]">
+                {/* Compact strip: mailbox counters + one-click cleanup */}
+                <div className="flex items-center justify-between gap-2 px-4 py-1.5 border-y border-[var(--term-border)] bg-[var(--term-panel-deep)]/70 text-[10px] font-mono uppercase tracking-wide text-[var(--term-muted)]">
                   <span className="truncate">
                     Inbox ·{' '}
                     <span className={unreadMailCount > 0 ? 'text-[var(--term-accent)] font-bold' : ''}>
@@ -1822,10 +2338,28 @@ function PlayLobbyContent() {
                     </span>{' '}
                     / {mailItems.length}
                   </span>
+                  {staleMailIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearStaleMails}
+                      disabled={mailClearing}
+                      className="shrink-0 px-2 py-0.5 rounded border border-[var(--term-border-hi)] text-[var(--term-soft)] hover:text-[var(--term-strong)] hover:border-[var(--term-sell)]/50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {mailClearing
+                        ? 'Clearing…'
+                        : `Delete ${staleMailIds.length} older than ${MAIL_STALE_DAYS} days`}
+                    </button>
+                  )}
                 </div>
 
-                {/* Gmail-style compact rows: click a row to collapse it open */}
-                <div className="max-h-[380px] overflow-y-auto divide-y divide-[var(--term-border)]/60">
+                {/* Gmail-style compact rows: click a row to collapse it open.
+                    The list stretches to the bottom of the screen, so a row is
+                    never cut in half — the cap is measured, not hard coded. */}
+                <div
+                  ref={mailListRef}
+                  style={mailListMaxH ? { maxHeight: `${mailListMaxH}px` } : undefined}
+                  className="overflow-y-auto divide-y divide-[var(--term-border)]/60"
+                >
                   {mailItems.map((item) => {
                     const coins = item.coins ?? 0;
                     const hasCoins = coins > 0;
@@ -1936,58 +2470,281 @@ function PlayLobbyContent() {
               </div>
             )}
 
-            {/* ── TAB CONTENT: REDEEM ── */}
-            {centerTab === 'redeem' && (
-              <div className="bg-[var(--term-surface)]/70 backdrop-blur-md border border-[var(--term-border)] rounded-xl p-5 space-y-4 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between pb-3 border-b border-[var(--term-border)]">
-                  <div className="flex items-center gap-2">
-                    <Gift size={18} className="text-[var(--term-primary)]" />
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--term-strong)] font-mono">
-                      Redeem Promotional Voucher
-                    </h3>
+            {/* ── TAB CONTENT: AFFILIATE ── */}
+            {centerTab === 'affiliate' && (() => {
+              // The code is the callsign the database holds, not the one typed
+              // at signup — a clashing name got a suffix, and only the stored
+              // spelling resolves an invite link.
+              const code = affiliateCode
+                || (currentUser && !currentUser.isGuest ? currentUser.username : '');
+              const link = buildInviteLink(code);
+              const desk = affiliateDesk;
+              const tier = desk?.tier ?? null;
+              const cfg = desk?.config;
+              const nextTier = tier
+                ? desk?.tiers.find((t) => t.active && t.level === tier.nextLevel) ?? null
+                : null;
+
+              return (
+              <div className="bg-[var(--term-surface)]/70 backdrop-blur-md border border-[var(--term-border)] rounded-xl p-4 space-y-4 animate-in fade-in duration-200">
+                {/* Header */}
+                <div className="flex items-center justify-between gap-3 pb-2.5 border-b border-[var(--term-border)]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Share2 size={16} className="text-[var(--term-primary)] shrink-0" />
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--term-strong)] font-mono truncate">IB Affiliate Desk</h3>
                   </div>
                   <button
                     onClick={() => setCenterTab('ticket')}
-                    className="text-xs font-mono text-[var(--term-muted)] hover:text-[var(--term-strong)] flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-mono text-[var(--term-muted)] hover:text-[var(--term-strong)] flex items-center gap-1 cursor-pointer shrink-0"
                   >
                     ✕ Close
                   </button>
                 </div>
 
-                <form onSubmit={handleRedeemSubmit} className="space-y-3.5 px-2 pt-1 text-xs">
-                  <div className="space-y-2.5">
-                    <label className="block text-xs font-bold font-mono text-[var(--term-label)] uppercase leading-4">Enter Promo Code</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={redeemCode}
-                        onChange={(e) => setRedeemCode(e.target.value)}
-                        placeholder="e.g. PIPDUEL2026 or BULLRUN"
-                        className="flex-1 h-10 px-3 bg-[var(--term-bg)] border border-[var(--term-border)] focus:border-[var(--term-primary)] rounded-lg font-mono uppercase text-sm text-[var(--term-strong)] placeholder:text-[var(--term-muted)] focus:outline-none"
-                      />
-                      <button
-                        type="submit"
-                        className="px-5 h-10 rounded-lg text-white font-bold text-xs cursor-pointer transition-all shadow-sm bg-gradient-to-br from-[var(--term-primary)] via-[var(--term-primary)] to-[var(--term-primary-deep)] border border-[var(--term-primary)]/50 hover:brightness-110"
-                      >
-                        Redeem Code
-                      </button>
-                    </div>
-                  </div>
-
-                  {redeemFeedback.msg && (
-                    <div
-                      className={`p-3 rounded-lg border text-xs font-mono ${
-                        redeemFeedback.status === 'success'
-                          ? 'bg-[var(--term-buy)]/15 border-[var(--term-buy)]/40 text-[var(--term-buy)]'
-                          : 'bg-[var(--term-sell)]/15 border-[var(--term-sell)]/40 text-[var(--term-sell)]'
-                      }`}
+                {!mounted ? null : !currentUser || currentUser.isGuest ? (
+                  <div className="space-y-2 rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-3">
+                    <p className="text-[11px] font-mono leading-relaxed text-[var(--term-label)]">
+                      An invite link is tied to a callsign, and a guest session has no database row
+                      to pay. Register and the code becomes your username.
+                    </p>
+                    <Link
+                      href="/register"
+                      className="inline-flex items-center gap-1.5 text-[11px] font-mono font-bold text-[var(--term-primary)] hover:text-[var(--term-strong)] cursor-pointer"
                     >
-                      {redeemFeedback.msg}
+                      Create an account <ArrowLeft size={12} className="rotate-180" />
+                    </Link>
+                  </div>
+                ) : affiliateLoading && !desk ? (
+                  <p className="rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-6 text-center text-[11px] font-mono text-[var(--term-muted)]">
+                    Opening your desk…
+                  </p>
+                ) : affiliateUnavailable && !desk ? (
+                  <div className="rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-6 text-center text-[11px] font-mono leading-relaxed text-[var(--term-muted)]">
+                    The affiliate desk is unreadable right now — run supabase/setup.sql so the
+                    IB tables exist, then reopen this tab.
+                  </div>
+                ) : (
+                  <>
+                    {/* Desk counters */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {[
+                        { label: 'Desk balance', value: desk ? desk.balance.toLocaleString() : '—', color: 'text-[var(--term-amber)]' },
+                        { label: 'Lifetime earned', value: desk ? desk.lifetime.toLocaleString() : '—', color: 'text-[var(--term-buy)]' },
+                        { label: 'Funded team', value: tier ? tier.funded.toLocaleString() : '—', color: 'text-[var(--term-accent-text)]' },
+                        { label: 'Your rate', value: tier ? `${tier.ratePer100} / 100` : '—', color: 'text-[var(--term-strong)]' },
+                      ].map((s) => (
+                        <div key={s.label} className="rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-2">
+                          <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-muted)]">{s.label}</p>
+                          <p className={`text-base font-mono font-bold leading-6 ${s.color}`}>{s.value}</p>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </form>
+
+                    {/* Current rung and the climb to the next one */}
+                    {tier && (
+                      <div className="rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-2.5 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-mono font-bold text-[var(--term-strong)]">
+                            {tier.name}
+                            <span className="text-[var(--term-muted)] font-normal"> · Level {tier.level}</span>
+                          </p>
+                          <span className="text-[10px] font-mono text-[var(--term-amber)] shrink-0">
+                            {tier.ratePer100} coins per 100 staked{cfg ? ` · fee ${cfg.houseFeePct}%` : ''}
+                          </span>
+                        </div>
+                        {nextTier && tier.nextMinFunded !== null ? (
+                          <>
+                            <div className="h-1.5 rounded bg-[var(--term-surface)] overflow-hidden">
+                              <div
+                                className="h-full bg-[var(--term-primary)]"
+                                style={{ width: `${Math.min(100, Math.round((tier.funded / Math.max(1, tier.nextMinFunded)) * 100))}%` }}
+                              />
+                            </div>
+                            <p className="text-[10px] font-mono text-[var(--term-muted)]">
+                              {tier.needForNext} more funded invite{tier.needForNext === 1 ? '' : 's'} → Level {nextTier.level} ({nextTier.ratePer100} per 100)
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-[10px] font-mono text-[var(--term-muted)]">
+                            Top rung of the ladder — this desk already pays the best rate the arena ships.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* The one door out of the desk */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void transferDeskToWallet()}
+                          disabled={!desk || desk.balance <= 0 || affiliateTransferring}
+                          className="flex-1 md:flex-none px-4 h-10 rounded-lg text-xs font-bold cursor-pointer transition-all border border-[var(--term-primary)]/50 bg-[linear-gradient(135deg,var(--term-primary)_0%,var(--term-primary-deep)_100%)] text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {affiliateTransferring
+                            ? 'Moving…'
+                            : desk && desk.balance > 0
+                              ? `Transfer ${desk.balance.toLocaleString()} to wallet`
+                              : 'Desk is empty'}
+                        </button>
+                        <span className="text-[10px] font-mono text-[var(--term-dim)]">
+                          Desk coins sit apart until you move them — then they withdraw like any balance.
+                        </span>
+                      </div>
+                      {cfg && !cfg.enabled && (
+                        <p className="rounded-md bg-[var(--term-bg)] border border-[var(--term-amber)]/40 px-3 py-2 text-[10px] font-mono leading-relaxed text-[var(--term-amber)]">
+                          The arena has paused new rebate credits. Commissions already on your desk stay
+                          yours and still transfer.
+                        </p>
+                      )}
+                      {affiliateNotice && (
+                        <p className="rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-2 text-[10px] font-mono leading-relaxed text-[var(--term-soft)]">
+                          {affiliateNotice}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Your link */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">Your invite link</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={link}
+                          onFocus={(e) => e.currentTarget.select()}
+                          className="flex-1 h-10 px-3 bg-[var(--term-bg)] border border-[var(--term-border)] focus:border-[var(--term-primary)] rounded-lg font-mono text-xs text-[var(--term-strong)] focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void copyInviteLink()}
+                          className={`px-4 h-10 rounded-lg text-xs font-bold cursor-pointer transition-all border ${
+                            affiliateCopied
+                              ? 'border-[var(--term-buy)]/50 bg-[var(--term-buy)]/15 text-[var(--term-buy)]'
+                              : 'border-[var(--term-border-hi)] bg-[var(--term-raised)] text-[var(--term-strong)] hover:bg-[var(--term-surface)]'
+                          }`}
+                        >
+                          {affiliateCopied ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+                      <p className="text-[10px] font-mono text-[var(--term-dim)]">
+                        Code <span className="font-bold text-[var(--term-primary)]">@{code}</span> — every trader who signs up through this link pays you a rebate while they play.
+                      </p>
+                    </div>
+
+                    {/* How it pays */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">How the rebate pays</p>
+                      <ul className="space-y-1.5 rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-2.5 text-[11px] font-mono text-[var(--term-soft)]">
+                        <li className="flex gap-1.5">
+                          <span className="text-[var(--term-buy)] shrink-0">▸</span>
+                          {cfg
+                            ? `Every Live duel burns ${cfg.houseFeePct}% of the pooled pot as the platform fee — a 100-coin entry pays a 30-coin fee.`
+                            : 'The platform fee per duel loads with the desk.'}
+                        </li>
+                        <li className="flex gap-1.5">
+                          <span className="text-[var(--term-amber)] shrink-0">▸</span>
+                          {tier
+                            ? `Your slice: ${tier.ratePer100} coins per 100 your trader stakes — every duel they play, not a one-off bonus.`
+                            : 'Your tier rate loads with the desk.'}
+                        </li>
+                        {cfg && (
+                          <li className="flex gap-1.5">
+                            <span className="text-[var(--term-muted)] shrink-0">▸</span>
+                            The house floor keeps its share: at least {cfg.minHousePctOfFee}% of every fee stays with the arena, so a rebate never eats the pot maths.
+                          </li>
+                        )}
+                        <li className="flex gap-1.5">
+                          <span className="text-[var(--term-accent-text)] shrink-0">▸</span>
+                          Level up on funded downline — invites whose deposit got approved. The ladder below is what the arena ships today.
+                        </li>
+                        <li className="flex gap-1.5">
+                          <span className="text-[var(--term-primary)] shrink-0">▸</span>
+                          Commissions land on the desk, not the wallet. Transfer them when you like; from the wallet they withdraw as USDT after review.
+                        </li>
+                      </ul>
+                    </div>
+
+                    {/* The ladder itself */}
+                    {desk && desk.tiers.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">Rebate ladder</p>
+                        <div className="rounded-md border border-[var(--term-border)] divide-y divide-[var(--term-border)] overflow-hidden">
+                          {desk.tiers.map((t) => (
+                            <div key={t.level} className={`flex items-center gap-2.5 px-3 py-1.5 bg-[var(--term-bg)] text-xs font-mono ${t.active ? '' : 'opacity-45'}`}>
+                              <span className="w-4 shrink-0 text-right text-[var(--term-muted)]">L{t.level}</span>
+                              <span className={`min-w-0 flex-1 truncate ${tier && t.level === tier.level ? 'text-[var(--term-primary)] font-bold' : 'text-[var(--term-text)]'}`}>{t.name}</span>
+                              <span className="shrink-0 text-[var(--term-amber)]">{t.ratePer100} / 100</span>
+                              <span className="shrink-0 text-[var(--term-soft)]">{t.minFunded} funded</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recent commissions */}
+                    {desk && desk.earnings.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">Recent commissions</p>
+                        <div className="rounded-md border border-[var(--term-border)] divide-y divide-[var(--term-border)] overflow-hidden">
+                          {desk.earnings.slice(0, 8).map((row) => (
+                            <div key={row.id} className="flex items-center gap-2 px-3 py-2 bg-[var(--term-bg)]">
+                              <span className="min-w-0 flex-1 truncate text-xs font-mono text-[var(--term-strong)]">@{row.traderName}</span>
+                              <span className="text-[10px] font-mono text-[var(--term-muted)] shrink-0">{row.stake.toLocaleString()} in · L{row.tierLevel}</span>
+                              <span className="text-[10px] font-mono text-[var(--term-muted)] shrink-0">{formatMailStamp(row.createdAt)}</span>
+                              <span className="text-[10px] font-mono font-bold text-[var(--term-buy)] shrink-0">+{row.commission.toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Who you brought in */}
+                    {desk && desk.invites.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">Your downline</p>
+                        <div className="rounded-md border border-[var(--term-border)] divide-y divide-[var(--term-border)] overflow-hidden">
+                          {desk.invites.slice(0, 8).map((row) => (
+                            <div key={row.id} className="flex items-center gap-2 px-3 py-2 bg-[var(--term-bg)]">
+                              <span className="min-w-0 flex-1 truncate text-xs font-mono text-[var(--term-strong)]">@{row.username}</span>
+                              <span className="text-[10px] font-mono text-[var(--term-muted)] shrink-0">{formatMailStamp(row.createdAt)}</span>
+                              <span
+                                className={`text-[10px] font-mono font-bold shrink-0 ${row.funded ? 'text-[var(--term-buy)]' : 'text-[var(--term-muted)]'}`}
+                                title={row.funded ? 'Deposit approved — counts toward your level' : 'Signed up, no approved deposit yet'}
+                              >
+                                {row.funded ? 'Funded' : 'New'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* The ladder race */}
+                    {affiliateBoard.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">IB leaderboard</p>
+                        <div className="rounded-md border border-[var(--term-border)] divide-y divide-[var(--term-border)] overflow-hidden">
+                          {affiliateBoard.map((row, i) => (
+                            <div key={row.callsign} className="flex items-center gap-2.5 px-3 py-1.5 bg-[var(--term-bg)] text-xs font-mono">
+                              <span className="w-4 shrink-0 text-right text-[var(--term-muted)]">{i + 1}</span>
+                              <span className={`min-w-0 flex-1 truncate ${row.callsign === code ? 'text-[var(--term-primary)] font-bold' : 'text-[var(--term-text)]'}`}>@{row.callsign}</span>
+                              <span className="shrink-0 text-[var(--term-soft)]">{row.funded} funded</span>
+                              <span className="shrink-0 text-[var(--term-buy)]">{row.coins.toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {affiliateLoading && (
+                      <p className="text-[10px] font-mono text-[var(--term-dim)]">Refreshing the desk…</p>
+                    )}
+                  </>
+                )}
               </div>
-            )}
+              );
+            })()}
 
             {/* ── TAB CONTENT: SUPPORT / HOW TO PLAY ── */}
             {centerTab === 'support' && (
@@ -2057,7 +2814,7 @@ function PlayLobbyContent() {
                       </li>
                       <li className="flex gap-1.5">
                         <span className="text-[var(--term-buy)] shrink-0">▸</span>
-                        Winner collects {ticketPot.toLocaleString()} coins · 10% of the pool burns.
+                        Winner collects {ticketPot.toLocaleString()} coins · {Math.round(HOUSE_CUT * 100)}% of the pool burns.
                       </li>
                       <li className="flex gap-1.5">
                         <span className="text-[var(--term-amber)] shrink-0">▸</span>
@@ -2092,19 +2849,27 @@ function PlayLobbyContent() {
             />
 
             {/* Challenges — a stake above the fixed Live entry, published to
-                every online trader; accept one to duel at that stake at once */}
+                every online trader; accept one to duel at that stake at once.
+                Warm colour carries the size of the ask: amber at the entry,
+                orange from 2×, ember red from 5×, deep red from the 10k
+                table — and the meter under each stake shows how far it sits
+                up the ladder. */}
             <div className="rounded-xl border border-[var(--term-border)] bg-[var(--term-surface)]/70 backdrop-blur-md overflow-hidden">
-              {/* Header */}
+              {/* Header — the rail colours speak for the tiers; hover a ticket
+                  for the full pot maths */}
               <div className="flex items-center justify-between gap-2 px-4 py-3">
                 <div className="flex items-center gap-2 min-w-0">
                   <Swords size={16} className="text-[var(--term-accent)] shrink-0" />
                   <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--term-strong)] font-mono truncate">Challenges</h3>
                 </div>
+                <span className="text-[10px] font-mono text-[var(--term-dim)] shrink-0">
+                  {challenges.length} open
+                </span>
               </div>
 
-              {/* Board — the latest 8 challenges, newest on top; a new post
-                  slides up into view and the oldest drops off the bottom */}
-              <div className="max-h-[460px] overflow-y-auto divide-y divide-[var(--term-border)]/50 border-t border-[var(--term-border)]">
+              {/* Board — the latest 8 challenges as compact duel tickets,
+                  newest on top; a new post slides up into view */}
+              <div className="max-h-[420px] overflow-y-auto space-y-1.5 px-2 pt-2 pb-2 border-t border-[var(--term-border)]">
                 {challenges.length === 0 ? (
                   <p className="px-3 py-6 text-center text-[11px] font-mono text-[var(--term-muted)]">
                     No open challenges. Post one to invite a bigger duel.
@@ -2114,32 +2879,102 @@ function PlayLobbyContent() {
                     const mine = c.posterId === sessionId;
                     const waiting = acceptingId === c.id;
                     const short = !mine && c.stake > userCoins;
+                    const tier = stakeTierFor(c.stake, ticketFee);
+                    const demo = isDemoChallenge(c.id);
                     return (
-                      <div key={c.id} className="flex items-center gap-2 px-3 py-2 animate-in slide-in-from-bottom-2 duration-300">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-bold text-[var(--term-strong)] truncate">{c.username}</p>
-                          <p className="text-[10px] font-mono text-[var(--term-buy)]">{c.stake.toLocaleString()} coins</p>
-                        </div>
-                        {mine ? (
-                          <span className="text-[10px] font-mono text-[var(--term-accent)] shrink-0">Yours</span>
-                        ) : waiting ? (
-                          <span className="flex items-center gap-1 text-[10px] font-mono text-[var(--term-amber)] shrink-0">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--term-amber)] animate-ping" />
-                            Waiting
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => handleAcceptChallenge(c)}
-                            disabled={short}
-                            className={`h-6 px-2.5 shrink-0 rounded text-[10px] font-bold cursor-pointer transition-colors ${
-                              short
-                                ? 'bg-[var(--term-bg)] text-[var(--term-muted)] border border-[var(--term-border)] cursor-not-allowed'
-                                : 'bg-[var(--term-buy)] text-white hover:brightness-110'
-                            }`}
-                          >
-                            {short ? 'Short' : 'Accept'}
-                          </button>
+                      <div
+                        key={c.id}
+                        title={`pot ${potFor(c.stake).toLocaleString()} · −${houseBurnFor(c.stake).toLocaleString()} burn${c.duration ? ` · ${c.duration}` : ''}`}
+                        className={`group relative overflow-hidden rounded-md border pl-3 pr-1.5 py-1.5 flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-300 transition-all cursor-default ${mine ? '' : tier.glow} ${
+                          mine
+                            ? 'border-[var(--term-sell)]/45 bg-[var(--term-sell)]/10 hover:bg-[var(--term-sell)]/15 hover:border-[var(--term-sell)]/60'
+                            : 'border-[var(--term-border)] bg-[var(--term-raised)]/40 hover:bg-[var(--term-raised)]/70 hover:border-[var(--term-border-hi)]'
+                        } ${demo ? 'opacity-80' : ''}`}
+                      >
+                        {/* Full-height rail — red hot on your own card, tier
+                            gradient on everyone else's */}
+                        <span
+                          aria-hidden
+                          className={`absolute left-0 top-0 bottom-0 w-1 ${
+                            mine ? 'bg-[linear-gradient(180deg,var(--term-sell),var(--term-sell-2))]' : tier.rail
+                          }`}
+                        />
+
+                        {/* Light shine — a soft sheen drifting across your own card */}
+                        {mine && (
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute inset-y-0 left-0 w-1/4 bg-[linear-gradient(105deg,transparent,rgba(255,255,255,0.22),transparent)] animate-[card-shine_4s_ease-in-out_infinite]"
+                          />
                         )}
+
+                        <span className={`grid place-items-center w-6 h-6 shrink-0 rounded font-mono text-[10px] font-bold bg-[var(--term-raised)] ring-1 ${
+                          mine ? 'text-[var(--term-sell)] ring-[var(--term-sell)]/40' : tier.chip
+                        }`}>
+                          {(c.username.charAt(0) || '?').toUpperCase()}
+                        </span>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <p className="text-[11px] font-bold text-[var(--term-strong)] truncate">{c.username}</p>
+                            {!mine && tier.key !== 'standard' && (
+                              tier.key === 'whale'
+                                ? <Flame size={10} className={`${tier.text} shrink-0 animate-pulse`} />
+                                : <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${tier.rail}`} />
+                            )}
+                          </div>
+                          {/* Under the name: just the wait, no meter */}
+                          <p className="text-[9px] font-mono text-[var(--term-dim)] leading-[14px]">
+                            {elapsedStamp(c.createdAt, boardNow)}
+                            {c.duration ? ` · ${c.duration}` : ''}
+                            {demo ? ' · demo' : ''}
+                          </p>
+                        </div>
+
+                        <span className="shrink-0 w-[88px] text-right">
+                          {mine ? (
+                            <>
+                              {/* Resting state: an accent status chip. Hover turns
+                                  the same slot into the retract action. */}
+                              <span className="group-hover:hidden inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[var(--term-sell)]">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[var(--term-sell)] animate-pulse" />
+                                Awaiting
+                              </span>
+                              <button
+                                onClick={handleCancelChallenge}
+                                className="hidden group-hover:inline-flex items-center gap-1 h-6 w-full rounded border border-[var(--term-sell)]/40 bg-[var(--term-sell)]/10 text-[10px] font-mono font-bold text-[var(--term-sell)] cursor-pointer hover:bg-[var(--term-sell)]/20 transition-colors justify-center"
+                                title="Pull your challenge off the board"
+                              >
+                                Retract
+                              </button>
+                            </>
+                          ) : waiting ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[var(--term-amber)]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[var(--term-amber)] animate-ping" />
+                              Waiting
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleAcceptChallenge(c)}
+                              disabled={short}
+                              className={`flex items-center justify-center gap-1 h-6 w-full rounded text-[10px] font-mono font-bold cursor-pointer transition-all ${
+                                short
+                                  ? 'bg-[var(--term-bg)] text-[var(--term-muted)] border border-[var(--term-border)] cursor-not-allowed'
+                                  : `border ${tier.action}`
+                              }`}
+                              title={`Accept the ${c.stake.toLocaleString()}-coin duel`}
+                            >
+                              {short ? (
+                                `Short ${(c.stake - userCoins).toLocaleString()}`
+                              ) : (
+                                <>
+                                  <Swords size={12} />
+                                  <span className="tabular-nums">{c.stake.toLocaleString()}</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </span>
                       </div>
                     );
                   })

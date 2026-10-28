@@ -6,7 +6,7 @@
  */
 
 /** What moved the coins. Mirrors the wallet_ledger.kind check constraint. */
-export type LedgerKind = 'deposit' | 'payout' | 'payout_refund' | 'adjustment';
+export type LedgerKind = 'deposit' | 'payout' | 'payout_refund' | 'adjustment' | 'referral';
 
 /** One row of public.wallet_ledger. `coins` is signed. */
 export interface LedgerEntry {
