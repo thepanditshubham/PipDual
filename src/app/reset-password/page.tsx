@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { KeyRound, CheckCircle2, AlertCircle, ArrowLeft, Swords } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, KeyRound, Lock } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase/client';
+import { AuthShell } from '@/components/auth/auth-shell';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -48,117 +49,93 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[var(--ui-deep)] text-[var(--text)] flex flex-col justify-between p-6 select-none relative overflow-hidden">
-      {/* Subtle ambient background glow like landing page */}
-      <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full pointer-events-none"
-        style={{
-          background: 'radial-gradient(circle, rgba(0, 123, 255, 0.12) 0%, rgba(0, 200, 83, 0.04) 40%, transparent 70%)',
-        }}
-      />
-
-      {/* Top bar: Back to Login */}
-      <div className="w-full max-w-4xl mx-auto flex items-center justify-between relative z-10">
-        <Link
-          href="/login"
-          className="flex items-center gap-2 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
-        >
-          <ArrowLeft size={16} />
-          <span>Back to Log In</span>
-        </Link>
-
-        <span className="text-[11px] font-mono text-[var(--text-muted)]">
-          PIP DUEL PASSWORD UPDATE
-        </span>
-      </div>
-
-      {/* Centered Reset UI (No Card Container) */}
-      <main className="w-full max-w-sm mx-auto my-auto py-8 space-y-6 relative z-10">
-        {/* Header / Brand */}
-        <div className="text-center space-y-2">
-          <Link href="/" className="inline-flex items-center gap-2.5 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[var(--accent-active)] via-[var(--accent)] to-[var(--green)] flex items-center justify-center text-white">
-              <Swords size={20} />
+    <AuthShell>
+      {success ? (
+        <>
+          <div className="auth-otp-header">
+            <div className="auth-otp-icon">
+              <CheckCircle2 size={20} className="text-[var(--fin-green)]" />
             </div>
-            <span className="font-black text-2xl tracking-wider text-[var(--text)]">
-              PIP DUEL
-            </span>
+            <div className="auth-otp-title">Password updated</div>
+            <div className="auth-otp-subtitle">Redirecting you to sign in…</div>
+          </div>
+          <Link href="/login" className="auth-submit" style={{ display: 'block', textAlign: 'center' }}>
+            Go to login
           </Link>
-
-          <h1 className="text-2xl font-black text-[var(--text)] tracking-tight">
-            Set New Password
-          </h1>
-          <p className="text-xs text-[var(--text-muted)]">
-            Enter your new secure password below to regain access
-          </p>
-        </div>
-
-        {/* Error / Success Alerts */}
-        {errorMsg && (
-          <div className="p-3 bg-[var(--down)]/10 border border-[var(--down)]/40 text-[var(--down)] rounded-xl text-xs flex items-center gap-2.5">
-            <AlertCircle size={16} className="shrink-0" />
-            <span>{errorMsg}</span>
+        </>
+      ) : (
+        <>
+          <div className="auth-otp-header">
+            <div className="auth-otp-icon">
+              <KeyRound size={20} className="text-[var(--fin-orange)]" />
+            </div>
+            <div className="auth-otp-title">Set new password</div>
+            <div className="auth-otp-subtitle">Choose a new password for your account</div>
           </div>
-        )}
 
-        {success ? (
-          <div className="p-4 bg-[var(--green)]/15 border border-[var(--green)]/40 text-[var(--green)] rounded-xl text-xs flex flex-col items-center gap-2 text-center">
-            <CheckCircle2 size={24} />
-            <span>Password updated successfully! Redirecting to sign in…</span>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-[var(--text-secondary)]">
+          {errorMsg && (
+            <div className="auth-error" role="alert">
+              {errorMsg}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="auth-field">
+              <label className="auth-label" htmlFor="password">
+                <Lock size={10} aria-hidden="true" />
                 New Password
               </label>
               <input
+                id="password"
                 type="password"
                 required
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-[var(--surface-muted)] border border-[var(--border)] focus:border-[var(--accent)] rounded-xl px-4 py-3 text-xs text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none transition-colors"
+                placeholder="min. 8 characters"
+                className="auth-input"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-[var(--text-secondary)]">
+            <div className="auth-field">
+              <label className="auth-label" htmlFor="confirmPassword">
+                <Lock size={10} aria-hidden="true" />
                 Confirm New Password
               </label>
               <input
+                id="confirmPassword"
                 type="password"
                 required
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-[var(--surface-muted)] border border-[var(--border)] focus:border-[var(--accent)] rounded-xl px-4 py-3 text-xs text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none transition-colors"
+                placeholder="Repeat password"
+                className="auth-input"
               />
             </div>
 
             <button
               type="submit"
+              className={`auth-submit${loading ? ' auth-submit--loading' : ''}`}
               disabled={loading}
-              className="w-full h-12 bg-[var(--accent)] hover:bg-[var(--accent-hi)] active:scale-[0.98] text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition duration-150 cursor-pointer disabled:opacity-50"
             >
-              <KeyRound size={16} />
-              <span>{loading ? 'Updating Password...' : 'Save New Password'}</span>
+              {loading ? 'Updating password' : 'Save New Password'}
             </button>
           </form>
-        )}
 
-        <div className="text-center text-xs text-[var(--text-muted)] pt-2">
-          Back to{' '}
-          <Link href="/login" className="text-[var(--accent)] font-bold hover:underline ml-1">
-            Sign In →
-          </Link>
-        </div>
-      </main>
+          <div className="auth-back">
+            <Link href="/login">
+              <ArrowLeft size={10} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 4 }} />
+              Back to login
+            </Link>
+          </div>
+        </>
+      )}
 
-      {/* Bottom Footer */}
-      <footer className="w-full text-center text-[11px] text-[var(--text-muted)] relative z-10">
-        © 2026 Pip Duel. Free Virtual Trading Game.
-      </footer>
-    </div>
+      <div className="auth-footer">
+        © 2026 Pip Duel · <Link href="/legal/privacy">Privacy</Link> ·{' '}
+        <Link href="/legal/terms">Terms</Link> · Support
+      </div>
+    </AuthShell>
   );
 }

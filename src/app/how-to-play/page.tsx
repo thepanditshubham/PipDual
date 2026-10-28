@@ -3,6 +3,7 @@ import {
   Keyboard, ShieldCheck, Target, Zap, Clock, Trophy,
   Sliders, CheckCircle2, ArrowRight
 } from 'lucide-react';
+import { PLAY_BARS } from '@/lib/engine/constants';
 
 export const metadata = {
   title: 'How to Play | Pip Duel',
@@ -19,7 +20,7 @@ export default function HowToPlayPage() {
     {
       num: '02',
       title: 'Analyze the Blind Market',
-      desc: 'Both traders see the exact same real-world historical market day rebased. The asset symbol and historical dates are masked to eliminate hindsight bias.',
+      desc: 'Both traders see the exact same window of one global market series — every duel fired in the same hour trades identical candles. The asset name and its dates are masked to eliminate hindsight bias.',
     },
     {
       num: '03',
@@ -29,7 +30,7 @@ export default function HowToPlayPage() {
     {
       num: '04',
       title: 'Forced Close & Settlement',
-      desc: 'At tick 1,440 (end of replay day), all open positions are automatically liquidated. Both client action streams are verified deterministically by server engine.',
+      desc: `At the end of the replay (${PLAY_BARS} one-minute bars), an open position is settled at the final price. Because the window is picked by the match's start time, any result can be re-run and verified independently.`,
     },
   ];
 

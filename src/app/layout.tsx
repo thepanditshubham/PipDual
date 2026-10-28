@@ -1,16 +1,19 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { LayoutShell } from '@/components/layout-shell';
 import { SupabaseAuthProvider } from '@/components/supabase-auth-provider';
 import { SoundProvider } from '@/components/sound-provider';
 
-// Self-hosted Inter — exposed as `--font-inter` so globals.css / Tailwind can consume it.
-const inter = Inter({
+// The whole product speaks in one typeface: a mono, because every screen of the
+// terminal design this follows is a mono. Exposed as `--font-plex` and consumed by
+// the `--font-*` tokens in globals.css.
+const plex = IBM_Plex_Mono({
   subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
   display: 'swap',
-  variable: '--font-inter',
+  variable: '--font-plex',
 });
 
 export const metadata: Metadata = {
@@ -40,9 +43,9 @@ export const metadata: Metadata = {
   },
 };
 
-// Applies the saved theme before first paint so dark-mode players never see a
-// light flash (and light, the default, needs no script at all).
-const themeScript = `(function(){try{var t=localStorage.getItem('pip-duel-theme')||'light';var r=t==='system'?(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):t;document.documentElement.setAttribute('data-theme',r);}catch(e){}})();`;
+// Applies the saved theme before first paint. The terminal look is dark; light is
+// still reachable from Settings for players who prefer it.
+const themeScript = `(function(){try{var t=localStorage.getItem('pip-duel-theme')||'dark';var r=t==='system'?(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):t;document.documentElement.setAttribute('data-theme',r);}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -52,10 +55,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      data-theme="light"
+      data-theme="dark"
       data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={inter.variable}
+      className={plex.variable}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />

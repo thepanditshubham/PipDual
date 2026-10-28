@@ -1,19 +1,19 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback, Suspense } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo, Suspense } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { START_BALANCE, NOTIONAL_PER_SIZE, MAX_ORDERS_PER_MATCH, battleSecondsFor, LOBBY_PREP_SECONDS, DEFAULT_MATCH_DURATION } from '@/lib/engine/constants';
+import { START_BALANCE, NOTIONAL_PER_SIZE, MAX_ORDERS_PER_MATCH, battleSecondsFor, battleStartFor, LOBBY_PREP_SECONDS, DEFAULT_MATCH_DURATION, PLAY_BARS, TICKS_PER_BAR, DISPLAY_TICKS } from '@/lib/engine/constants';
 import type { AllowedSize } from '@/lib/engine/constants';
 import { simulate, score, determineWinner } from '@/lib/engine/simulate';
 import { botActions } from '@/lib/engine/bot';
 import {
   generateBattleMarket,
   getCandlesForTimeframe,
-  TOTAL_BATTLE_TICKS,
   type Timeframe,
   type MarketDataset,
 } from '@/lib/engine/market-feed';
+import { SYNTH_PAIR } from '@/lib/engine/synthetic-market';
 import type { Action, GameMode, SimulationResult } from '@/lib/engine/types';
 import { resolveRoomSession, type RoomSession } from '@/lib/rooms/session';
 import { payoutFor, type DuelOutcome } from '@/lib/economy';
@@ -58,14 +58,15 @@ function PlayRoomContent() {
   // Prep window mirrors the ticket's "+ 1 min lobby time".
   const ANALYSIS_SECONDS = LOBBY_PREP_SECONDS;
   const BATTLE_SECONDS = battleSecondsFor(durationParam);
-  // The generated market is a fixed 1,440 one-minute bars; spreading it over the
-  // selected match length replays the same day faster or slower per duration.
-  // Chart playback speed: the match replays 1/CHART_SLOWDOWN of the generated
-  // day, so every 1m bar stays on screen 3× longer for the same match length.
-  const CHART_SLOWDOWN = 3;
-  /** Bars actually played during the battle (a third of the 1,440-bar day). */
-  const PLAY_TICKS = Math.floor(TOTAL_BATTLE_TICKS / CHART_SLOWDOWN);
+  // The playback grid lives in engine constants so the room and the server-side
+  // verifier count the same bars. A battle replays PLAY_BARS one-minute bars of a
+  // generated day across the ticket length, and each of those bars prints
+  // TICKS_PER_BAR prices, which is what lets the candle grow instead of appearing
+  // whole. The engine still settles on one price per bar.
+  const PLAY_TICKS = PLAY_BARS;
   const TICK_MS = (BATTLE_SECONDS * 1000) / PLAY_TICKS;
+  /** Wall time per sub-tick — the cadence the forming candle moves at. */
+  const SUBTICK_MS = (BATTLE_SECONDS * 1000) / DISPLAY_TICKS;
 
   const mode: GameMode = (stashedSession?.mode as GameMode) || 'standard';
   const opponentParam = stashedSession?.opponent || 'live';
@@ -154,14 +155,16 @@ function PlayRoomContent() {
   });
 
   // Fixed at mount: prep + 3s countdown, then the battle runs unattended to the end.
+  // The ticket's shared startAt makes this instant identical on both terminals, and it
+  // is also what picks the market — see the effect below.
   const [targetBattleStart] = useState<number>(() => {
     if (startAtParam) {
       const parsed = parseInt(startAtParam, 10);
       if (!isNaN(parsed) && parsed > 0) {
-        return parsed + (ANALYSIS_SECONDS + 3) * 1000;
+        return battleStartFor(parsed);
       }
     }
-    return Date.now() + (ANALYSIS_SECONDS + 3) * 1000;
+    return battleStartFor(Date.now());
   });
 
   const [market, setMarket] = useState<MarketDataset | null>(null);
@@ -173,6 +176,8 @@ function PlayRoomContent() {
   const [countdown, setCountdown] = useState<number>(3);
 
   const [currentTick, setCurrentTick] = useState<number>(0);
+  /** Price steps printed inside the current bar; 0 until the battle is running. */
+  const [subTick, setSubTick] = useState<number>(0);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
   const [userActions, setUserActions] = useState<Action[]>([]);
@@ -251,15 +256,18 @@ function PlayRoomContent() {
   }, [room, isBotOpponent, user?.id]);
 
   useEffect(() => {
-    const data = generateBattleMarket(matchSeed);
+    // One global series, indexed by UTC time: this battle trades the window that opens
+    // on the hour it fires. Both terminals hold the same ticket startAt, so they derive
+    // the same candles, and so does any other duel played in that hour.
+    const data = generateBattleMarket(targetBattleStart);
     setMarket(data);
 
     if (isBotOpponent) setUserActions([]);
 
-    // Live rooms have no opponent trade feed yet, so the rival trades the same
-    // seeded day under a different seed — both players see the same curve.
+    // Live rooms have no opponent trade feed yet, so the rival trades this shared market
+    // with its own seeded strategy — same curve, different mind.
     setRivalActions(botActions(data.liveTicks, matchSeed + (isBotOpponent ? 0 : 1337)));
-  }, [matchSeed, isBotOpponent]);
+  }, [targetBattleStart, matchSeed, isBotOpponent]);
 
   useEffect(() => {
     if (!market || phase === 'finished' || settled) return;
@@ -283,11 +291,16 @@ function PlayRoomContent() {
         });
 
         const elapsedMs = Math.max(0, now - targetBattleStart);
-        const tick = Math.min(PLAY_TICKS, Math.floor(elapsedMs / TICK_MS));
+        // One sub-tick grid drives both cursors. floor(floor(12x)/12) === floor(x),
+        // so the bar cursor — and every price the engine reads — lands on exactly the
+        // tick it did before; only the candle animation is finer.
+        const displayTick = Math.min(DISPLAY_TICKS, Math.floor(elapsedMs / SUBTICK_MS));
+        const tick = Math.min(PLAY_TICKS, Math.floor(displayTick / TICKS_PER_BAR));
         setCurrentTick(tick);
+        setSubTick(displayTick % TICKS_PER_BAR);
         setBattleRemaining(Math.max(0, Math.ceil((PLAY_TICKS - tick) * (TICK_MS / 1000))));
 
-        if (tick >= PLAY_TICKS) {
+        if (displayTick >= DISPLAY_TICKS) {
           clearInterval(timer);
           setPhase('finished');
         }
@@ -295,7 +308,7 @@ function PlayRoomContent() {
     }, 40);
 
     return () => clearInterval(timer);
-  }, [market, targetBattleStart, phase, settled, TICK_MS, PLAY_TICKS]);
+  }, [market, targetBattleStart, phase, settled, TICK_MS, SUBTICK_MS, PLAY_TICKS]);
 
   useEffect(() => {
     if (!market || phase === 'analysis' || phase === 'countdown') return;
@@ -616,15 +629,33 @@ function PlayRoomContent() {
     });
   }, [phase, userSim.openPosition]);
 
+  /** Sub-tick cursor: which reconstructed price the terminal is showing right now. */
+  const displayTick = currentTick * TICKS_PER_BAR + subTick;
+  const isBattleRunning = phase === 'live' || phase === 'finished';
+
+  // The readout follows the tick path so the price crawls instead of jumping a bar at
+  // a time. Settlement is untouched: simulate() still reads liveTicks, one price per
+  // bar, so a fill is still priced by the bar the engine is on.
   const currentPrice = market
-    ? phase === 'analysis'
+    ? phase === 'analysis' || phase === 'countdown'
       ? market.startPrice
-      : market.liveTicks[currentTick] ?? market.startPrice
+      : market.tickPath[displayTick] ?? market.liveTicks[currentTick] ?? market.startPrice
     : 1000;
 
-  const currentCandles = market
-    ? getCandlesForTimeframe(market, timeframe, phase === 'analysis' ? 0 : currentTick, market.baseTime)
-    : [];
+  // Rebuilt only when something that changes the picture actually moves. History is a
+  // stable slice; between sub-ticks only the last candle differs.
+  const currentCandles = useMemo(
+    () => (market
+      ? getCandlesForTimeframe(
+        market,
+        timeframe,
+        isBattleRunning ? currentTick : 0,
+        market.baseTime,
+        phase === 'live' ? subTick : 0,
+      )
+      : []),
+    [market, timeframe, currentTick, subTick, phase, isBattleRunning],
+  );
 
   // A rival forfeit ends the duel outside the clock — settle that ranked result
   // here. The packet is idempotent per matchId, so the ref just saves a call.
@@ -735,6 +766,17 @@ function PlayRoomContent() {
             DEMO
           </div>
 
+          {/* Which slice of the global market this duel is trading — the same one every
+              other player in this UTC hour is looking at. */}
+          {market && (
+            <div
+              className="hidden lg:flex items-center px-2.5 py-0.5 rounded bg-[#181a20] border border-[#262932] text-[11px] font-semibold text-[#787b86] tracking-wider tabular-nums"
+              title="One market, indexed by UTC time. Every duel in this hour trades this window."
+            >
+              {market.battleSessionLabel}
+            </div>
+          )}
+
           {phase === 'analysis' ? (
             <div className="flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase bg-[#2962ff]/10 border border-[#2962ff]/30 text-[#2962ff]">
               <Eye size={12} className="animate-pulse" />
@@ -798,7 +840,8 @@ function PlayRoomContent() {
             trades={userSim.trades}
             timeframe={timeframe}
             onTimeframeChange={setTimeframe}
-            instrument="XAU/USD"
+            instrument={market?.instrument ?? SYNTH_PAIR.symbol}
+            digits={market?.digits ?? SYNTH_PAIR.digits}
             onSlChange={handleSlChange}
             onTpChange={handleTpChange}
             onClose={handleClose}
@@ -855,10 +898,10 @@ function PlayRoomContent() {
           rewards={rewards}
           pot={potResult}
           revealedMarket={{
-            title: market?.segmentName || 'Historical Market Match',
-            asset: 'XAU/USD Spot Gold',
-            tags: [market?.battleDayLabel || 'Spot Gold', market?.contextDayLabel || 'Context'],
-            seed: matchSeed,
+            title: market?.battleSessionLabel || 'Synthetic Market Match',
+            asset: market?.instrument || SYNTH_PAIR.symbol,
+            tags: ['Global session', market?.instrumentLabel || SYNTH_PAIR.label],
+            session: 'Same window as every duel in this hour',
           }}
           onRematch={() => {
             window.location.reload();

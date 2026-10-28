@@ -1,290 +1,312 @@
 import Link from 'next/link';
-import { Swords, Shield, Bot, Trophy, ArrowRight, Zap, Flame, Award, Radio, Coins, Play } from 'lucide-react';
+import { ArrowRight, Bot, Check, Coins, Flame, Play, Shield, Swords, Trophy } from 'lucide-react';
+import { CtaBand, PageHero, SitePage } from '@/components/site/site-chrome';
 import { COINS_PER_USD, HOUSE_CUT, LIVE_FEES } from '@/lib/economy/config';
 import { potFor } from '@/lib/economy/stakes';
+import { PLAY_BARS } from '@/lib/engine/constants';
 
 export const metadata = {
-  title: 'Game Modes | Pip Duel',
-  description: 'Explore Pip Duel battle modes: Live duels with a coin pot, free Demo duels, Standard P&L scoring, Risk-Adjusted scoring, and Versus Bot practice.',
+  title: 'Game modes | Pip Duel',
+  description:
+    'Live duels with a coin pot, free Demo duels, and three scoring rule sets: Standard P&L, Risk-adjusted, and Versus Bot.',
 };
 
-/** The two ways a duel is entered: coins at stake, or nothing at all. */
+const cheapest = Math.min(...Object.values(LIVE_FEES));
+
 const ENTRY_MODES = [
   {
     id: 'live',
     name: 'Live',
     tagline: 'Coins on the table',
-    icon: <Coins size={24} className="text-[var(--pink)]" />,
+    icon: <Coins size={18} />,
     points: [
-      `Entry fee in coins scales with the clock: ${Object.entries(LIVE_FEES)
+      `Entry scales with the clock: ${Object.entries(LIVE_FEES)
         .map(([duration, fee]) => `${duration.replace('m', ' min')} · ${fee.toLocaleString()}`)
-        .join(' · ')}`,
-      'Coins are deducted the moment a rival is matched — searching the queue is free',
+        .join(' · ')} coins`,
+      'Coins are deducted when a rival is matched — searching the queue is free',
       `Both entries pool, the arena burns ${Math.round(HOUSE_CUT * 100)}%, the winner collects the rest`,
       `A 5-minute duel risks ${LIVE_FEES['5m'].toLocaleString()} to win ${potFor(LIVE_FEES['5m']).toLocaleString()}`,
       'A draw refunds each player their own entry',
-      `Coins are bought with crypto at $1 = ${COINS_PER_USD} coins and credited after a deposit is reviewed`,
-      'Any balance can be withdrawn back as USDT — $5 minimum, $1 network fee off the payout',
     ],
     href: '/play?mode=live',
-    cta: 'Find a Live Match',
+    cta: 'Find a Live match',
+    featured: true,
   },
   {
     id: 'demo',
     name: 'Demo',
     tagline: 'Nothing at stake',
-    icon: <Play size={24} className="text-[var(--green-soft)]" />,
+    icon: <Play size={18} />,
     points: [
-      'No entry fee, no pot, no coin movement at any length',
+      'No entry fee, no pot and no coin movement at any length',
       'XP and missions still count — the ladder and the wallet do not',
       'Paired only against other Demo players, so a free table never meets a paid one',
-      'The right place to learn the order panel, hotkeys and stop-loss brackets',
+      'The right place to learn the order panel and stop-loss brackets',
     ],
     href: '/play?mode=demo',
-    cta: 'Play a Demo Duel',
+    cta: 'Play a Demo duel',
+    featured: false,
+  },
+];
+
+const RULE_SETS = [
+  {
+    id: 'standard',
+    name: 'Standard Duel',
+    tagline: 'Pure profit and loss',
+    icon: <Swords size={18} />,
+    badge: 'Most played',
+    rules: [
+      `Selectable 5 / 10 / 15 minute length (${PLAY_BARS}-bar replay)`,
+      'Equal starting equity for both players',
+      'Winner decided strictly by final P&L',
+      'Tiebreak: lower max drawdown, then fewer entries',
+    ],
+    difficulty: 'Beginner to advanced',
+    best: 'Fast positioning and breakout reads',
+  },
+  {
+    id: 'risk',
+    name: 'Risk Duel',
+    tagline: 'Discipline over greed',
+    icon: <Shield size={18} />,
+    badge: 'Trader favourite',
+    rules: [
+      'Score reads total P&L against maximum drawdown',
+      'One deep drawdown wipes out a large headline profit',
+      'Rewards tight stops and deliberate sizing',
+      'Same entry cap, same window, same market',
+    ],
+    difficulty: 'Intermediate to pro',
+    best: 'Practising risk-to-reward and capital preservation',
+  },
+  {
+    id: 'bot',
+    name: 'Versus Bot',
+    tagline: 'Zero-stakes training ground',
+    icon: <Bot size={18} />,
+    badge: 'Instant match',
+    rules: [
+      'Trade a deterministic momentum bot',
+      'Instant start with no queue',
+      'The bot only sees past prices — no future peek',
+      'No rating change: a safe place to test a setup',
+    ],
+    difficulty: 'All levels',
+    best: 'Warm-ups and testing shortcuts',
+  },
+];
+
+const ROADMAP: { title: string; desc: string; live: boolean; href?: string }[] = [
+  {
+    title: 'Best of 3 series',
+    desc: 'Three consecutive rounds across three distinct market regimes — trend, range, volatile. First to two wins the match.',
+    live: false,
+  },
+  {
+    title: 'Tournaments & brackets',
+    desc: 'Single-elimination weekend brackets for up to 64 traders, with a community ladder and profile badges.',
+    live: false,
+  },
+  {
+    title: 'Replay library',
+    desc: 'Every settled duel kept as a replay: both equity curves, every entry, scrubbable at your own pace.',
+    live: false,
   },
 ];
 
 export default function ModesPage() {
-  const activeModes = [
-    {
-      id: 'standard',
-      name: 'Standard Duel',
-      tagline: 'Pure Profit & Loss Showdown',
-      icon: <Swords size={28} className="text-[var(--pink)]" />,
-      rules: [
-        'Selectable 5 / 10 / 15 min battle length (1,440-tick replay)',
-        'Equal $10,000 starting virtual balance',
-        'Maximum 4 entry orders per duel',
-        'Winner decided strictly by highest final P&L',
-        'Tiebreaker: lower max drawdown, then fewer trades',
-      ],
-      difficulty: 'Beginner to Advanced',
-      recommendedFor: 'Traders who like aggressive positioning and fast breakouts',
-      badge: 'Most Popular',
-      modeParam: 'standard',
-      gradient: 'linear-gradient(315deg, var(--pink) 0%, var(--purple) 100%)',
-    },
-    {
-      id: 'risk',
-      name: 'Risk Duel',
-      tagline: 'Discipline Over Greed',
-      icon: <Shield size={28} className="text-[var(--green-soft)]" />,
-      rules: [
-        'Score = Total P&L minus Maximum Drawdown',
-        'Maximum 4 entry orders per duel',
-        'A single bad drawdown wipes out big profits',
-        'Rewards tight stop losses and disciplined position sizing',
-        'Teaches institutional-grade risk management',
-      ],
-      difficulty: 'Pro Traders',
-      recommendedFor: 'Traders practicing proper risk-to-reward ratios and capital preservation',
-      badge: 'Trader Favorite',
-      modeParam: 'risk',
-      gradient: 'linear-gradient(315deg, var(--green-start) 0%, var(--green-end) 100%)',
-    },
-    {
-      id: 'bot',
-      name: 'Versus Bot',
-      tagline: 'Zero-Stakes Training Ground',
-      icon: <Bot size={28} className="text-[var(--purple-light)]" />,
-      rules: [
-        'Trade against our deterministic momentum bot',
-        'Instant match start with zero waiting time',
-        'Bot only sees past prices (no future peek)',
-        'Maximum 4 entry orders per duel',
-        'No rating change — safe environment to test indicators and hotkeys',
-      ],
-      difficulty: 'All Levels',
-      recommendedFor: 'Warmups, testing strategies, and mastering keyboard shortcuts',
-      badge: 'Instant Match',
-      modeParam: 'bot',
-      gradient: 'linear-gradient(315deg, var(--purple-deep) 0%, var(--purple-light) 100%)',
-    },
-  ];
-
-  const comingSoon = [
-    {
-      title: 'Best of 3 (Series)',
-      desc: 'Three consecutive rounds across three distinct market regimes (Trend, Range, Volatile). First to win 2 rounds wins the match.',
-      icon: <Flame size={24} className="text-[var(--text-secondary)]" />,
-    },
-    {
-      title: 'Live Market Feed',
-      desc: 'Real-time live tick stream directly from global FX and commodity markets, rebased and anonymized for live market battles.',
-      icon: <Radio size={24} className="text-[var(--text-secondary)]" />,
-    },
-    {
-      title: 'Tournaments & Brackets',
-      desc: 'Single-elimination weekend brackets for up to 64 traders. Climb the community ladder for virtual glory and custom profile badges.',
-      icon: <Trophy size={24} className="text-[var(--text-secondary)]" />,
-    },
-  ];
-
   return (
-    <div className="max-w-7xl mx-auto px-5 py-12 md:py-20">
-      {/* Header */}
-      <div className="text-center max-w-3xl mx-auto mb-16 animate-slide-up">
-        <div
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-widest mb-4"
-          style={{
-            background: 'rgba(231, 70, 148, 0.08)',
-            border: '1px solid rgba(231, 70, 148, 0.25)',
-            color: 'var(--pink)',
-          }}
-        >
-          <Zap size={14} /> Battle Arenas
-        </div>
-        <h1 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight text-[var(--text)]">
-          Select Your <span className="gradient-text">Arena</span>
-        </h1>
-        <p className="text-[var(--text-secondary)] text-base md:text-lg leading-relaxed">
-          Every duel runs the identical hidden market chart on a synchronized clock. First choose what you play for — Live puts a coin pot on the table, Demo keeps it free. Then choose the rule set that tests your edge.
-        </p>
-      </div>
-
-      {/* Entry Modes: what a duel costs and what it pays */}
-      <div className="grid md:grid-cols-2 gap-8 mb-24">
-        {ENTRY_MODES.map((entry) => (
-          <div key={entry.id} className="card p-8 relative overflow-hidden">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-12 h-12 rounded-2xl bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center shadow-inner">
-                {entry.icon}
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-[var(--text)]">{entry.name}</h2>
-                <p className="text-xs font-medium text-[var(--purple-light)] uppercase tracking-wider">{entry.tagline}</p>
-              </div>
-            </div>
-
-            <div className="space-y-3 mb-7">
-              {entry.points.map((point, idx) => (
-                <div key={idx} className="flex items-start gap-2.5 text-sm text-[var(--text-secondary)]">
-                  <span className="text-[var(--pink)] text-xs mt-1">▸</span>
-                  <span className="leading-relaxed">{point}</span>
-                </div>
-              ))}
-            </div>
-
-            <Link
-              href={entry.href}
-              className="btn-angled py-3.5 px-6 text-sm font-bold flex items-center justify-center gap-2"
-              style={{
-                background:
-                  entry.id === 'live'
-                    ? 'linear-gradient(315deg, var(--pink) 0%, var(--purple) 100%)'
-                    : 'linear-gradient(315deg, var(--green-start) 0%, var(--green-end) 100%)',
-                color: '#fff',
-              }}
-            >
-              {entry.cta} <ArrowRight size={16} />
+    <SitePage>
+      <PageHero
+        kicker="Game modes"
+        title={
+          <>
+            Choose what you play for,
+            <br />
+            <em>then what it tests.</em>
+          </>
+        }
+        lead="Every duel runs the identical hidden market on a synchronized clock. First decide what is at stake — Live puts a coin pot on the table, Demo keeps it free — then pick the rule set that scores it."
+        meta={[
+          `Live from ${cheapest} coins`,
+          'Demo free',
+          '5 / 10 / 15 minute tables',
+        ]}
+        actions={
+          <>
+            <Link href="/play" className="lp-btn lp-btn--lg">
+              Open the lobby
+              <ArrowRight size={15} />
             </Link>
-          </div>
-        ))}
-      </div>
-
-      {/* Scoring Rule Sets */}
-      <div className="text-center max-w-3xl mx-auto mb-10">
-        <h2 className="text-3xl font-extrabold mb-3 text-[var(--text)]">Scoring Rule Sets</h2>
-        <p className="text-[var(--text-secondary)] text-sm leading-relaxed">
-          The same rules decide the winner whether you play for coins or for free.
-        </p>
-      </div>
-
-      {/* Active Modes Grid */}
-      <div className="grid lg:grid-cols-3 gap-8 mb-24">
-        {activeModes.map((mode) => (
-          <div
-            key={mode.id}
-            className="card p-8 flex flex-col justify-between hover:border-[var(--purple)]/50 transition-all duration-300 group relative overflow-hidden"
-          >
-            {/* Soft highlight bar at top */}
-            <div
-              className="absolute top-0 left-0 right-0 h-1 opacity-80 group-hover:opacity-100 transition-opacity"
-              style={{ background: mode.gradient }}
-            />
-
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <div className="w-14 h-14 rounded-2xl bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center shadow-inner">
-                  {mode.icon}
-                </div>
-                <span
-                  className="text-xs font-semibold uppercase tracking-wider px-3 py-1 rounded-full border"
-                  style={{
-                    background: mode.id === 'risk' ? 'rgba(5, 122, 85, 0.15)' : 'rgba(231, 70, 148, 0.12)',
-                    borderColor: mode.id === 'risk' ? 'rgba(132, 225, 188, 0.3)' : 'rgba(231, 70, 148, 0.3)',
-                    color: mode.id === 'risk' ? 'var(--green-soft)' : 'var(--pink)',
-                  }}
-                >
-                  {mode.badge}
-                </span>
-              </div>
-
-              <h2 className="text-2xl font-bold mb-1 text-[var(--text)]">{mode.name}</h2>
-              <p className="text-xs font-medium text-[var(--purple-light)] mb-6 uppercase tracking-wider">{mode.tagline}</p>
-
-              <div className="space-y-3 mb-6">
-                <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">Rules & Scoring:</p>
-                {mode.rules.map((rule, idx) => (
-                  <div key={idx} className="flex items-start gap-2.5 text-sm text-[var(--text-secondary)]">
-                    <span className="text-[var(--pink)] text-xs mt-1">▸</span>
-                    <span className="leading-relaxed">{rule}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="pt-4 border-t border-[var(--border)] space-y-2 mb-8">
-                <div className="flex justify-between text-xs">
-                  <span className="text-[var(--text-muted)] uppercase font-semibold">Difficulty:</span>
-                  <span className="text-[var(--text)] font-medium">{mode.difficulty}</span>
-                </div>
-                <div className="text-xs">
-                  <span className="text-[var(--text-muted)] uppercase font-semibold">Best for: </span>
-                  <span className="text-[var(--text-secondary)]">{mode.recommendedFor}</span>
-                </div>
-              </div>
-            </div>
-
-            <Link
-              href={mode.id === 'bot' ? '/play?mode=bot' : '/play'}
-              className="btn-angled py-3.5 px-6 text-sm font-bold flex items-center justify-center gap-2"
-              style={{ background: mode.gradient, color: '#fff' }}
-            >
-              Enter Arena <ArrowRight size={16} />
+            <Link href="/how-to-play" className="lp-btn lp-btn--lg lp-btn--ghost">
+              How a duel works
             </Link>
-          </div>
-        ))}
-      </div>
+          </>
+        }
+      />
 
-      {/* Coming Soon */}
-      <div className="mt-16">
-        <div className="text-center max-w-xl mx-auto mb-12">
-          <h2 className="text-3xl font-extrabold mb-3 text-[var(--text)]">
-            In Development <span className="text-[var(--text-muted)] font-normal">(Roadmap)</span>
-          </h2>
-          <p className="text-[var(--text-secondary)] text-sm leading-relaxed">
-            We are constantly engineering new competitive formats for the Forexwala trading community.
+      {/* ── Entry modes ──────────────────────────────────────── */}
+      <section className="lp-section">
+        <div className="lp-head">
+          <span className="lp-kicker">01 · What is at stake</span>
+          <h2 className="lp-h2">Live or Demo</h2>
+          <p className="lp-sub">
+            The chart, the spread and the entry cap are identical. The only difference is whether an
+            entry costs coins.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          {comingSoon.map((item) => (
-            <div key={item.title} className="card p-6 border-[var(--border)] hover:border-[var(--border)]/80 bg-[var(--surface)]/70">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-10 h-10 rounded-xl bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center">
-                  {item.icon}
-                </div>
-                <span className="text-[10px] font-semibold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-[var(--surface-muted)] border border-[var(--border)] text-[var(--text-muted)]">
-                  Coming Soon
+        <div className="pg-cols-2">
+          {ENTRY_MODES.map((mode) => (
+            <article key={mode.id} className={`lp-table${mode.featured ? ' lp-table--featured' : ''}`}>
+              {mode.featured && <span className="lp-table-badge">Stakes coins</span>}
+              <div className="lp-table-k" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="lp-feature-icon" style={{ width: 28, height: 28, marginBottom: 0 }}>
+                  {mode.icon}
                 </span>
+                {mode.name} · {mode.tagline}
               </div>
-              <h3 className="text-lg font-bold mb-2 text-[var(--text)]">{item.title}</h3>
-              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{item.desc}</p>
-            </div>
+              <div className="lp-table-v">
+                {mode.featured ? cheapest : 0} <small>{mode.featured ? 'coins to enter' : 'coins'}</small>
+              </div>
+              <p className="lp-table-note">
+                {mode.featured
+                  ? `$${(cheapest / COINS_PER_USD).toFixed(2)} at ${COINS_PER_USD} coins to the dollar.`
+                  : 'Same rules, no coin movement.'}
+              </p>
+              <ul className="lp-list">
+                {mode.points.map((point) => (
+                  <li key={point}>
+                    <Check size={12} />
+                    {point}
+                  </li>
+                ))}
+              </ul>
+              <Link href={mode.href} className={mode.featured ? 'lp-btn' : 'lp-btn lp-btn--ghost'}>
+                {mode.cta}
+                <ArrowRight size={13} />
+              </Link>
+            </article>
           ))}
         </div>
-      </div>
-    </div>
+      </section>
+
+      {/* ── Rule sets ────────────────────────────────────────── */}
+      <section className="lp-section lp-section--panel">
+        <div className="lp-head">
+          <span className="lp-kicker">02 · What it tests</span>
+          <h2 className="lp-h2">Three scoring rule sets</h2>
+          <p className="lp-sub">
+            The same rules decide the winner whether you play for coins or for free.
+          </p>
+        </div>
+
+        <div className="lp-tables">
+          {RULE_SETS.map((mode) => (
+            <article key={mode.id} className={`lp-table${mode.id === 'standard' ? ' lp-table--featured' : ''}`}>
+              {mode.id === 'standard' && <span className="lp-table-badge">{mode.badge}</span>}
+              <div className="lp-table-k" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="lp-feature-icon" style={{ width: 28, height: 28, marginBottom: 0 }}>
+                  {mode.icon}
+                </span>
+                {mode.name}
+              </div>
+              <div className="lp-table-v" style={{ fontSize: 20, marginTop: 14 }}>
+                {mode.tagline}
+              </div>
+              <ul className="lp-list" style={{ marginTop: 14 }}>
+                {mode.rules.map((rule) => (
+                  <li key={rule}>
+                    <Check size={12} />
+                    {rule}
+                  </li>
+                ))}
+              </ul>
+              <div
+                style={{
+                  borderTop: '1px solid var(--fin-border-1)',
+                  paddingTop: 12,
+                  marginBottom: 18,
+                  fontSize: 11,
+                  color: 'var(--fin-muted)',
+                  display: 'grid',
+                  gap: 6,
+                }}
+              >
+                <span>
+                  <span style={{ color: 'var(--fin-ghost)' }}>Difficulty · </span>
+                  {mode.difficulty}
+                </span>
+                <span>
+                  <span style={{ color: 'var(--fin-ghost)' }}>Best for · </span>
+                  {mode.best}
+                </span>
+              </div>
+              <Link href={mode.id === 'bot' ? '/play?mode=bot' : '/play'} className="lp-btn lp-btn--ghost">
+                Enter arena
+                <ArrowRight size={13} />
+              </Link>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Roadmap ──────────────────────────────────────────── */}
+      <section className="lp-section">
+        <div className="lp-head">
+          <span className="lp-kicker">03 · In development</span>
+          <h2 className="lp-h2">What is coming next</h2>
+          <p className="lp-sub">
+            Formats we are building for the Forexwala community. One of them is already open.
+          </p>
+        </div>
+
+        <div className="lp-features">
+          {ROADMAP.map((item) => {
+            const body = (
+              <>
+                <div className="lp-feature-icon">
+                  {item.live ? <Flame size={16} /> : <Trophy size={16} />}
+                </div>
+                <h3 className="lp-feature-title">{item.title}</h3>
+                <p className="lp-feature-desc">{item.desc}</p>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    marginTop: 14,
+                    padding: '3px 8px',
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: '1.2px',
+                    textTransform: 'uppercase',
+                    color: item.live ? 'var(--fin-green)' : 'var(--fin-muted)',
+                    background: item.live ? 'rgba(0,221,102,.08)' : 'var(--fin-surface)',
+                    border: `1px solid ${item.live ? 'rgba(0,221,102,.28)' : 'var(--fin-border-2)'}`,
+                  }}
+                >
+                  {item.live ? 'Live now' : 'Coming soon'}
+                </span>
+              </>
+            );
+
+            return item.live && item.href ? (
+              <Link key={item.title} href={item.href} className="lp-feature" style={{ textDecoration: 'none' }}>
+                {body}
+              </Link>
+            ) : (
+              <article key={item.title} className="lp-feature">
+                {body}
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <CtaBand
+        title={`Start free, or take the ${cheapest}-coin table.`}
+        copy="The demo tables cost nothing and use the same chart. Coins only move when you choose a Live entry."
+      />
+    </SitePage>
   );
 }

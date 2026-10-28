@@ -8,6 +8,8 @@ class SoundFX {
   private lastClickTime = 0;
   private mw3Buffer: AudioBuffer | null = null;
   private mw3Loading = false;
+  private mw3Attempts = 0;
+  private mw3Element: HTMLAudioElement | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -19,8 +21,10 @@ class SoundFX {
       } catch {
         // ignore localStorage access issues in sandboxed frames
       }
-      // Preload MW3 lobby audio buffer in background
-      this.loadMW3Audio();
+      // No fetch here on purpose. The track is loaded from unlock(), which
+      // runs on the first real gesture: fetching during module evaluation
+      // fires a request on every page load — including ones that never play
+      // a sound — and any dev-server rebuild turns it into a visible error.
     }
   }
 
@@ -56,16 +60,23 @@ class SoundFX {
    */
   private async loadMW3Audio() {
     if (this.mw3Buffer || this.mw3Loading || typeof window === 'undefined') return;
+    // Two attempts only: a missing asset is not going to appear on the third
+    // try, and a retry loop on every pointerdown would be worse than silence.
+    if (this.mw3Attempts >= 2) return;
+    this.mw3Attempts += 1;
     this.mw3Loading = true;
     try {
       const response = await fetch('/mw3-lobby.mp3');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const arrayBuffer = await response.arrayBuffer();
       const ctx = this.getContext();
       if (ctx) {
         this.mw3Buffer = await ctx.decodeAudioData(arrayBuffer);
       }
     } catch (err) {
-      console.warn('Failed to decode mw3-lobby.mp3 buffer', err);
+      // The lobby track is garnish — every effect has a synth fallback — so a
+      // failed load must never escalate into an app error.
+      console.info('[sound] lobby track unavailable, using synth fallback', err);
     } finally {
       this.mw3Loading = false;
     }
@@ -119,11 +130,17 @@ class SoundFX {
         return false;
       }
     } else {
-      // Direct HTML5 Audio fallback while buffer is fetching
+      // Direct HTML5 Audio fallback while the buffer decodes. One shared
+      // element: `new Audio()` per hover leaks a decoder on every pointer move.
       try {
-        const audio = new Audio('/mw3-lobby.mp3');
+        if (!this.mw3Element) {
+          this.mw3Element = new Audio('/mw3-lobby.mp3');
+          this.mw3Element.preload = 'auto';
+        }
+        const audio = this.mw3Element;
         audio.volume = options.volume ?? 0.45;
-        if (options.playbackRate) audio.playbackRate = options.playbackRate;
+        audio.playbackRate = options.playbackRate ?? 1;
+        audio.currentTime = 0;
         audio.play().catch(() => {});
         return true;
       } catch {

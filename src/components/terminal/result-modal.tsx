@@ -20,7 +20,8 @@ interface ResultModalProps {
     title: string;
     asset: string;
     tags: string[];
-    seed: number;
+    /** Which window of the global series this duel traded. */
+    session: string;
   };
   onRematch: () => void;
   isForfeit?: boolean;
@@ -394,7 +395,7 @@ export function ResultModal({
                   {tg}
                 </span>
               ))}
-              <span className="text-[#7a7878] font-mono text-[10px]">Seed: #{revealedMarket.seed}</span>
+              <span className="text-[#7a7878] font-mono text-[10px]">{revealedMarket.session}</span>
             </div>
           </div>
 

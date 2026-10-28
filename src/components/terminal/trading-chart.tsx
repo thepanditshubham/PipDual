@@ -46,6 +46,8 @@ interface TradingChartProps {
   timeframe: Timeframe;
   onTimeframeChange: (tf: Timeframe) => void;
   instrument?: string;
+  /** Instrument decimals from the pair config; falls back to sniffing the ticker. */
+  digits?: number;
   readOnly?: boolean;
   onSlChange?: (slPct: number) => void;
   onTpChange?: (tpPct: number) => void;
@@ -60,6 +62,7 @@ export function TradingChart({
   timeframe,
   onTimeframeChange,
   instrument = 'XAU/USD',
+  digits,
   readOnly = false,
   onSlChange,
   onTpChange,
@@ -110,9 +113,10 @@ export function TradingChart({
   // Right price-scale width, kept in sync so bottom-right controls clear the axis
   const [scaleWidth, setScaleWidth] = useState(0);
 
-  // Precision based on instrument
+  // Precision based on instrument — the pair's own config wins when supplied, so a
+  // renamed instrument is not at the mercy of name sniffing.
   const isForex = instrument.includes('/') && !instrument.includes('BTC') && !instrument.includes('XAU') && !instrument.includes('JPY');
-  const precision = isForex ? 4 : instrument.includes('JPY') ? 3 : 2;
+  const precision = digits ?? (isForex ? 4 : instrument.includes('JPY') ? 3 : 2);
   const minMove = Math.pow(10, -precision);
 
   const fmt = (p: number) => p.toFixed(precision);
@@ -321,16 +325,39 @@ export function TradingChart({
   }, [precision, minMove]);
 
   // ── 2. Populate / Update Series Data ──
+  // A full load happens once per market and once per timeframe. After that the newest
+  // bar is pushed with update(), which mutates a candle in place while it is still
+  // forming and appends it when its time moves on — that is what lets the chart move
+  // with ticks. setData() rebuilds and re-fits the series, so it cannot animate a live
+  // bar and it is far more expensive to do twelve times a second.
+  const loadedSignatureRef = useRef<string>('');
+  const loadedCountRef = useRef<number>(-1);
+  const lastBarTimeRef = useRef<number>(-1);
+  // The series the data is on. Precision is a dependency of the chart effect, so
+  // selecting an instrument with different decimals builds a brand-new empty chart under
+  // the same candles; tracking the series identity is what makes the next pass reload
+  // the history instead of pushing one live bar onto nothing.
+  const loadedSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+
   useEffect(() => {
     const candleSeries = candleSeriesRef.current;
     const lineSeries = lineSeriesRef.current;
     if (!candleSeries || !lineSeries || candles.length === 0) return;
 
-    const sorted = [...candles].sort((a, b) => a.time - b.time);
+    // Bars arrive in time order; only a rebuild (market or timeframe switch) sorts.
+    let ordered = true;
+    for (let i = 1; i < candles.length; i++) {
+      if (candles[i].time < candles[i - 1].time) {
+        ordered = false;
+        break;
+      }
+    }
+    const source = ordered ? candles : [...candles].sort((a, b) => a.time - b.time);
+
     const cleanCandles: any[] = [];
     let lastTime = -1;
 
-    for (const c of sorted) {
+    for (const c of source) {
       if (c.time > lastTime) {
         cleanCandles.push({
           time: c.time as any,
@@ -344,9 +371,33 @@ export function TradingChart({
       }
     }
 
-    candleSeries.setData(cleanCandles);
-    lineSeries.setData(cleanCandles.map((c) => ({ time: c.time, value: c.close })));
-  }, [candles]);
+    const last = cleanCandles[cleanCandles.length - 1];
+    // The instrument is part of the key: two series can open on the same minute, and
+    // moving between them has to be a reload rather than an update onto the wrong market.
+    const signature = `${instrument}:${timeframe}:${cleanCandles[0]?.time ?? 0}`;
+    const needsFullLoad =
+      candleSeries !== loadedSeriesRef.current ||
+      loadedSignatureRef.current !== signature ||
+      cleanCandles.length < loadedCountRef.current ||
+      last.time < lastBarTimeRef.current;
+
+    if (needsFullLoad) {
+      candleSeries.setData(cleanCandles);
+      lineSeries.setData(cleanCandles.map((c) => ({ time: c.time, value: c.close })));
+    } else {
+      // Same time as the bar already on the axis → the forming candle is replaced in
+      // place. Later time → a fresh candle is appended.
+      candleSeries.update(last);
+      lineSeries.update({ time: last.time, value: last.close });
+    }
+
+    loadedSignatureRef.current = signature;
+    loadedCountRef.current = cleanCandles.length;
+    lastBarTimeRef.current = last.time;
+    loadedSeriesRef.current = candleSeries;
+    // precision is a dependency because a new chart can be built under the same candles;
+    // the pass has to run again to notice and refill it.
+  }, [candles, timeframe, instrument, precision]);
 
   // ── 3. Switch between Candlestick and Line mode ──
   useEffect(() => {
@@ -614,7 +665,7 @@ export function TradingChart({
 
   // ── Chart view control (bottom-right reset button) ──
   // scrollToPosition() takes the gap between the newest bar and the right edge in
-  // bars, so it is stable while setData() appends ticks every frame.
+  // bars, so it stays correct while the live series keeps appending every tick.
   const scrollToLatestBar = useCallback((rightGapBars: number) => {
     chartRef.current?.timeScale().scrollToPosition(rightGapBars, false);
   }, []);

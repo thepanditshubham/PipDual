@@ -1228,26 +1228,8 @@ function PlayLobbyContent() {
       {/* ── Blurred ambient background layers ── */}
       {/* NOTE: `isolate` on the page root keeps these -z-10 layers above the opaque bg-bg of <main>. */}
       <div className="fixed inset-0 bg-[var(--term-canvas)] -z-10" />
-      {/* Colour field only: green left, red right, purple through the middle — no photo */}
+      {/* Neutral veil only: vignette + faint CRT scanlines, no colour wash */}
       <div className="lobby-glow-veil fixed inset-0 -z-10 pointer-events-none" aria-hidden="true" />
-      <div className="fixed top-[-15%] left-[-8%] w-[600px] h-[600px] rounded-full bg-[var(--term-accent)]/16 blur-[140px] -z-10 pointer-events-none" />
-      <div className="fixed bottom-[-20%] right-[-5%] w-[500px] h-[500px] rounded-full bg-[var(--term-buy)]/14 blur-[130px] -z-10 pointer-events-none" />
-      <div className="fixed top-[35%] right-[20%] w-[350px] h-[350px] rounded-full bg-[var(--term-purple)]/14 blur-[110px] -z-10 pointer-events-none" />
-      <div className="fixed top-[60%] left-[30%] w-[280px] h-[280px] rounded-full bg-[var(--term-purple)]/10 blur-[100px] -z-10 pointer-events-none" />
-
-      {/* ── Bottom bull/bear gradient — green → red trading aura ── */}
-      <div
-        className="fixed bottom-0 inset-x-0 h-[46vh] -z-10 pointer-events-none"
-        style={{
-          background:
-            'linear-gradient(90deg, rgba(8,153,129,0.38) 0%, rgba(8,153,129,0.14) 26%, rgba(13,15,18,0) 48%, rgba(242,54,69,0.14) 72%, rgba(242,54,69,0.38) 100%)',
-          WebkitMaskImage: 'linear-gradient(to top, #000 0%, rgba(0,0,0,0.55) 40%, transparent 100%)',
-          maskImage: 'linear-gradient(to top, #000 0%, rgba(0,0,0,0.55) 40%, transparent 100%)',
-        }}
-      />
-      {/* Baseline glow separating both sides, like a price axis sitting on the floor */}
-      <div className="fixed bottom-0 inset-x-0 h-px -z-10 pointer-events-none bg-gradient-to-r from-[var(--term-buy)]/70 via-[var(--term-border)] to-[var(--term-sell)]/70" />
-      <div className="fixed bottom-[-18%] left-[-6%] w-[420px] h-[420px] rounded-full bg-[var(--term-sell)]/10 blur-[130px] -z-10 pointer-events-none" />
 
       {/* ── Announcement strip — the first thing on the page, above the header ── */}
       <AnnouncementBar />
@@ -2768,7 +2750,7 @@ function PlayLobbyContent() {
                   <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">Match Flow</p>
                   {[
                     { n: '01', title: 'Configure Your Ticket', desc: 'Choose a game duration (5 / 10 / 15 min) and a mode — Live charges a coin entry and pays the pot to the winner, Demo is free and stakes nothing.' },
-                    { n: '02', title: 'Enter the Queue', desc: 'Hit Find Match. The engine pairs you with a rival of similar ELO rating within seconds. Both traders see an identical price feed seeded from the same cryptographic entropy.' },
+                    { n: '02', title: 'Enter the Queue', desc: 'Hit Find Match. The engine pairs you with a rival of similar ELO rating within seconds. Both traders see an identical price feed — one global market series, and the duel replays the window that opens on the hour it fires.' },
                     { n: '03', title: '1-Minute Lobby Prep', desc: 'Once matched, a 60-second prep window starts. Study the chart, plan your bias — long or short — and set your first order before the clock hits zero.' },
                     { n: '04', title: 'Trade to Win More Pips', desc: 'Use Market, Limit, or Stop orders. Open and close positions freely. The trader with the highest net pip P&L when the timer expires wins the duel.' },
                     { n: '05', title: 'Claim Your ELO & Rewards', desc: 'Win → gain ELO and the Live pot. Lose → lose ELO and your entry. Draw → no change, entry returned. Coins come from reviewed crypto deposits and from pots you win, and any balance can be paid back out as USDT from the wallet.' },

@@ -31,10 +31,10 @@ const ROTATE_MS = 9000;
  * so the console's preview paints the strip it is about to publish.
  */
 export const TONE_STYLE: Record<AnnouncementTone, { bg: string; edge: string; text: string }> = {
-  info: { bg: '#101318', edge: '#2962ff', text: '#dce6ff' },
-  promo: { bg: '#121019', edge: '#9262f9', text: '#e9dcff' },
-  warn: { bg: '#171208', edge: '#f59e0b', text: '#ffe4b3' },
-  critical: { bg: '#180d10', edge: '#f23645', text: '#ffd6da' },
+  info: { bg: '#0a1214', edge: '#33dddd', text: '#d2fbfb' },
+  promo: { bg: '#140f08', edge: '#ffaa33', text: '#ffe8c2' },
+  warn: { bg: '#151103', edge: '#ffe044', text: '#fff4b8' },
+  critical: { bg: '#180d10', edge: '#ff4444', text: '#ffd6da' },
 };
 
 function readDismissed(): string[] {

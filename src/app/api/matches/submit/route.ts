@@ -1,16 +1,30 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { TICKS, ALLOWED_SIZES, MAX_ACTIONS } from '@/lib/engine/constants';
-import { makeTicks } from '@/lib/engine/market';
+import { MAX_ACTION_TICK, ALLOWED_SIZES, MAX_ACTIONS, battleStartFor } from '@/lib/engine/constants';
+import { generateBattleMarket } from '@/lib/engine/market-feed';
 import { simulate, score } from '@/lib/engine/simulate';
 import { ActionSchema } from '@/lib/engine/types';
 
 const SubmitMatchSchema = z.object({
   room: z.string().min(3).max(16),
-  seed: z.number().int(),
+  /**
+   * The ticket's shared start time, in epoch ms. Both terminals hold the same value,
+   * and the market window is derived from it — so this is what tells the server which
+   * chart the players actually traded. The seed no longer picks a market.
+   */
+  startAt: z.number().int().positive(),
+  seed: z.number().int().optional(),
   mode: z.enum(['standard', 'risk']),
   actions: z.array(ActionSchema).max(MAX_ACTIONS),
 });
+
+/**
+ * How far from server time a submitted match may be anchored. This bounds how far a
+ * doctored `startAt` can reach, but it cannot remove the reach: the series is computable
+ * from its formula alone, so a prepared player can study any window that already exists.
+ * Closing that needs an anchor the server issues and the client never chooses.
+ */
+const MAX_ANCHOR_SKEW_MS = 24 * 60 * 60 * 1000;
 
 // Simple in-memory rate limiter (per IP or token)
 const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
@@ -51,14 +65,22 @@ export async function POST(request: Request) {
       );
     }
 
-    const { room, seed, mode, actions } = parsed.data;
+    const { room, startAt, seed, mode, actions } = parsed.data;
+
+    // A match may only be anchored near the present; the window itself is public.
+    if (Math.abs(Date.now() - startAt) > MAX_ANCHOR_SKEW_MS) {
+      return NextResponse.json(
+        { error: 'Match start time is too far from server time' },
+        { status: 400 }
+      );
+    }
 
     // Additional strict validation per engine spec:
-    // Reject actions with t outside [0, TICKS-2], non-integer sizes, or sizes not in allowed set
+    // Reject actions with t outside the battle, non-integer sizes, or sizes not in allowed set
     for (const act of actions) {
-      if (act.t < 0 || act.t > TICKS - 2) {
+      if (act.t < 0 || act.t > MAX_ACTION_TICK) {
         return NextResponse.json(
-          { error: `Action tick ${act.t} out of range [0, ${TICKS - 2}]` },
+          { error: `Action tick ${act.t} out of range [0, ${MAX_ACTION_TICK}]` },
           { status: 400 }
         );
       }
@@ -82,18 +104,24 @@ export async function POST(request: Request) {
       }
     }
 
-    // Server independently generates prices from seed
-    const prices = makeTicks(seed);
+    // The server regenerates the exact market the clients traded: the same global
+    // series, the same window, derived from the same start time. It used to call
+    // makeTicks(), which is a different price series from the one on the player's
+    // screen — so this route was verifying a chart nobody had played.
+    const market = generateBattleMarket(battleStartFor(startAt));
 
     // Server re-runs the simulation independently – NEVER TRUST CLIENT SCORE
-    const simResult = simulate(prices, actions);
+    const simResult = simulate(market.liveTicks, actions, MAX_ACTION_TICK);
     const scoreResult = score(simResult, mode);
 
     return NextResponse.json({
       verified: true,
       room,
-      seed,
+      startAt,
+      seed: seed ?? null,
       mode,
+      instrument: market.instrument,
+      marketSession: market.battleSessionLabel,
       score: scoreResult.score,
       pnl: scoreResult.pnl,
       maxDrawdown: scoreResult.maxDrawdown,

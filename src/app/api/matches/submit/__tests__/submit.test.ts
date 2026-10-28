@@ -2,10 +2,18 @@ import { describe, it, expect } from 'vitest';
 import { TICKS } from '@/lib/engine/constants';
 import { POST } from '../route';
 
+/**
+ * The market is no longer picked by the seed — it is the window that opens on the hour
+ * the ticket fired, so every submission has to carry that anchor. Tests use the present
+ * moment, which is what a real client reports.
+ */
+const startAt = Date.now();
+
 describe('/api/matches/submit API endpoint', () => {
   it('verifies valid match actions independently on server', async () => {
     const payload = {
       room: 'ABCDE',
+      startAt,
       seed: 4242,
       mode: 'standard',
       actions: [
@@ -29,11 +37,49 @@ describe('/api/matches/submit API endpoint', () => {
     expect(typeof data.pnl).toBe('number');
     expect(data.tradeCount).toBe(1);
     expect(data.flagged).toBe(false);
+    // The server names the window it re-derived, so a mismatch is auditable.
+    expect(typeof data.marketSession).toBe('string');
+    expect(data.marketSession).toMatch(/UTC$/);
+  });
+
+  it('rejects a submission with no anchor to derive the market from', async () => {
+    const payload = {
+      room: 'ABCDE',
+      seed: 4242,
+      mode: 'standard',
+      actions: [{ t: 10, type: 'buy', size: 1 }],
+    };
+
+    const req = new Request('http://localhost:3000/api/matches/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    expect((await POST(req)).status).toBe(400);
+  });
+
+  it('rejects an anchor doctored to a far-off hour', async () => {
+    const payload = {
+      room: 'ABCDE',
+      startAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      mode: 'standard',
+      actions: [{ t: 10, type: 'buy', size: 1 }],
+    };
+
+    const req = new Request('http://localhost:3000/api/matches/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    expect((await POST(req)).status).toBe(400);
   });
 
   it('rejects payload with invalid lot size', async () => {
     const payload = {
       room: 'ABCDE',
+      startAt,
       seed: 4242,
       mode: 'standard',
       actions: [
@@ -54,6 +100,7 @@ describe('/api/matches/submit API endpoint', () => {
   it('rejects actions exceeding TICKS - 2', async () => {
     const payload = {
       room: 'ABCDE',
+      startAt,
       seed: 4242,
       mode: 'standard',
       actions: [

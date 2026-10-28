@@ -257,7 +257,7 @@ export function FriendsPanel({ user, inviteCode }: FriendsPanelProps) {
     setReloadKey((key) => key + 1);
   };
 
-  // ── Invite a friend into a fresh room (both land on the same seeded market) ──
+  // ── Invite a friend into a fresh room (both derive the same market window from the ticket's start time) ──
   const inviteFriend = (entry: FriendEntry) => {
     sound.playClick();
     const room = generateRoomCode();

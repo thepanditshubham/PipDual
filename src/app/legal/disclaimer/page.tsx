@@ -13,7 +13,7 @@ export default function DisclaimerPage() {
       <div
         className="fixed top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full pointer-events-none"
         style={{
-          background: 'radial-gradient(circle, rgba(0, 123, 255, 0.12) 0%, rgba(0, 200, 83, 0.04) 40%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(255, 119, 34, 0.09) 0%, rgba(255, 119, 34, 0.03) 40%, transparent 70%)',
         }}
       />
 
@@ -28,7 +28,7 @@ export default function DisclaimerPage() {
         </Link>
 
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[var(--accent-active)] via-[var(--accent)] to-[var(--green)] flex items-center justify-center text-white">
+          <div className="w-7 h-7 flex items-center justify-center bg-[var(--fin-orange)] text-black">
             <Swords size={14} />
           </div>
           <span className="font-black text-sm tracking-wider text-[var(--text)]">PIP DUEL</span>
