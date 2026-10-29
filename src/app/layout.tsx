@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { LayoutShell } from '@/components/layout-shell';
 import { SupabaseAuthProvider } from '@/components/supabase-auth-provider';
 import { SoundProvider } from '@/components/sound-provider';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 // The whole product speaks in one typeface: a mono, because every screen of the
 // terminal design this follows is a mono. Exposed as `--font-plex` and consumed by
@@ -71,6 +72,7 @@ export default function RootLayout({
             </SoundProvider>
           </SupabaseAuthProvider>
         </ThemeProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
