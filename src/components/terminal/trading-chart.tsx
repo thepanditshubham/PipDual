@@ -16,11 +16,15 @@ import {
 } from 'lightweight-charts';
 import {
   SlidersHorizontal,
-  Undo2,
-  Redo2,
+  SquareFunction,
+  PencilRuler,
   Settings,
   Maximize2,
   Camera,
+  Undo2,
+  Redo2,
+  CandlestickChart,
+  LineChart,
   ChevronDown,
   Crosshair,
   Minus,
@@ -38,6 +42,57 @@ import { NOTIONAL_PER_SIZE } from '@/lib/engine/constants';
 import { useTerminalMode } from '@/components/terminal/theme-mode';
 
 type DragTarget = 'sl' | 'tp' | null;
+
+/** The four timeframes the toolbar offers, in order. */
+const TIMEFRAMES = ['1m', '5m', '15m', '1h'] as const;
+
+/** The drawing rail: one entry per tool the palette shows. */
+type DrawTool = { id: string; title: string; Icon: typeof Crosshair; iconClass?: string };
+const DRAW_TOOLS: DrawTool[] = [
+  { id: 'crosshair', title: 'Crosshair', Icon: Crosshair },
+  { id: 'trend', title: 'Trend Line', Icon: Minus, iconClass: 'rotate-45' },
+  { id: 'fib', title: 'Gann and Fibonacci Tools', Icon: SlidersHorizontal },
+  { id: 'brush', title: 'Brush', Icon: Edit3 },
+  { id: 'text', title: 'Text', Icon: Type },
+  { id: 'measure', title: 'Measure', Icon: Ruler },
+  { id: 'zoom', title: 'Zoom In', Icon: ZoomIn },
+  { id: 'magnet', title: 'Magnet Mode', Icon: Magnet },
+  { id: 'lock', title: 'Lock All Drawing Tools', Icon: Lock },
+  { id: 'hide', title: 'Hide All Drawings', Icon: Eye },
+  { id: 'clear', title: 'Remove Drawings', Icon: Trash2 },
+];
+
+/** The palette's buttons, shared by the desktop rail and the phone toolbar. */
+function DrawToolButtons({
+  activeId,
+  onPick,
+}: {
+  activeId: string;
+  onPick: (id: string) => void;
+}) {
+  return (
+    <>
+      {DRAW_TOOLS.map(({ id, title, Icon, iconClass }) => {
+        const active = id === activeId;
+        return (
+          <button
+            key={id}
+            type="button"
+            title={title}
+            onClick={() => onPick(id)}
+            className={`p-1.5 rounded transition-colors ${
+              active
+                ? 'bg-[var(--term-primary)]/12 text-[var(--term-primary)]'
+                : 'hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]'
+            }`}
+          >
+            <Icon size={15} className={iconClass} />
+          </button>
+        );
+      })}
+    </>
+  );
+}
 
 /**
  * Candles are painted on a canvas, so they cannot inherit CSS variables the way
@@ -107,6 +162,11 @@ export function TradingChart({
 
   // Chart settings
   const [chartType, setChartType] = useState<'candlestick' | 'line'>('candlestick');
+  // Toolbar menus keep one control on screen: the current timeframe, or the
+  // tool in hand. Opening either one hides the rest of that dock.
+  const [tfMenuOpen, setTfMenuOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [drawToolId, setDrawToolId] = useState('crosshair');
 
   // Drag state
   const dragTargetRef = useRef<DragTarget>(null);
@@ -244,6 +304,11 @@ export function TradingChart({
 
     // Canvas colours are literal values: resolve them from the theme tokens.
     const palette = readChartPalette(container);
+    /* The axis labels are canvas text, so the only lever is the chart-wide font
+       size (it drives the price scale and the time scale together). Compact
+       screens get 10px so the digits stop crowding the plot; the laptop keeps
+       the 12px it shipped with. */
+    const axisFontSize = (width: number) => (width < 768 ? 10 : 12);
     const chart = createChart(container, {
       width: container.clientWidth,
       height: container.clientHeight,
@@ -251,7 +316,7 @@ export function TradingChart({
         background: { type: ColorType.Solid, color: palette.background },
         textColor: palette.text,
         fontFamily: "Inter, system-ui, sans-serif",
-        fontSize: 12,
+        fontSize: axisFontSize(container.clientWidth),
       },
       // No grid mesh: the price canvas stays clean, only the candles and levels show.
       grid: {
@@ -339,7 +404,7 @@ export function TradingChart({
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
         if (width > 0 && height > 0) {
-          chart.applyOptions({ width, height });
+          chart.applyOptions({ width, height, layout: { fontSize: axisFontSize(width) } });
         }
       }
     });
@@ -748,19 +813,37 @@ export function TradingChart({
   return (
     <div className="flex flex-col h-full w-full relative overflow-hidden select-none bg-[var(--term-panel-deep)]">
       {/* ── Top Bar: TradingView Chart Toolbar ── */}
-      <div className="h-9 px-2 flex items-center justify-between text-xs shrink-0 border-b border-[var(--term-border)] bg-[var(--term-surface)]">
-        {/* Left Controls */}
+      <div className="relative h-9 px-2 flex items-center justify-between text-xs shrink-0 border-b border-[var(--term-border)] bg-[var(--term-surface)]">
+        {/* Left Controls — the laptop keeps the full strip; below md the bar
+            folds down to the controls a thumb actually needs. */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          {/* Ticker Name in Bold */}
-          <span className="font-extrabold text-sm tracking-wide text-white px-1.5 select-text">
+          {/* Laptop: the ticker sits in the bar, as it always has */}
+          <span className="hidden md:inline font-extrabold text-sm tracking-wide text-white px-1.5 select-text">
             {instrument}
           </span>
+          <span className="hidden md:block h-3.5 w-px bg-[var(--term-border)] mx-0.5" />
 
-          <span className="h-3.5 w-px bg-[var(--term-border)] mx-0.5" />
+          {/* Compact: the timeframe in use, alone. Clicking it unfolds the rest,
+              and while that list is open the rest of the dock steps aside. */}
+          <button
+            type="button"
+            onClick={() => setTfMenuOpen((open) => !open)}
+            aria-haspopup="listbox"
+            aria-expanded={tfMenuOpen}
+            title="Timeframe"
+            className={`md:hidden flex shrink-0 items-center gap-1 rounded px-2 py-1 text-xs font-semibold uppercase transition-colors cursor-pointer ${
+              tfMenuOpen
+                ? 'bg-[var(--term-primary)]/12 text-[var(--term-primary)]'
+                : 'text-[var(--term-text)] hover:bg-[var(--term-raised)]'
+            }`}
+          >
+            {timeframe}
+            <ChevronDown size={11} className={`transition-transform ${tfMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
 
-          {/* Timeframe Selector */}
-          <div className="flex items-center gap-0.5">
-            {(['1m', '5m', '15m', '1h'] as const).map((tf) => (
+          {/* Laptop: all four timeframes inline */}
+          <div className="hidden md:flex items-center gap-0.5">
+            {TIMEFRAMES.map((tf) => (
               <button
                 key={tf}
                 onClick={() => onTimeframeChange(tf)}
@@ -775,24 +858,59 @@ export function TradingChart({
             ))}
           </div>
 
+          {!tfMenuOpen && (
+            <>
           <span className="h-3.5 w-px bg-[var(--term-border)] mx-0.5" />
 
-          {/* Chart Type (Candles vs Line) */}
+          {/* Chart Type — worded on the laptop, a glyph on a phone */}
           <button
             onClick={() => setChartType(chartType === 'candlestick' ? 'line' : 'candlestick')}
-            className="px-2 py-1 rounded text-xs font-semibold text-[var(--term-label)] hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors"
+            className="hidden md:inline-flex px-2 py-1 rounded text-xs font-semibold text-[var(--term-label)] hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors"
             title="Chart Type"
           >
             {chartType === 'candlestick' ? 'Candles' : 'Line'}
           </button>
-
-          {/* Indicators Button */}
           <button
-            className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold text-[var(--term-label)] hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors"
+            onClick={() => setChartType(chartType === 'candlestick' ? 'line' : 'candlestick')}
+            className="md:hidden p-1 rounded text-[var(--term-label)] hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors"
+            title={`Chart type: ${chartType === 'candlestick' ? 'candles' : 'line'} — click to switch`}
+            aria-label="Chart type"
+          >
+            {chartType === 'candlestick'
+              ? <CandlestickChart size={14} />
+              : <LineChart size={14} />}
+          </button>
+
+          {/* Compact only: the rail that holds these tools is hidden below md */}
+          <button
+            type="button"
+            onClick={() => setToolsOpen((open) => !open)}
+            aria-label="Drawing tools"
+            aria-expanded={toolsOpen}
+            title="Drawing tools"
+            className={`md:hidden p-1 rounded transition-colors ${
+              toolsOpen
+                ? 'bg-[var(--term-primary)]/12 text-[var(--term-primary)]'
+                : 'text-[var(--term-label)] hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]'
+            }`}
+          >
+            <PencilRuler size={14} />
+          </button>
+
+          {/* Indicators — worded on the laptop, a glyph on a phone */}
+          <button
+            className="hidden md:flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold text-[var(--term-label)] hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors"
             title="Indicators"
           >
             <span className="italic font-serif text-[13px] text-[var(--term-primary)]">fx</span>
             <span>Indicators</span>
+          </button>
+          <button
+            className="md:hidden p-1 rounded text-[var(--term-label)] hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors"
+            title="Indicators"
+            aria-label="Indicators"
+          >
+            <SquareFunction size={14} />
           </button>
 
           <span className="h-3.5 w-px bg-[var(--term-border)] mx-0.5" />
@@ -804,30 +922,96 @@ export function TradingChart({
           <button className="p-1 rounded text-[var(--term-muted)] hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]" title="Redo">
             <Redo2 size={13} />
           </button>
+            </>
+          )}
         </div>
 
-        {/* Right Action Icons */}
+        {/* The timeframe list is a child of the bar, not of the scrolling control
+            row — otherwise its own overflow would clip the dropdown. */}
+        {tfMenuOpen && (
+          <>
+            <button
+              type="button"
+              aria-label="Close timeframe menu"
+              onClick={() => setTfMenuOpen(false)}
+              className="fixed inset-0 z-30 cursor-default"
+            />
+            <div
+              role="listbox"
+              aria-label="Timeframe"
+              className="absolute left-2 top-full z-40 mt-1 w-24 overflow-hidden rounded border border-[var(--term-border-hi)] bg-[var(--term-surface)] shadow-xl"
+            >
+              {TIMEFRAMES.map((tf) => (
+                <button
+                  key={tf}
+                  type="button"
+                  role="option"
+                  aria-selected={tf === timeframe}
+                  onClick={() => {
+                    onTimeframeChange(tf);
+                    setTfMenuOpen(false);
+                  }}
+                  className={`block w-full px-3 py-1.5 text-left text-xs font-semibold uppercase transition-colors ${
+                    tf === timeframe
+                      ? 'bg-[var(--term-primary)]/12 text-[var(--term-primary)]'
+                      : 'text-[var(--term-label)] hover:bg-[var(--term-raised)] hover:text-[var(--term-text)]'
+                  }`}
+                >
+                  {tf}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Phone palette: the rail that holds these tools on desktop is hidden
+            below md, so the toolbar icon unfolds the same set here. */}
+        {toolsOpen && (
+          <div className="md:hidden">
+            <button
+              type="button"
+              aria-label="Close drawing tools"
+              onClick={() => setToolsOpen(false)}
+              className="fixed inset-0 z-30 cursor-default"
+            />
+            <div className="absolute left-2 top-full z-40 mt-1 grid w-[84px] grid-cols-2 gap-1 rounded border border-[var(--term-border-hi)] bg-[var(--term-surface)] p-1 shadow-xl">
+              <DrawToolButtons
+                activeId={drawToolId}
+                onPick={(id) => {
+                  setDrawToolId(id);
+                  setToolsOpen(false);
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Right Action Icons — hidden while the timeframe list owns the dock */}
+        {!tfMenuOpen && (
         <div className="flex items-center gap-1 shrink-0 text-[var(--term-muted)]">
           <div className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-[var(--term-label)] border border-[var(--term-border)] bg-[var(--term-raised)]">
             <span>Dark</span>
             <ChevronDown size={11} />
           </div>
-          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]" title="Chart Settings">
+          <button className="hidden md:inline-flex p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]" title="Chart Settings">
             <Settings size={13} />
           </button>
-          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]" title="Fullscreen">
+          <button className="hidden md:inline-flex p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]" title="Fullscreen">
             <Maximize2 size={13} />
           </button>
-          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]" title="Take Snapshot">
+          <button className="hidden md:inline-flex p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]" title="Take Snapshot">
             <Camera size={13} />
           </button>
         </div>
+        )}
       </div>
 
       {/* ── Chart Body with Left Tool Strip ── */}
       <div className="flex-1 flex w-full relative min-h-0 overflow-hidden">
-        {/* Left Vertical TradingView Tool Strip */}
-        <div className="w-10 flex flex-col items-center py-2 shrink-0 border-r border-[var(--term-border)] bg-[var(--term-surface)] text-[var(--term-muted)] gap-3 z-10">
+        {/* Left Vertical TradingView Tool Strip — desktop only. On a phone the
+            40px rail cost more chart than the buttons ever returned, so the
+            plot gets the full width there. */}
+        <div className="hidden md:flex w-10 flex-col items-center py-2 shrink-0 border-r border-[var(--term-border)] bg-[var(--term-surface)] text-[var(--term-muted)] gap-3 z-10">
           <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors" title="Crosshair">
             <Crosshair size={15} />
           </button>
@@ -895,6 +1079,17 @@ export function TradingChart({
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseLeave}
           />
+
+          {/* Symbol legend — compact only; the laptop bar already names it */}
+          <div className="md:hidden pointer-events-none absolute left-2 top-1.5 z-[3] flex items-center gap-1.5 font-mono select-none">
+            <span className="text-[11px] font-bold tracking-wide text-[var(--term-strong)] drop-shadow-[0_1px_2px_var(--term-panel-deep)]">
+              {instrument}
+            </span>
+            <span aria-hidden className="h-3 w-px bg-[var(--term-border-hi)]" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--term-label)] drop-shadow-[0_1px_2px_var(--term-panel-deep)]">
+              {timeframe}
+            </span>
+          </div>
 
           {/* ── TopstepX Order Visualization Overlay ── */}
           {position && bandCoords && (() => {
@@ -1111,21 +1306,24 @@ export function TradingChart({
         </div>
       </div>
 
-      {/* ── Bottom Bar: Time Scale & TradingView Status ── */}
-      <div className="h-6 px-3 flex justify-between items-center shrink-0 text-[10px] font-mono bg-[var(--term-surface)] border-t border-[var(--term-border)] text-[var(--term-muted)] z-10">
-        <div className="flex items-center gap-2">
+      {/* ── Bottom Bar: Time Scale & TradingView Status — laptop only; on a
+          phone this line had nothing left to say, so the plot keeps the height ── */}
+      <div className="hidden md:flex h-6 px-3 justify-between items-center shrink-0 text-[10px] font-mono bg-[var(--term-surface)] border-t border-[var(--term-border)] text-[var(--term-muted)] z-10">
+        <div className="hidden md:flex items-center gap-2">
           {['1d', '5d', '1m', '3m', '6m', '1y', '5y'].map((rng) => (
             <span key={rng} className="hover:text-[var(--term-text)] cursor-pointer transition-colors uppercase">
               {rng}
             </span>
           ))}
         </div>
-        <div className="flex items-center gap-3">
-          <span>{candles.length} bars</span>
-          <span className="text-[var(--term-border-hi)]">•</span>
+        {/* Compact keeps the clock and the result only; the laptop keeps the
+            full status line the chart has always printed */}
+        <div className="ml-auto flex items-center gap-3">
+          <span className="hidden md:inline">{candles.length} bars</span>
+          <span className="hidden md:inline text-[var(--term-border-hi)]">•</span>
           <span>UTC+5:30</span>
-          <span className="text-[var(--term-border-hi)]">•</span>
-          <span className="text-[var(--term-buy)] font-semibold">% log auto</span>
+          <span className="hidden md:inline text-[var(--term-border-hi)]">•</span>
+          <span className="hidden md:inline text-[var(--term-buy)] font-semibold">% log auto</span>
         </div>
       </div>
     </div>

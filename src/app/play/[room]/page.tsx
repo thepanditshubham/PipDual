@@ -27,12 +27,13 @@ import { sound } from '@/components/terminal/sound';
 
 import { TradingChart } from '@/components/terminal/trading-chart';
 import { OrderPanel } from '@/components/terminal/order-panel';
+import { MobileOrderDock } from '@/components/terminal/mobile-order-dock';
 import { RivalPanel } from '@/components/terminal/rival-panel';
 import { ResultModal } from '@/components/terminal/result-modal';
 import { useTerminalMode } from '@/components/terminal/theme-mode';
 
 import {
-  Volume2, VolumeX, Swords, Shield, Clock, ArrowLeft,
+  Swords, Shield, Clock, ArrowLeft,
   Eye, User, AlertTriangle, X
 } from 'lucide-react';
 
@@ -183,7 +184,6 @@ function PlayRoomContent() {
   const [currentTick, setCurrentTick] = useState<number>(0);
   /** Price steps printed inside the current bar; 0 until the battle is running. */
   const [subTick, setSubTick] = useState<number>(0);
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
   const [userActions, setUserActions] = useState<Action[]>([]);
   const [pendingAction, setPendingAction] = useState<boolean>(false);
@@ -699,8 +699,49 @@ function PlayRoomContent() {
     );
   }
 
+  /* Compact header keeps the two numbers that matter in view: the running
+     result beside the clock. The result is bare text — no box — so it never
+     competes for room with the clock's chip. */
+  const livePnl = userSim.openPosition ? unrealizedPnl : realizedPnl;
+  const pnlChip = (
+    <div
+      className={`font-mono text-sm font-bold tabular-nums ${
+        livePnl > 0
+          ? 'text-[var(--term-buy)]'
+          : livePnl < 0
+            ? 'text-[var(--term-sell)]'
+            : 'text-[var(--term-text)]'
+      }`}
+      title={userSim.openPosition ? 'Open trade P&L' : 'Booked P&L on closed trades'}
+    >
+      P&L {livePnl > 0 ? '+' : livePnl < 0 ? '−' : ''}${Math.abs(livePnl).toFixed(2)}
+    </div>
+  );
+
+  /* The clock is one chip in two homes: centred on the laptop bar, and pushed
+     to the top-right corner on a phone, where the thumb-adjacent chrome is the
+     only thing the header still has room for. */
+  const clockChip =
+    phase === 'analysis' ? (
+      <div className="flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase bg-[var(--term-primary)]/10 border border-[var(--term-primary)]/30 text-[var(--term-primary)]">
+        <Eye size={12} className="animate-pulse" />
+        <span>Analysis ({analysisTimerStr})</span>
+      </div>
+    ) : (
+      <div
+        className={`font-mono text-sm font-bold tabular-nums px-2.5 py-0.5 rounded flex items-center gap-1.5 border ${
+          isLast30Sec
+            ? 'bg-[var(--term-sell)]/15 border-[var(--term-sell)]/40 text-[var(--term-sell)]'
+            : 'bg-[var(--term-raised)] border-[var(--term-border)] text-[var(--term-text)]'
+        }`}
+      >
+        <Clock size={12} style={{ color: isLast30Sec ? 'var(--term-sell)' : 'var(--term-buy)' }} />
+        <span>{battleTimerStr}</span>
+      </div>
+    );
+
   return (
-    <div data-terminal data-theme={themeMode} className="term-theme flex flex-col h-screen w-screen overflow-hidden select-none bg-[var(--term-bg)] text-[var(--term-text)] font-sans">
+    <div data-terminal data-theme={themeMode} className="term-theme flex flex-col h-dvh w-screen overflow-hidden select-none bg-[var(--term-bg)] text-[var(--term-text)] font-sans">
       {/* ── TOP HEADER — the terminal's own chrome, painted with the arena tokens ── */}
       <header className="h-10 flex items-center justify-between text-xs shrink-0 z-20 px-3 bg-[var(--term-surface)] border-b border-[var(--term-border)]">
         {/* Left: Account Pill & Balances */}
@@ -725,7 +766,7 @@ function PlayRoomContent() {
           <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[var(--term-raised)] border border-[var(--term-border)] text-[var(--term-text)] text-[11px] font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--term-buy)]" />
             <User size={12} className="text-[var(--term-muted)]" />
-            <span className="truncate max-w-[130px]">
+            <span className="truncate max-w-[86px] sm:max-w-[130px]">
               {user?.username || user?.displayName || 'Trader'}
             </span>
             <span className="text-[var(--term-muted)]">▾</span>
@@ -767,7 +808,7 @@ function PlayRoomContent() {
 
         {/* Center: DEMO Badge & Battle Timer */}
         <div className="flex items-center gap-2">
-          <div className="px-2.5 py-0.5 rounded bg-[var(--term-raised)] border border-[var(--term-border)] text-[11px] font-bold text-[var(--term-label)] uppercase tracking-wider">
+          <div className="hidden sm:block px-2.5 py-0.5 rounded bg-[var(--term-raised)] border border-[var(--term-border)] text-[11px] font-bold text-[var(--term-label)] uppercase tracking-wider">
             DEMO
           </div>
 
@@ -782,26 +823,11 @@ function PlayRoomContent() {
             </div>
           )}
 
-          {phase === 'analysis' ? (
-            <div className="flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase bg-[var(--term-primary)]/10 border border-[var(--term-primary)]/30 text-[var(--term-primary)]">
-              <Eye size={12} className="animate-pulse" />
-              <span>Analysis ({analysisTimerStr})</span>
-            </div>
-          ) : (
-            <div
-              className={`font-mono text-sm font-bold tabular-nums px-2.5 py-0.5 rounded flex items-center gap-1.5 border ${
-                isLast30Sec
-                  ? 'bg-[var(--term-sell)]/15 border-[var(--term-sell)]/40 text-[var(--term-sell)] animate-countdown'
-                  : 'bg-[var(--term-raised)] border-[var(--term-border)] text-[var(--term-text)]'
-              }`}
-            >
-              <Clock size={12} style={{ color: isLast30Sec ? 'var(--term-sell)' : 'var(--term-buy)' }} />
-              <span>{battleTimerStr}</span>
-            </div>
-          )}
+          {/* Laptop: the clock rides in the middle of the bar */}
+          <div className="hidden md:flex">{clockChip}</div>
         </div>
 
-        {/* Right: Mode & Sound */}
+        {/* Right: mode, and on a phone the clock too */}
         <div className="flex items-center gap-2">
           <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold uppercase px-2 py-0.5 rounded bg-[var(--term-primary)]/10 border border-[var(--term-primary)]/30 text-[var(--term-primary)]">
             <Swords size={11} />{' '}
@@ -812,13 +838,10 @@ function PlayRoomContent() {
               : 'Demo Duel'}
           </span>
 
-          <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className="p-1 rounded bg-[var(--term-raised)] border border-[var(--term-border)] text-[var(--term-muted)] hover:text-[var(--term-text)] transition-colors"
-            title="Toggle Sound"
-          >
-            {soundEnabled ? <Volume2 size={13} /> : <VolumeX size={13} />}
-          </button>
+          {/* Phone: the result and the clock own the top-right corner. No P&L
+              before the bell — it would sit beside a differently shaped chip */}
+          {phase !== 'analysis' && <div className="md:hidden">{pnlChip}</div>}
+          <div className="md:hidden">{clockChip}</div>
         </div>
       </header>
 
@@ -853,8 +876,9 @@ function PlayRoomContent() {
           />
         </div>
 
-        {/* Right Sidebar: Order Panel & Rival Status */}
-        <div className="w-80 flex flex-col shrink-0 overflow-y-auto bg-[var(--term-surface)] border-l border-[var(--term-border)]">
+        {/* Right Sidebar: Order Panel & Rival Status — desktop only; a phone
+            orders from the bottom dock instead */}
+        <div className="hidden md:flex w-80 flex-col shrink-0 overflow-y-auto bg-[var(--term-surface)] border-l border-[var(--term-border)]">
           <OrderPanel
             currentPrice={currentPrice}
             position={userSim.openPosition}
@@ -883,8 +907,25 @@ function PlayRoomContent() {
         </div>
       </div>
 
-
-
+      {/* ── MOBILE ORDER DOCK ──
+          Below md the sidebar above is hidden and this bottom row is the whole
+          ticket: SELL | lot size | BUY, one tap to market. */}
+      <MobileOrderDock
+        digits={market?.digits ?? SYNTH_PAIR.digits}
+        currentPrice={currentPrice}
+        position={userSim.openPosition}
+        pendingAction={pendingAction}
+        ordersPlaced={ordersPlaced}
+        maxOrders={MAX_ORDERS_PER_MATCH}
+        rivalName={rivalName}
+        rivalRating={rivalRating}
+        rivalPnl={rivalScore.pnl}
+        onBuy={handleBuy}
+        onSell={handleSell}
+        onClose={handleClose}
+        onReverse={handleReverse}
+        disabled={phase !== 'live'}
+      />
 
       {/* ── RESULT MODAL ── */}
       {settled && (
