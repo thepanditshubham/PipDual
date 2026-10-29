@@ -29,6 +29,7 @@ import { TradingChart } from '@/components/terminal/trading-chart';
 import { OrderPanel } from '@/components/terminal/order-panel';
 import { RivalPanel } from '@/components/terminal/rival-panel';
 import { ResultModal } from '@/components/terminal/result-modal';
+import { useTerminalMode } from '@/components/terminal/theme-mode';
 
 import {
   Volume2, VolumeX, Swords, Shield, Clock, ArrowLeft,
@@ -40,6 +41,10 @@ function PlayRoomContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const room = (params.room as string) || 'DUEL1';
+
+  // Same light/dark switch the lobby carries: mounting `.term-theme` here lets
+  // the shared tokens repaint the arena too.
+  const themeMode = useTerminalMode();
 
   // Session details come from URL params when present (old links, replays) and from
   // sessionStorage otherwise — the URL itself is kept to just the room code.
@@ -688,16 +693,16 @@ function PlayRoomContent() {
 
   if (!authChecked && !user) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center font-mono text-xs select-none bg-[#111215] text-[#6c7080]">
+      <div className="h-screen w-screen flex items-center justify-center font-mono text-xs select-none bg-[var(--term-bg)] text-[var(--term-muted)]">
         Verifying Session…
       </div>
     );
   }
 
   return (
-    <div data-terminal className="flex flex-col h-screen w-screen overflow-hidden select-none bg-[#111215] text-[#d1d4dc] font-sans">
-      {/* ── TOP HEADER (Tradovate / TV Dark Style) ── */}
-      <header className="h-10 flex items-center justify-between text-xs shrink-0 z-20 px-3 bg-[#131417] border-b border-[#1f2229]">
+    <div data-terminal data-theme={themeMode} className="term-theme flex flex-col h-screen w-screen overflow-hidden select-none bg-[var(--term-bg)] text-[var(--term-text)] font-sans">
+      {/* ── TOP HEADER — the terminal's own chrome, painted with the arena tokens ── */}
+      <header className="h-10 flex items-center justify-between text-xs shrink-0 z-20 px-3 bg-[var(--term-surface)] border-b border-[var(--term-border)]">
         {/* Left: Account Pill & Balances */}
         <div className="flex items-center gap-3">
           <button
@@ -709,7 +714,7 @@ function PlayRoomContent() {
                 setShowLeaveModal(true);
               }
             }}
-            className="flex items-center gap-1 text-[#6c7080] hover:text-[#d1d4dc] font-semibold transition-colors mr-1 cursor-pointer"
+            className="flex items-center gap-1 text-[var(--term-muted)] hover:text-[var(--term-text)] font-semibold transition-colors mr-1 cursor-pointer"
             title="Leave room"
           >
             <ArrowLeft size={14} />
@@ -717,27 +722,27 @@ function PlayRoomContent() {
           </button>
 
           {/* Trader Profile Pill */}
-          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#181a20] border border-[#262932] text-[#d1d4dc] text-[11px] font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#089981]" />
-            <User size={12} className="text-[#6c7080]" />
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[var(--term-raised)] border border-[var(--term-border)] text-[var(--term-text)] text-[11px] font-semibold">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--term-buy)]" />
+            <User size={12} className="text-[var(--term-muted)]" />
             <span className="truncate max-w-[130px]">
               {user?.username || user?.displayName || 'Trader'}
             </span>
-            <span className="text-[#6c7080]">▾</span>
+            <span className="text-[var(--term-muted)]">▾</span>
           </div>
 
           <div className="hidden md:flex items-center gap-3 text-xs font-mono">
             <div className="flex items-center gap-1.5">
-              <span className="text-[#6c7080]">Bal </span>
-              <span className="font-semibold text-[#d1d4dc] tabular-nums">
+              <span className="text-[var(--term-muted)]">Bal </span>
+              <span className="font-semibold text-[var(--term-text)] tabular-nums">
                 ${balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
             <div
-              className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-white font-semibold tabular-nums transition-colors ${
+              className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-[var(--term-strong)] font-semibold tabular-nums transition-colors ${
                 isInProfit
-                  ? 'bg-[#089981] border-[#089981]'
-                  : 'bg-[#f23645] border-[#f23645]'
+                  ? 'bg-[var(--term-buy)] border-[var(--term-buy)]'
+                  : 'bg-[var(--term-sell)] border-[var(--term-sell)]'
               }`}
             >
               <span className="font-sans font-medium opacity-80">RP&L</span>
@@ -746,15 +751,15 @@ function PlayRoomContent() {
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-[#6c7080]">UP&L </span>
+              <span className="text-[var(--term-muted)]">UP&L </span>
               {userSim.openPosition ? (
                 <span
-                  className={`font-semibold tabular-nums ${unrealizedPnl >= 0 ? 'text-[#089981]' : 'text-[#f23645]'}`}
+                  className={`font-semibold tabular-nums ${unrealizedPnl >= 0 ? 'text-[var(--term-buy)]' : 'text-[var(--term-sell)]'}`}
                 >
                   {unrealizedPnl >= 0 ? '+' : '-'}${Math.abs(unrealizedPnl).toFixed(2)}
                 </span>
               ) : (
-                <span className="font-semibold text-[#d1d4dc]">$--</span>
+                <span className="font-semibold text-[var(--term-text)]">$--</span>
               )}
             </div>
           </div>
@@ -762,7 +767,7 @@ function PlayRoomContent() {
 
         {/* Center: DEMO Badge & Battle Timer */}
         <div className="flex items-center gap-2">
-          <div className="px-2.5 py-0.5 rounded bg-[#181a20] border border-[#262932] text-[11px] font-bold text-[#787b86] uppercase tracking-wider">
+          <div className="px-2.5 py-0.5 rounded bg-[var(--term-raised)] border border-[var(--term-border)] text-[11px] font-bold text-[var(--term-label)] uppercase tracking-wider">
             DEMO
           </div>
 
@@ -770,7 +775,7 @@ function PlayRoomContent() {
               other player in this UTC hour is looking at. */}
           {market && (
             <div
-              className="hidden lg:flex items-center px-2.5 py-0.5 rounded bg-[#181a20] border border-[#262932] text-[11px] font-semibold text-[#787b86] tracking-wider tabular-nums"
+              className="hidden lg:flex items-center px-2.5 py-0.5 rounded bg-[var(--term-raised)] border border-[var(--term-border)] text-[11px] font-semibold text-[var(--term-label)] tracking-wider tabular-nums"
               title="One market, indexed by UTC time. Every duel in this hour trades this window."
             >
               {market.battleSessionLabel}
@@ -778,7 +783,7 @@ function PlayRoomContent() {
           )}
 
           {phase === 'analysis' ? (
-            <div className="flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase bg-[#2962ff]/10 border border-[#2962ff]/30 text-[#2962ff]">
+            <div className="flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase bg-[var(--term-primary)]/10 border border-[var(--term-primary)]/30 text-[var(--term-primary)]">
               <Eye size={12} className="animate-pulse" />
               <span>Analysis ({analysisTimerStr})</span>
             </div>
@@ -786,11 +791,11 @@ function PlayRoomContent() {
             <div
               className={`font-mono text-sm font-bold tabular-nums px-2.5 py-0.5 rounded flex items-center gap-1.5 border ${
                 isLast30Sec
-                  ? 'bg-[#f23645]/15 border-[#f23645]/40 text-[#f23645] animate-countdown'
-                  : 'bg-[#181a20] border-[#262932] text-[#d1d4dc]'
+                  ? 'bg-[var(--term-sell)]/15 border-[var(--term-sell)]/40 text-[var(--term-sell)] animate-countdown'
+                  : 'bg-[var(--term-raised)] border-[var(--term-border)] text-[var(--term-text)]'
               }`}
             >
-              <Clock size={12} style={{ color: isLast30Sec ? '#f23645' : '#089981' }} />
+              <Clock size={12} style={{ color: isLast30Sec ? 'var(--term-sell)' : 'var(--term-buy)' }} />
               <span>{battleTimerStr}</span>
             </div>
           )}
@@ -798,7 +803,7 @@ function PlayRoomContent() {
 
         {/* Right: Mode & Sound */}
         <div className="flex items-center gap-2">
-          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold uppercase px-2 py-0.5 rounded bg-[#2962ff]/10 border border-[#2962ff]/30 text-[#2962ff]">
+          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold uppercase px-2 py-0.5 rounded bg-[var(--term-primary)]/10 border border-[var(--term-primary)]/30 text-[var(--term-primary)]">
             <Swords size={11} />{' '}
             {isRankedMatch
               ? liveStake > 0
@@ -809,7 +814,7 @@ function PlayRoomContent() {
 
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className="p-1 rounded bg-[#181a20] border border-[#262932] text-[#6c7080] hover:text-[#d1d4dc] transition-colors"
+            className="p-1 rounded bg-[var(--term-raised)] border border-[var(--term-border)] text-[var(--term-muted)] hover:text-[var(--term-text)] transition-colors"
             title="Toggle Sound"
           >
             {soundEnabled ? <Volume2 size={13} /> : <VolumeX size={13} />}
@@ -819,11 +824,11 @@ function PlayRoomContent() {
 
       {/* ── COUNTDOWN OVERLAY ── */}
       {phase === 'countdown' && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center animate-fade-in pointer-events-none bg-[#111215]/90 backdrop-blur-md">
-          <div className="text-8xl md:text-9xl font-black tabular-nums text-[#089981] drop-shadow-[0_0_40px_rgba(8,153,129,0.5)]">
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center animate-fade-in pointer-events-none bg-[var(--term-bg)]/90 backdrop-blur-md">
+          <div className="text-8xl md:text-9xl font-black tabular-nums text-[var(--term-buy)] drop-shadow-[0_0_40px_var(--term-buy-dim)]">
             {countdown}
           </div>
-          <span className="text-xs uppercase tracking-[0.25em] font-semibold mt-4 text-[#787b86]">
+          <span className="text-xs uppercase tracking-[0.25em] font-semibold mt-4 text-[var(--term-label)]">
             Battle Starting
           </span>
         </div>
@@ -832,7 +837,7 @@ function PlayRoomContent() {
       {/* ── MAIN WORKSPACE: CHART + ORDER PANEL + RIVAL PANEL ── */}
       <div className="flex-1 flex overflow-hidden">
         {/* Center Chart */}
-        <div className="flex-1 flex flex-col relative overflow-hidden bg-[#111215]">
+        <div className="flex-1 flex flex-col relative overflow-hidden bg-[var(--term-bg)]">
           <TradingChart
             candles={currentCandles}
             currentPrice={currentPrice}
@@ -849,7 +854,7 @@ function PlayRoomContent() {
         </div>
 
         {/* Right Sidebar: Order Panel & Rival Status */}
-        <div className="w-80 flex flex-col shrink-0 overflow-y-auto bg-[#131417] border-l border-[#1f2229]">
+        <div className="w-80 flex flex-col shrink-0 overflow-y-auto bg-[var(--term-surface)] border-l border-[var(--term-border)]">
           <OrderPanel
             currentPrice={currentPrice}
             position={userSim.openPosition}
@@ -910,30 +915,30 @@ function PlayRoomContent() {
       )}
       {/* ── LEAVE / FORFEIT CONFIRMATION MODAL ── */}
       {showLeaveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0d0f12]/95 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-[#131417] border border-[#2a2e39] rounded-xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--term-panel-deep)]/95 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-[var(--term-surface)] border border-[var(--term-border-hi)] rounded-xl max-w-sm w-full p-5 shadow-2xl space-y-4">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[#f23645]/15 border border-[#f23645]/30 flex items-center justify-center text-[#f23645] shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-[var(--term-sell)]/15 border border-[var(--term-sell)]/30 flex items-center justify-center text-[var(--term-sell)] shrink-0">
                 <AlertTriangle size={20} />
               </div>
               <div className="space-y-1">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                <h3 className="text-sm font-bold text-[var(--term-strong)] uppercase tracking-wider font-mono">
                   Leave Running Match?
                 </h3>
-                <p className="text-xs text-[#9598a1] leading-relaxed">
-                  You are currently in an active trading duel against <span className="text-white font-semibold">{rivalName}</span>. Leaving now will forfeit your duel and any active positions.
+                <p className="text-xs text-[var(--term-label)] leading-relaxed">
+                  You are currently in an active trading duel against <span className="text-[var(--term-strong)] font-semibold">{rivalName}</span>. Leaving now will forfeit your duel and any active positions.
                 </p>
               </div>
             </div>
 
-            <div className="p-2.5 rounded bg-[#181a20] border border-[#1f2229] text-[11px] font-mono text-[#787b86] space-y-1">
+            <div className="p-2.5 rounded bg-[var(--term-raised)] border border-[var(--term-border)] text-[11px] font-mono text-[var(--term-label)] space-y-1">
               <div className="flex justify-between">
                 <span>Room:</span>
-                <span className="text-[#d1d4dc]">{room}</span>
+                <span className="text-[var(--term-text)]">{room}</span>
               </div>
               <div className="flex justify-between">
                 <span>Time Remaining:</span>
-                <span className="text-[#f59e0b]">{phase === 'analysis' ? analysisTimerStr : battleTimerStr}</span>
+                <span className="text-[var(--term-amber)]">{phase === 'analysis' ? analysisTimerStr : battleTimerStr}</span>
               </div>
             </div>
 
@@ -943,7 +948,7 @@ function PlayRoomContent() {
                   sound.playClick();
                   setShowLeaveModal(false);
                 }}
-                className="flex-1 h-9 rounded bg-[#181a20] hover:bg-[#20242e] border border-[#2a2e39] hover:border-[#3d4250] text-xs font-semibold text-[#d1d4dc] transition-all cursor-pointer"
+                className="flex-1 h-9 rounded bg-[var(--term-raised)] hover:bg-[var(--term-raised-hi)] border border-[var(--term-border-hi)] hover:border-[var(--term-border-hover)] text-xs font-semibold text-[var(--term-text)] transition-all cursor-pointer"
               >
                 Stay in Duel
               </button>
@@ -952,7 +957,7 @@ function PlayRoomContent() {
                   sound.playClick();
                   handleConfirmLeave();
                 }}
-                className="flex-1 h-9 rounded bg-[#f23645] hover:bg-[#d92d3b] text-white text-xs font-bold transition-all cursor-pointer shadow-md"
+                className="flex-1 h-9 rounded bg-[var(--term-sell)] hover:bg-[var(--term-sell-2)] text-[var(--term-canvas)] text-xs font-bold transition-all cursor-pointer shadow-md"
               >
                 Forfeit & Leave
               </button>

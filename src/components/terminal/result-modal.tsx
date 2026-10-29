@@ -130,32 +130,32 @@ export function ResultModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-2xl bg-[#151314] border border-[#2f2c2d] rounded-2xl shadow-2xl overflow-hidden my-8 animate-slide-up">
+      <div className="w-full max-w-2xl bg-[var(--term-panel)] border border-[var(--term-border)] rounded-2xl shadow-2xl overflow-hidden my-8 animate-slide-up">
         {/* Banner */}
         <div
           className={`p-6 text-center border-b ${
             won
-              ? 'bg-gradient-to-b from-[#057a55]/20 to-transparent border-[#057a55]/40 text-emerald-400'
+              ? 'bg-gradient-to-b from-[var(--term-buy-3)]/20 to-transparent border-[var(--term-buy-3)]/40 text-[var(--term-buy)]'
               : isDraw
-                ? 'bg-gradient-to-b from-[#9262f9]/20 to-transparent border-[#9262f9]/40 text-purple-300'
-                : 'bg-gradient-to-b from-rose-500/20 to-transparent border-rose-500/40 text-rose-400'
+                ? 'bg-gradient-to-b from-[var(--term-amber)]/20 to-transparent border-[var(--term-amber)]/40 text-[var(--term-amber)]'
+                : 'bg-gradient-to-b from-[var(--term-sell)]/20 to-transparent border-[var(--term-sell)]/40 text-[var(--term-sell)]'
           }`}
         >
           <div
             className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center border mb-3 shadow-lg ${
               won
-                ? 'bg-[#151314] border-emerald-500/50 text-emerald-400 shadow-emerald-500/10'
+                ? 'bg-[var(--term-panel)] border-[var(--term-buy)]/50 text-[var(--term-buy)]'
                 : isDraw
-                  ? 'bg-[#151314] border-purple-500/50 text-purple-400 shadow-purple-500/10'
-                  : 'bg-[#151314] border-rose-500/50 text-rose-400 shadow-rose-500/10'
+                  ? 'bg-[var(--term-panel)] border-[var(--term-amber)]/50 text-[var(--term-amber)]'
+                  : 'bg-[var(--term-panel)] border-[var(--term-sell)]/50 text-[var(--term-sell)]'
             }`}
           >
             <Trophy size={32} />
           </div>
-          <h2 className="text-3xl md:text-4xl font-extrabold uppercase tracking-tight text-white">
+          <h2 className="text-3xl md:text-4xl font-extrabold uppercase tracking-tight text-[var(--term-strong)]">
             {bannerTitle}
           </h2>
-          <p className="text-xs uppercase tracking-widest text-[#c3c1c1] mt-1 font-medium">
+          <p className="text-xs uppercase tracking-widest text-[var(--term-soft)] mt-1 font-medium">
             {bannerSubtitle}
           </p>
         </div>
@@ -163,30 +163,30 @@ export function ResultModal({
         <div className="p-6 md:p-8 space-y-6">
           {/* Live pot: what the entry cost and what the arena paid out */}
           {showPot && (
-            <div className="bg-[#100e0f] border border-[#f59e0b]/30 rounded-xl p-4 space-y-3">
+            <div className="bg-[var(--term-panel-deep)] border border-[var(--term-amber)]/30 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-[#c3c1c1] flex items-center gap-1.5">
-                  <Coins size={12} className="text-[#f59e0b]" /> Live Pot
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--term-soft)] flex items-center gap-1.5">
+                  <Coins size={12} className="text-[var(--term-amber)]" /> Live Pot
                 </span>
-                <span className="text-[10px] font-mono text-[#7a7878]">
+                <span className="text-[10px] font-mono text-[var(--term-muted)]">
                   {isDraw ? 'Draw — entries refunded' : won ? 'Winner takes the pot' : 'Pot collected by rival'}
                 </span>
               </div>
 
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg bg-[#1a1819] border border-[#2f2c2d] py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-[#7a7878]">Entry</p>
-                  <p className="text-sm font-bold font-mono text-rose-400">−{potStake.toLocaleString()}</p>
+                <div className="rounded-lg bg-[var(--term-raised)] border border-[var(--term-border)] py-2">
+                  <p className="text-[10px] uppercase tracking-wider text-[var(--term-muted)]">Entry</p>
+                  <p className="text-sm font-bold font-mono text-[var(--term-sell)]">−{potStake.toLocaleString()}</p>
                 </div>
-                <div className="rounded-lg bg-[#1a1819] border border-[#2f2c2d] py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-[#7a7878]">Collected</p>
-                  <p className="text-sm font-bold font-mono text-[#f59e0b]">+{potPayout.toLocaleString()}</p>
+                <div className="rounded-lg bg-[var(--term-raised)] border border-[var(--term-border)] py-2">
+                  <p className="text-[10px] uppercase tracking-wider text-[var(--term-muted)]">Collected</p>
+                  <p className="text-sm font-bold font-mono text-[var(--term-amber)]">+{potPayout.toLocaleString()}</p>
                 </div>
-                <div className="rounded-lg bg-[#1a1819] border border-[#2f2c2d] py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-[#7a7878]">Net</p>
+                <div className="rounded-lg bg-[var(--term-raised)] border border-[var(--term-border)] py-2">
+                  <p className="text-[10px] uppercase tracking-wider text-[var(--term-muted)]">Net</p>
                   <p
                     className={`text-sm font-bold font-mono ${
-                      potNet > 0 ? 'text-emerald-400' : potNet < 0 ? 'text-rose-400' : 'text-white'
+                      potNet > 0 ? 'text-[var(--term-buy)]' : potNet < 0 ? 'text-[var(--term-sell)]' : 'text-[var(--term-strong)]'
                     }`}
                   >
                     {potNet > 0 ? '+' : ''}
@@ -195,7 +195,7 @@ export function ResultModal({
                 </div>
               </div>
 
-              <p className="text-[10px] font-mono text-[#7a7878]">
+              <p className="text-[10px] font-mono text-[var(--term-muted)]">
                 Both entries pool, the arena burns 10%, the winner collects the rest.
               </p>
             </div>
@@ -203,35 +203,35 @@ export function ResultModal({
 
           {/* Live settlement: XP, RP, coins and ladder movement */}
           {rewards && (
-            <div className="bg-[#100e0f] border border-[#2f2c2d] rounded-xl p-4 space-y-3">
+            <div className="bg-[var(--term-panel-deep)] border border-[var(--term-border)] rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-[#c3c1c1] flex items-center gap-1.5">
-                  <Shield size={12} className="text-[#089981]" /> Live Rewards
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--term-soft)] flex items-center gap-1.5">
+                  <Shield size={12} className="text-[var(--term-buy)]" /> Live Rewards
                 </span>
-                <span className="text-[10px] font-mono text-[#7a7878]">
+                <span className="text-[10px] font-mono text-[var(--term-muted)]">
                   {rewards.rankAfter.tierLabel}
                   {rewards.rankAfter.ceiling !== null && ` · ${rewards.rankAfter.intoDivision}/${rewards.rankAfter.needed} RP`}
                 </span>
               </div>
 
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg bg-[#1a1819] border border-[#2f2c2d] py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-[#7a7878]">XP</p>
-                  <p className="text-sm font-bold font-mono text-white">+{rewards.xp.toLocaleString()}</p>
+                <div className="rounded-lg bg-[var(--term-raised)] border border-[var(--term-border)] py-2">
+                  <p className="text-[10px] uppercase tracking-wider text-[var(--term-muted)]">XP</p>
+                  <p className="text-sm font-bold font-mono text-[var(--term-strong)]">+{rewards.xp.toLocaleString()}</p>
                 </div>
-                <div className="rounded-lg bg-[#1a1819] border border-[#2f2c2d] py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-[#7a7878]">RP</p>
+                <div className="rounded-lg bg-[var(--term-raised)] border border-[var(--term-border)] py-2">
+                  <p className="text-[10px] uppercase tracking-wider text-[var(--term-muted)]">RP</p>
                   <p
                     className={`text-sm font-bold font-mono ${
-                      rewards.rp > 0 ? 'text-emerald-400' : rewards.rp < 0 ? 'text-rose-400' : 'text-white'
+                      rewards.rp > 0 ? 'text-[var(--term-buy)]' : rewards.rp < 0 ? 'text-[var(--term-sell)]' : 'text-[var(--term-strong)]'
                     }`}
                   >
                     {rewards.rp > 0 ? '+' : ''}{rewards.rp}
                   </p>
                 </div>
-                <div className="rounded-lg bg-[#1a1819] border border-[#2f2c2d] py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-[#7a7878]">Coins</p>
-                  <p className="text-sm font-bold font-mono text-[#f59e0b]">+{rewards.coins}</p>
+                <div className="rounded-lg bg-[var(--term-raised)] border border-[var(--term-border)] py-2">
+                  <p className="text-[10px] uppercase tracking-wider text-[var(--term-muted)]">Coins</p>
+                  <p className="text-sm font-bold font-mono text-[var(--term-amber)]">+{rewards.coins}</p>
                 </div>
               </div>
 
@@ -242,27 +242,27 @@ export function ResultModal({
                 rewards.levelAfter > rewards.levelBefore) && (
                 <div className="flex flex-wrap gap-1.5">
                   {rewards.promoted && (
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                    <span className="px-2 py-0.5 rounded-full bg-[var(--term-buy)]/15 border border-[var(--term-buy)]/40 text-[10px] font-bold uppercase tracking-wider text-[var(--term-buy)]">
                       Promoted
                     </span>
                   )}
                   {rewards.demoted && (
-                    <span className="px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/40 text-[10px] font-bold uppercase tracking-wider text-rose-400">
+                    <span className="px-2 py-0.5 rounded-full bg-[var(--term-sell)]/15 border border-[var(--term-sell)]/40 text-[10px] font-bold uppercase tracking-wider text-[var(--term-sell)]">
                       Demoted
                     </span>
                   )}
                   {rewards.shielded && (
-                    <span className="px-2 py-0.5 rounded-full bg-[#2962ff]/15 border border-[#2962ff]/40 text-[10px] font-bold uppercase tracking-wider text-[#6f9bff]">
+                    <span className="px-2 py-0.5 rounded-full bg-[var(--term-primary)]/15 border border-[var(--term-primary)]/40 text-[10px] font-bold uppercase tracking-wider text-[var(--term-primary-hi)]">
                       Rank shield used
                     </span>
                   )}
                   {rewards.placementDone && (
-                    <span className="px-2 py-0.5 rounded-full bg-[#f59e0b]/15 border border-[#f59e0b]/40 text-[10px] font-bold uppercase tracking-wider text-[#f59e0b]">
+                    <span className="px-2 py-0.5 rounded-full bg-[var(--term-amber)]/15 border border-[var(--term-amber)]/40 text-[10px] font-bold uppercase tracking-wider text-[var(--term-amber)]">
                       Placements complete
                     </span>
                   )}
                   {rewards.levelAfter > rewards.levelBefore && (
-                    <span className="px-2 py-0.5 rounded-full bg-[#a855f7]/15 border border-[#a855f7]/40 text-[10px] font-bold uppercase tracking-wider text-[#c4a2fb]">
+                    <span className="px-2 py-0.5 rounded-full bg-[var(--term-amber)]/15 border border-[var(--term-amber)]/40 text-[10px] font-bold uppercase tracking-wider text-[var(--term-amber)]">
                       Level {rewards.levelAfter}
                     </span>
                   )}
@@ -270,13 +270,13 @@ export function ResultModal({
               )}
 
               {(rewards.missionIds.length > 0 || rewards.achievementIds.length > 0) && (
-                <p className="text-[10px] font-mono text-[#7a7878]">
+                <p className="text-[10px] font-mono text-[var(--term-muted)]">
                   Progress updated: {rewards.missionIds.length} mission{rewards.missionIds.length === 1 ? '' : 's'},{' '}
                   {rewards.achievementIds.length} achievement{rewards.achievementIds.length === 1 ? '' : 's'}
                 </p>
               )}
 
-              <Link href="/play" className="text-[10px] font-mono text-[#6f9bff] hover:text-white transition-colors">
+              <Link href="/play" className="text-[10px] font-mono text-[var(--term-primary-hi)] hover:text-[var(--term-strong)] transition-colors">
                 View full progress in the lobby ›
               </Link>
             </div>
@@ -285,64 +285,64 @@ export function ResultModal({
           {/* Comparison Scoreboard */}
           <div className="grid grid-cols-2 gap-4">
             {/* You */}
-            <div className="bg-[#100e0f] border border-[#2f2c2d] rounded-xl p-4 text-center space-y-1 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500 to-teal-400" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">You (Player)</span>
+            <div className="bg-[var(--term-panel-deep)] border border-[var(--term-border)] rounded-xl p-4 text-center space-y-1 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[var(--term-buy)] to-[var(--term-buy-bright)]" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--term-buy)]">You (Player)</span>
               <div
                 className={`text-3xl font-extrabold font-mono tabular-nums ${
-                  userScore.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                  userScore.pnl >= 0 ? 'text-[var(--term-buy)]' : 'text-[var(--term-sell)]'
                 }`}
               >
                 {userScore.pnl >= 0 ? '+' : ''}${userScore.pnl.toFixed(2)}
               </div>
-              <div className="text-[11px] text-[#c3c1c1] space-y-0.5 pt-2 border-t border-[#2f2c2d]">
+              <div className="text-[11px] text-[var(--term-soft)] space-y-0.5 pt-2 border-t border-[var(--term-border)]">
                 <div className="flex justify-between">
-                  <span>Score:</span> <strong className="text-white font-mono">{userScore.score.toFixed(2)}</strong>
+                  <span>Score:</span> <strong className="text-[var(--term-strong)] font-mono">{userScore.score.toFixed(2)}</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span>Max DD:</span> <strong className="text-white font-mono">${userScore.maxDrawdown.toFixed(2)}</strong>
+                  <span>Max DD:</span> <strong className="text-[var(--term-strong)] font-mono">${userScore.maxDrawdown.toFixed(2)}</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span>Trades:</span> <strong className="text-white font-mono">{userScore.tradeCount}</strong>
+                  <span>Trades:</span> <strong className="text-[var(--term-strong)] font-mono">{userScore.tradeCount}</strong>
                 </div>
               </div>
             </div>
 
             {/* Rival */}
-            <div className="bg-[#100e0f] border border-[#2f2c2d] rounded-xl p-4 text-center space-y-1 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#e74694] to-[#9262f9]" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#ac94fa]">{rivalName}</span>
+            <div className="bg-[var(--term-panel-deep)] border border-[var(--term-border)] rounded-xl p-4 text-center space-y-1 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[var(--term-accent)] to-[var(--term-amber)]" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--term-accent)]">{rivalName}</span>
               <div
                 className={`text-3xl font-extrabold font-mono tabular-nums ${
-                  rivalScore.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                  rivalScore.pnl >= 0 ? 'text-[var(--term-buy)]' : 'text-[var(--term-sell)]'
                 }`}
               >
                 {rivalScore.pnl >= 0 ? '+' : ''}${rivalScore.pnl.toFixed(2)}
               </div>
-              <div className="text-[11px] text-[#c3c1c1] space-y-0.5 pt-2 border-t border-[#2f2c2d]">
+              <div className="text-[11px] text-[var(--term-soft)] space-y-0.5 pt-2 border-t border-[var(--term-border)]">
                 <div className="flex justify-between">
-                  <span>Score:</span> <strong className="text-white font-mono">{rivalScore.score.toFixed(2)}</strong>
+                  <span>Score:</span> <strong className="text-[var(--term-strong)] font-mono">{rivalScore.score.toFixed(2)}</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span>Max DD:</span> <strong className="text-white font-mono">${rivalScore.maxDrawdown.toFixed(2)}</strong>
+                  <span>Max DD:</span> <strong className="text-[var(--term-strong)] font-mono">${rivalScore.maxDrawdown.toFixed(2)}</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span>Trades:</span> <strong className="text-white font-mono">{rivalScore.tradeCount}</strong>
+                  <span>Trades:</span> <strong className="text-[var(--term-strong)] font-mono">{rivalScore.tradeCount}</strong>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Overlaid Equity Curve Graph */}
-          <div className="bg-[#100e0f] p-4 rounded-xl border border-[#2f2c2d] space-y-2">
+          <div className="bg-[var(--term-panel-deep)] p-4 rounded-xl border border-[var(--term-border)] space-y-2">
             <div className="flex justify-between items-center text-xs">
-              <span className="text-[#c3c1c1] font-semibold uppercase tracking-wider text-[11px]">Equity Curves Overlaid:</span>
+              <span className="text-[var(--term-soft)] font-semibold uppercase tracking-wider text-[11px]">Equity Curves Overlaid:</span>
               <div className="flex items-center gap-4 text-[11px]">
-                <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                  <span className="w-2.5 h-1 rounded-full bg-emerald-400" /> You
+                <span className="flex items-center gap-1.5 text-[var(--term-buy)] font-bold">
+                  <span className="w-2.5 h-1 rounded-full bg-[var(--term-buy)]" /> You
                 </span>
-                <span className="flex items-center gap-1.5 text-[#e74694] font-bold">
-                  <span className="w-2.5 h-1 rounded-full bg-[#e74694]" /> {rivalName}
+                <span className="flex items-center gap-1.5 text-[var(--term-accent)] font-bold">
+                  <span className="w-2.5 h-1 rounded-full bg-[var(--term-accent)]" /> {rivalName}
                 </span>
               </div>
             </div>
@@ -350,13 +350,13 @@ export function ResultModal({
             <div className="h-28 w-full relative">
               <svg viewBox="0 0 360 100" className="w-full h-full overflow-visible" aria-hidden="true">
                 {/* Horizontal midpoint reference */}
-                <line x1="0" y1="50" x2="360" y2="50" stroke="#2f2c2d" strokeDasharray="3 3" />
+                <line x1="0" y1="50" x2="360" y2="50" stroke="var(--term-border)" strokeDasharray="3 3" />
 
                 {/* Rival curve */}
                 {rivalPath && (
                   <polyline
                     fill="none"
-                    stroke="#e74694"
+                    stroke="var(--term-accent)"
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -369,7 +369,7 @@ export function ResultModal({
                 {userPath && (
                   <polyline
                     fill="none"
-                    stroke="#84e1bc"
+                    stroke="var(--term-buy-bright)"
                     strokeWidth="2.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -381,44 +381,44 @@ export function ResultModal({
           </div>
 
           {/* Revealed Market Info */}
-          <div className="p-4 bg-[#1a1819] border border-[#2f2c2d] rounded-xl flex items-center justify-between text-xs">
+          <div className="p-4 bg-[var(--term-raised)] border border-[var(--term-border)] rounded-xl flex items-center justify-between text-xs">
             <div>
-              <span className="text-[#c3c1c1] uppercase font-semibold tracking-wider block text-[10px]">
+              <span className="text-[var(--term-soft)] uppercase font-semibold tracking-wider block text-[10px]">
                 Market Revealed:
               </span>
-              <span className="text-white font-bold text-sm">{revealedMarket.title}</span>
-              <span className="text-[#c3c1c1] ml-2 font-mono">({revealedMarket.asset})</span>
+              <span className="text-[var(--term-strong)] font-bold text-sm">{revealedMarket.title}</span>
+              <span className="text-[var(--term-soft)] ml-2 font-mono">({revealedMarket.asset})</span>
             </div>
             <div className="flex items-center gap-2">
               {revealedMarket.tags.map((tg) => (
-                <span key={tg} className="px-2.5 py-0.5 rounded-full bg-[#151314] text-[#ac94fa] border border-[#2f2c2d] text-[10px] uppercase font-semibold">
+                <span key={tg} className="px-2.5 py-0.5 rounded-full bg-[var(--term-panel)] text-[var(--term-accent)] border border-[var(--term-border)] text-[10px] uppercase font-semibold">
                   {tg}
                 </span>
               ))}
-              <span className="text-[#7a7878] font-mono text-[10px]">{revealedMarket.session}</span>
+              <span className="text-[var(--term-muted)] font-mono text-[10px]">{revealedMarket.session}</span>
             </div>
           </div>
 
           {/* User Trade Log Details */}
           {userTrades.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-[#c3c1c1]">Your Executions:</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--term-soft)]">Your Executions:</h4>
               <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 text-xs font-mono">
                 {userTrades.map((t, idx) => (
-                  <div key={idx} className="p-2.5 bg-[#100e0f] rounded-lg border border-[#2f2c2d] flex justify-between items-center">
+                  <div key={idx} className="p-2.5 bg-[var(--term-panel-deep)] rounded-lg border border-[var(--term-border)] flex justify-between items-center">
                     <div>
-                      <span className={t.direction === 'long' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                      <span className={t.direction === 'long' ? 'text-[var(--term-buy)] font-bold' : 'text-[var(--term-sell)] font-bold'}>
                         {t.direction.toUpperCase()} x{t.size}
                       </span>{' '}
-                      <span className="text-[#c3c1c1] text-[11px]">
+                      <span className="text-[var(--term-soft)] text-[11px]">
                         t{t.entryTick} ({t.entryPrice.toFixed(2)}) → t{t.exitTick} ({t.exitPrice.toFixed(2)})
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-[#1a1819] text-[#c3c1c1] border border-[#2f2c2d]">
+                      <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-[var(--term-raised)] text-[var(--term-soft)] border border-[var(--term-border)]">
                         {t.reason}
                       </span>
-                      <span className={t.pnl >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                      <span className={t.pnl >= 0 ? 'text-[var(--term-buy)] font-bold' : 'text-[var(--term-sell)] font-bold'}>
                         {t.pnl >= 0 ? '+' : ''}${t.pnl.toFixed(2)}
                       </span>
                     </div>
@@ -432,23 +432,23 @@ export function ResultModal({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
             <button
               onClick={onRematch}
-              className="py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-white flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950/20 hover:opacity-95 transition-all cursor-pointer"
-              style={{ background: 'linear-gradient(315deg, #057a55 0%, #84e1bc 100%)', color: '#000' }}
+              className="py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-[var(--term-strong)] flex items-center justify-center gap-1.5 shadow-lg hover:opacity-95 transition-all cursor-pointer"
+              style={{ background: 'linear-gradient(315deg, var(--term-buy-3) 0%, var(--term-buy-bright) 100%)', color: 'var(--term-canvas)' }}
             >
               <RotateCcw size={14} className="stroke-[2.5]" /> Rematch
             </button>
 
             <button
               onClick={handleShare}
-              className="py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-white bg-[#1a1819] border border-[#2f2c2d] hover:border-[#9262f9] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              className="py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-[var(--term-strong)] bg-[var(--term-raised)] border border-[var(--term-border)] hover:border-[var(--term-amber)] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
-              {copied ? <Check size={14} className="text-emerald-400" /> : <Share2 size={14} />}
+              {copied ? <Check size={14} className="text-[var(--term-buy)]" /> : <Share2 size={14} />}
               {copied ? 'Link Copied!' : 'Share Result'}
             </button>
 
             <Link
               href="/play"
-              className="py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-[#c3c1c1] hover:text-white bg-[#100e0f] border border-[#2f2c2d] flex items-center justify-center gap-1.5 text-center transition-colors"
+              className="py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-[var(--term-soft)] hover:text-[var(--term-strong)] bg-[var(--term-panel-deep)] border border-[var(--term-border)] flex items-center justify-center gap-1.5 text-center transition-colors"
             >
               <Home size={14} /> Arena Lobby
             </Link>

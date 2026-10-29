@@ -35,8 +35,34 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { NOTIONAL_PER_SIZE } from '@/lib/engine/constants';
+import { useTerminalMode } from '@/components/terminal/theme-mode';
 
 type DragTarget = 'sl' | 'tp' | null;
+
+/**
+ * Candles are painted on a canvas, so they cannot inherit CSS variables the way
+ * the surrounding chrome does. Read the terminal tokens off the chart's own
+ * container — the element `.term-theme` recolours — and hand lightweight-charts
+ * literal colours. A theme flip re-reads this through the effect below.
+ */
+function readChartPalette(scope: HTMLElement | null) {
+  const host = scope ?? (typeof document === 'undefined' ? null : document.documentElement);
+  const read = (token: string, fallback: string) => {
+    if (!host) return fallback;
+    const value = getComputedStyle(host).getPropertyValue(token).trim();
+    return value || fallback;
+  };
+  return {
+    background: read('--term-panel-deep', '#000000'),
+    text: read('--term-muted', '#968769'),
+    crosshair: read('--term-border-hover', '#44403a'),
+    crosshairLabel: read('--term-raised', '#1a1714'),
+    border: read('--term-border', '#222018'),
+    up: read('--term-buy', '#00dd66'),
+    down: read('--term-sell', '#ff4444'),
+    line: read('--term-primary', '#ff7722'),
+  };
+}
 
 interface TradingChartProps {
   candles: Candle[];
@@ -72,6 +98,7 @@ export function TradingChart({
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const lineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const mode = useTerminalMode();
 
   // Price lines refs for active position
   const entryLineRef = useRef<IPriceLine | null>(null);
@@ -210,18 +237,19 @@ export function TradingChart({
     };
   }, [position]);
 
-  // ── 1. Initialize TradingView Chart with Exact Dark Theme ──
+  // ── 1. Initialize the chart on the terminal palette ──
   useEffect(() => {
     const container = chartContainerRef.current;
     if (!container) return;
 
-    // TradingView authentic dark theme options
+    // Canvas colours are literal values: resolve them from the theme tokens.
+    const palette = readChartPalette(container);
     const chart = createChart(container, {
       width: container.clientWidth,
       height: container.clientHeight,
       layout: {
-        background: { type: ColorType.Solid, color: '#111215' },
-        textColor: '#787b86',
+        background: { type: ColorType.Solid, color: palette.background },
+        textColor: palette.text,
         fontFamily: "Inter, system-ui, sans-serif",
         fontSize: 12,
       },
@@ -233,27 +261,27 @@ export function TradingChart({
       crosshair: {
         mode: CrosshairMode.Normal,
         vertLine: {
-          color: '#6c7080',
+          color: palette.crosshair,
           width: 1,
           style: LineStyle.Dashed,
-          labelBackgroundColor: '#1f2229',
+          labelBackgroundColor: palette.crosshairLabel,
         },
         horzLine: {
-          color: '#6c7080',
+          color: palette.crosshair,
           width: 1,
           style: LineStyle.Dashed,
-          labelBackgroundColor: '#1f2229',
+          labelBackgroundColor: palette.crosshairLabel,
         },
       },
       rightPriceScale: {
-        borderColor: '#1f2229',
+        borderColor: palette.border,
         scaleMargins: {
           top: 0.1,
           bottom: 0.15,
         },
       },
       timeScale: {
-        borderColor: '#1f2229',
+        borderColor: palette.border,
         timeVisible: true,
         secondsVisible: true,
         barSpacing: 9,
@@ -275,15 +303,15 @@ export function TradingChart({
 
     chartRef.current = chart;
 
-    // Candlestick Series — TradingView Exact Colors
+    // Candlestick series — the terminal's buy/sell pair
     const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#089981',
-      downColor: '#f23645',
+      upColor: palette.up,
+      downColor: palette.down,
       borderVisible: true,
-      borderUpColor: '#089981',
-      borderDownColor: '#f23645',
-      wickUpColor: '#089981',
-      wickDownColor: '#f23645',
+      borderUpColor: palette.up,
+      borderDownColor: palette.down,
+      wickUpColor: palette.up,
+      wickDownColor: palette.down,
       priceFormat: {
         type: 'price',
         precision,
@@ -292,9 +320,9 @@ export function TradingChart({
     });
     candleSeriesRef.current = candleSeries;
 
-    // Line Series
+    // Line series
     const lineSeries = chart.addSeries(LineSeries, {
-      color: '#2962ff',
+      color: palette.line,
       lineWidth: 2,
       visible: false,
       priceFormat: {
@@ -323,6 +351,36 @@ export function TradingChart({
       chartRef.current = null;
     };
   }, [precision, minMove]);
+
+  // ── 1b. Repaint the canvas when the light/dark switch flips ──
+  // Everything else on the page repaints from CSS; the canvas holds literal
+  // colours, so it takes a fresh palette on every theme change.
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const palette = readChartPalette(chartContainerRef.current);
+    chart.applyOptions({
+      layout: {
+        background: { type: ColorType.Solid, color: palette.background },
+        textColor: palette.text,
+      },
+      crosshair: {
+        vertLine: { color: palette.crosshair, labelBackgroundColor: palette.crosshairLabel },
+        horzLine: { color: palette.crosshair, labelBackgroundColor: palette.crosshairLabel },
+      },
+      rightPriceScale: { borderColor: palette.border },
+      timeScale: { borderColor: palette.border },
+    });
+    candleSeriesRef.current?.applyOptions({
+      upColor: palette.up,
+      downColor: palette.down,
+      borderUpColor: palette.up,
+      borderDownColor: palette.down,
+      wickUpColor: palette.up,
+      wickDownColor: palette.down,
+    });
+    lineSeriesRef.current?.applyOptions({ color: palette.line });
+  }, [mode]);
 
   // ── 2. Populate / Update Series Data ──
   // A full load happens once per market and once per timeframe. After that the newest
@@ -431,7 +489,7 @@ export function TradingChart({
 
     if (position) {
       const isLong = position.direction === 'long';
-      const color = isLong ? '#089981' : '#f23645';
+      const color = isLong ? 'var(--term-buy)' : 'var(--term-sell)';
 
       // Axis tags are intentionally hidden: the price scale stays clean and the
       // floating pills carry the size / P&L information instead.
@@ -450,7 +508,7 @@ export function TradingChart({
 
         slLineRef.current = candleSeries.createPriceLine({
           price: slPrice,
-          color: '#f23645',
+          color: 'var(--term-sell)',
           lineWidth: 1,
           lineStyle: LineStyle.Dotted,
           axisLabelVisible: false,
@@ -464,7 +522,7 @@ export function TradingChart({
 
         tpLineRef.current = candleSeries.createPriceLine({
           price: tpPrice,
-          color: '#089981',
+          color: 'var(--term-buy)',
           lineWidth: 1,
           lineStyle: LineStyle.Dotted,
           axisLabelVisible: false,
@@ -685,12 +743,12 @@ export function TradingChart({
   }, [scrollToLatestBar]);
 
   const chartCtrlBtn =
-    'flex items-center justify-center w-[24px] h-[24px] rounded-[3px] bg-[#131417]/90 border border-[#2a2e39] text-[#787b86] hover:text-white hover:bg-[#1f2229] hover:border-[#3d4250] transition-colors cursor-pointer shadow-sm';
+    'flex items-center justify-center w-[24px] h-[24px] rounded-[3px] bg-[var(--term-surface)]/90 border border-[var(--term-border-hi)] text-[var(--term-label)] hover:text-[var(--term-strong)] hover:bg-[var(--term-border)] hover:border-[var(--term-border-hover)] transition-colors cursor-pointer shadow-sm';
 
   return (
-    <div className="flex flex-col h-full w-full relative overflow-hidden select-none bg-[#111215]">
+    <div className="flex flex-col h-full w-full relative overflow-hidden select-none bg-[var(--term-panel-deep)]">
       {/* ── Top Bar: TradingView Chart Toolbar ── */}
-      <div className="h-9 px-2 flex items-center justify-between text-xs shrink-0 border-b border-[#1f2229] bg-[#131417]">
+      <div className="h-9 px-2 flex items-center justify-between text-xs shrink-0 border-b border-[var(--term-border)] bg-[var(--term-surface)]">
         {/* Left Controls */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           {/* Ticker Name in Bold */}
@@ -698,7 +756,7 @@ export function TradingChart({
             {instrument}
           </span>
 
-          <span className="h-3.5 w-px bg-[#1f2229] mx-0.5" />
+          <span className="h-3.5 w-px bg-[var(--term-border)] mx-0.5" />
 
           {/* Timeframe Selector */}
           <div className="flex items-center gap-0.5">
@@ -708,8 +766,8 @@ export function TradingChart({
                 onClick={() => onTimeframeChange(tf)}
                 className={`px-2 py-1 rounded text-xs font-semibold uppercase transition-colors ${
                   timeframe === tf
-                    ? 'text-[#2962ff] bg-[#2962ff]/10'
-                    : 'text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#1a1c22]'
+                    ? 'text-[var(--term-primary)] bg-[var(--term-primary)]/10'
+                    : 'text-[var(--term-label)] hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]'
                 }`}
               >
                 {tf}
@@ -717,12 +775,12 @@ export function TradingChart({
             ))}
           </div>
 
-          <span className="h-3.5 w-px bg-[#1f2229] mx-0.5" />
+          <span className="h-3.5 w-px bg-[var(--term-border)] mx-0.5" />
 
           {/* Chart Type (Candles vs Line) */}
           <button
             onClick={() => setChartType(chartType === 'candlestick' ? 'line' : 'candlestick')}
-            className="px-2 py-1 rounded text-xs font-semibold text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#1a1c22] transition-colors"
+            className="px-2 py-1 rounded text-xs font-semibold text-[var(--term-label)] hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors"
             title="Chart Type"
           >
             {chartType === 'candlestick' ? 'Candles' : 'Line'}
@@ -730,37 +788,37 @@ export function TradingChart({
 
           {/* Indicators Button */}
           <button
-            className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#1a1c22] transition-colors"
+            className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold text-[var(--term-label)] hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors"
             title="Indicators"
           >
-            <span className="italic font-serif text-[13px] text-[#2962ff]">fx</span>
+            <span className="italic font-serif text-[13px] text-[var(--term-primary)]">fx</span>
             <span>Indicators</span>
           </button>
 
-          <span className="h-3.5 w-px bg-[#1f2229] mx-0.5" />
+          <span className="h-3.5 w-px bg-[var(--term-border)] mx-0.5" />
 
           {/* Undo / Redo */}
-          <button className="p-1 rounded text-[#6c7080] hover:text-[#d1d4dc] hover:bg-[#1a1c22]" title="Undo">
+          <button className="p-1 rounded text-[var(--term-muted)] hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]" title="Undo">
             <Undo2 size={13} />
           </button>
-          <button className="p-1 rounded text-[#6c7080] hover:text-[#d1d4dc] hover:bg-[#1a1c22]" title="Redo">
+          <button className="p-1 rounded text-[var(--term-muted)] hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]" title="Redo">
             <Redo2 size={13} />
           </button>
         </div>
 
         {/* Right Action Icons */}
-        <div className="flex items-center gap-1 shrink-0 text-[#6c7080]">
-          <div className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-[#9598a1] border border-[#22252c] bg-[#181a20]">
+        <div className="flex items-center gap-1 shrink-0 text-[var(--term-muted)]">
+          <div className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-[var(--term-label)] border border-[var(--term-border)] bg-[var(--term-raised)]">
             <span>Dark</span>
             <ChevronDown size={11} />
           </div>
-          <button className="p-1.5 rounded hover:text-[#d1d4dc] hover:bg-[#1a1c22]" title="Chart Settings">
+          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]" title="Chart Settings">
             <Settings size={13} />
           </button>
-          <button className="p-1.5 rounded hover:text-[#d1d4dc] hover:bg-[#1a1c22]" title="Fullscreen">
+          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]" title="Fullscreen">
             <Maximize2 size={13} />
           </button>
-          <button className="p-1.5 rounded hover:text-[#d1d4dc] hover:bg-[#1a1c22]" title="Take Snapshot">
+          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]" title="Take Snapshot">
             <Camera size={13} />
           </button>
         </div>
@@ -769,48 +827,48 @@ export function TradingChart({
       {/* ── Chart Body with Left Tool Strip ── */}
       <div className="flex-1 flex w-full relative min-h-0 overflow-hidden">
         {/* Left Vertical TradingView Tool Strip */}
-        <div className="w-10 flex flex-col items-center py-2 shrink-0 border-r border-[#1f2229] bg-[#131417] text-[#6c7080] gap-3 z-10">
-          <button className="p-1.5 rounded hover:text-[#d1d4dc] hover:bg-[#1a1c22] transition-colors" title="Crosshair">
+        <div className="w-10 flex flex-col items-center py-2 shrink-0 border-r border-[var(--term-border)] bg-[var(--term-surface)] text-[var(--term-muted)] gap-3 z-10">
+          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors" title="Crosshair">
             <Crosshair size={15} />
           </button>
-          <button className="p-1.5 rounded hover:text-[#d1d4dc] hover:bg-[#1a1c22] transition-colors" title="Trend Line">
+          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors" title="Trend Line">
             <Minus size={15} className="rotate-45" />
           </button>
-          <button className="p-1.5 rounded hover:text-[#d1d4dc] hover:bg-[#1a1c22] transition-colors" title="Gann and Fibonacci Tools">
+          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors" title="Gann and Fibonacci Tools">
             <SlidersHorizontal size={15} />
           </button>
-          <button className="p-1.5 rounded hover:text-[#d1d4dc] hover:bg-[#1a1c22] transition-colors" title="Brush">
+          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors" title="Brush">
             <Edit3 size={15} />
           </button>
-          <button className="p-1.5 rounded hover:text-[#d1d4dc] hover:bg-[#1a1c22] transition-colors" title="Text">
+          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors" title="Text">
             <Type size={15} />
           </button>
-          <button className="p-1.5 rounded hover:text-[#d1d4dc] hover:bg-[#1a1c22] transition-colors" title="Measure">
+          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors" title="Measure">
             <Ruler size={15} />
           </button>
-          <button className="p-1.5 rounded hover:text-[#d1d4dc] hover:bg-[#1a1c22] transition-colors" title="Zoom In">
+          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors" title="Zoom In">
             <ZoomIn size={15} />
           </button>
 
-          <span className="w-5 h-px bg-[#1f2229]" />
+          <span className="w-5 h-px bg-[var(--term-border)]" />
 
-          <button className="p-1.5 rounded hover:text-[#d1d4dc] hover:bg-[#1a1c22] transition-colors" title="Magnet Mode">
+          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors" title="Magnet Mode">
             <Magnet size={15} />
           </button>
-          <button className="p-1.5 rounded hover:text-[#d1d4dc] hover:bg-[#1a1c22] transition-colors" title="Lock All Drawing Tools">
+          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors" title="Lock All Drawing Tools">
             <Lock size={15} />
           </button>
-          <button className="p-1.5 rounded hover:text-[#d1d4dc] hover:bg-[#1a1c22] transition-colors" title="Hide All Drawings">
+          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors" title="Hide All Drawings">
             <Eye size={15} />
           </button>
-          <button className="p-1.5 rounded hover:text-[#d1d4dc] hover:bg-[#1a1c22] transition-colors" title="Remove Drawings">
+          <button className="p-1.5 rounded hover:text-[var(--term-text)] hover:bg-[var(--term-raised)] transition-colors" title="Remove Drawings">
             <Trash2 size={15} />
           </button>
 
           {/* TV Logo at bottom */}
           <div className="mt-auto flex flex-col items-center gap-1 pt-2">
             <div
-              className="w-5 h-5 rounded-full border border-[#2a2e39] flex items-center justify-center text-[8px] font-bold text-[#787b86]"
+              className="w-5 h-5 rounded-full border border-[var(--term-border-hi)] flex items-center justify-center text-[8px] font-bold text-[var(--term-label)]"
               title="TradingView"
             >
               tv
@@ -819,10 +877,10 @@ export function TradingChart({
         </div>
 
         {/* Center Chart Container with Faint Watermark */}
-        <div className="flex-1 w-full h-full relative overflow-hidden bg-[#111215]">
+        <div className="flex-1 w-full h-full relative overflow-hidden bg-[var(--term-panel-deep)]">
           {/* Subtle Watermark behind candles */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
-            <span className="text-3xl md:text-5xl font-black tracking-wider text-[#181a20] uppercase font-mono">
+            <span className="text-3xl md:text-5xl font-black tracking-wider text-[var(--term-raised)] uppercase font-mono">
               {instrument} {timeframe}
             </span>
           </div>
@@ -844,7 +902,7 @@ export function TradingChart({
             const { entryY, slY, tpY, scaleW } = bandCoords;
             // Breathing room between the pills and the price axis on the right.
             const axisGap = 36;
-            const entryColor = isLong ? '#089981' : '#f23645';
+            const entryColor = isLong ? 'var(--term-buy)' : 'var(--term-sell)';
             const posLabel   = isLong ? 'BUY' : 'SELL';
             const liveSign   = isLong ? 1 : -1;
             const livePnl    = liveSign * ((currentPrice - position.entryPrice) / position.entryPrice) * position.size * NOTIONAL_PER_SIZE;
@@ -872,15 +930,15 @@ export function TradingChart({
                   {/* SL band */}
                   {slY != null && (
                     <>
-                      <rect x={0} y={Math.min(entryY, slY)} width="100%" height={Math.max(1, Math.abs(entryY - slY))} fill="rgba(242,54,69,0.07)" />
-                      <line x1={0} y1={slY} x2="100%" y2={slY} stroke="#f23645" strokeWidth={1.5} strokeDasharray="6 4" />
+                      <rect x={0} y={Math.min(entryY, slY)} width="100%" height={Math.max(1, Math.abs(entryY - slY))} fill="color-mix(in srgb, var(--term-sell) 7%, transparent)" />
+                      <line x1={0} y1={slY} x2="100%" y2={slY} stroke="var(--term-sell)" strokeWidth={1.5} strokeDasharray="6 4" />
                     </>
                   )}
                   {/* TP band */}
                   {tpY != null && (
                     <>
-                      <rect x={0} y={Math.min(entryY, tpY)} width="100%" height={Math.max(1, Math.abs(entryY - tpY))} fill="rgba(8,153,129,0.07)" />
-                      <line x1={0} y1={tpY} x2="100%" y2={tpY} stroke="#089981" strokeWidth={1.5} strokeDasharray="6 4" />
+                      <rect x={0} y={Math.min(entryY, tpY)} width="100%" height={Math.max(1, Math.abs(entryY - tpY))} fill="color-mix(in srgb, var(--term-buy) 7%, transparent)" />
+                      <line x1={0} y1={tpY} x2="100%" y2={tpY} stroke="var(--term-buy)" strokeWidth={1.5} strokeDasharray="6 4" />
                     </>
                   )}
                   {/* Entry line */}
@@ -904,8 +962,8 @@ export function TradingChart({
                       className="flex items-center gap-1.5 font-mono font-extrabold text-[12px] px-2 py-[2px] rounded-[3px]"
                       style={{
                         background: 'transparent',
-                        border: '1px solid rgba(242,54,69,0.55)',
-                        color: '#f23645',
+                        border: '1px solid color-mix(in srgb, var(--term-sell) 55%, transparent)',
+                        color: 'var(--term-sell)',
                         textShadow: '0 1px 3px rgba(0,0,0,0.9)',
                       }}
                     >
@@ -914,7 +972,7 @@ export function TradingChart({
                       <span className="opacity-60 font-bold mx-0.5">|</span>
                       <span className="text-[11px] font-bold">{position.size}</span>
                       <button
-                        className="ml-1 font-bold text-[12px] leading-none cursor-pointer text-[#f23645] hover:text-white transition-colors"
+                        className="ml-1 font-bold text-[12px] leading-none cursor-pointer text-[var(--term-sell)] hover:text-[var(--term-strong)] transition-colors"
                         onClick={() => onSlChange?.(0)}
                         title="Remove SL"
                         style={{ pointerEvents: 'auto' }}
@@ -943,9 +1001,9 @@ export function TradingChart({
                   <div
                     className="flex items-center gap-1 h-[22px] px-2 rounded-[3px] font-mono text-[12px] font-extrabold tabular-nums shadow-lg"
                     style={{
-                      background: '#1c1f27',
-                      border: `1px solid ${livePnl >= 0 ? '#089981' : '#f23645'}80`,
-                      color: livePnl >= 0 ? '#0ecb81' : '#f23645',
+                      background: 'var(--term-raised-hi)',
+                      border: `1px solid ${livePnl >= 0 ? 'color-mix(in srgb, var(--term-buy) 50%, transparent)' : 'color-mix(in srgb, var(--term-sell) 50%, transparent)'}`,
+                      color: livePnl >= 0 ? 'var(--term-buy-bright)' : 'var(--term-sell)',
                     }}
                   >
                     <span>
@@ -958,7 +1016,7 @@ export function TradingChart({
                   {/* Close box */}
                   {!readOnly && (
                     <button
-                      className="flex items-center justify-center h-[22px] w-[22px] rounded-[3px] bg-[#1c1f27] border border-[#2a2e39] text-[#9598a1] font-bold text-[13px] leading-none hover:bg-[#f23645] hover:border-[#f23645] hover:text-white transition-colors shadow-lg"
+                      className="flex items-center justify-center h-[22px] w-[22px] rounded-[3px] bg-[var(--term-raised-hi)] border border-[var(--term-border-hi)] text-[var(--term-label)] font-bold text-[13px] leading-none hover:bg-[var(--term-sell)] hover:border-[var(--term-sell)] hover:text-[var(--term-strong)] transition-colors shadow-lg"
                       onClick={onClose}
                       title="Close position"
                       style={{ pointerEvents: 'auto' }}
@@ -983,8 +1041,8 @@ export function TradingChart({
                       className="flex items-center gap-1.5 font-mono font-extrabold text-[12px] px-2 py-[2px] rounded-[3px]"
                       style={{
                         background: 'transparent',
-                        border: '1px solid rgba(8,153,129,0.55)',
-                        color: '#0ecb81',
+                        border: '1px solid color-mix(in srgb, var(--term-buy) 55%, transparent)',
+                        color: 'var(--term-buy-bright)',
                         textShadow: '0 1px 3px rgba(0,0,0,0.9)',
                       }}
                     >
@@ -993,7 +1051,7 @@ export function TradingChart({
                       <span className="opacity-60 font-bold mx-0.5">|</span>
                       <span className="text-[11px] font-bold">{position.size}</span>
                       <button
-                        className="ml-1 font-bold text-[12px] leading-none cursor-pointer text-[#0ecb81] hover:text-white transition-colors"
+                        className="ml-1 font-bold text-[12px] leading-none cursor-pointer text-[var(--term-buy-bright)] hover:text-[var(--term-strong)] transition-colors"
                         onClick={() => onTpChange?.(0)}
                         title="Remove TP"
                         style={{ pointerEvents: 'auto' }}
@@ -1014,19 +1072,19 @@ export function TradingChart({
               <div
                 className="flex flex-col items-start gap-0.5 px-3 py-1.5 rounded-lg border text-[11px] font-mono shadow-2xl"
                 style={{
-                  background: dragInfo.target === 'sl' ? '#1a0608' : '#011a15',
-                  borderColor: dragInfo.target === 'sl' ? '#f23645' : '#089981',
-                  color: '#fff',
+                  background: dragInfo.target === 'sl' ? 'var(--term-sell-dim)' : 'var(--term-buy-dim)',
+                  borderColor: dragInfo.target === 'sl' ? 'var(--term-sell)' : 'var(--term-buy)',
+                  color: 'var(--term-strong)',
                 }}
               >
-                <span className="font-extrabold uppercase text-[10px] tracking-widest" style={{ color: dragInfo.target === 'sl' ? '#f23645' : '#089981' }}>
+                <span className="font-extrabold uppercase text-[10px] tracking-widest" style={{ color: dragInfo.target === 'sl' ? 'var(--term-sell)' : 'var(--term-buy)' }}>
                   {dragInfo.target === 'sl' ? '🛑 Stop Loss' : '🎯 Take Profit'}
                 </span>
-                <span className="font-bold tabular-nums text-[#d1d4dc]">{fmt(dragInfo.price)}</span>
-                <span className="font-extrabold tabular-nums text-[15px]" style={{ color: dragInfo.pnl >= 0 ? '#089981' : '#f23645' }}>
+                <span className="font-bold tabular-nums text-[var(--term-text)]">{fmt(dragInfo.price)}</span>
+                <span className="font-extrabold tabular-nums text-[15px]" style={{ color: dragInfo.pnl >= 0 ? 'var(--term-buy)' : 'var(--term-sell)' }}>
                   P/L {dragInfo.pnl >= 0 ? '+' : ''}${dragInfo.pnl.toFixed(2)}
                 </span>
-                <span className="text-[9px] text-[#787b86]">
+                <span className="text-[9px] text-[var(--term-label)]">
                   {dragInfo.pct >= 0 ? '+' : ''}{dragInfo.pct.toFixed(3)}% from entry
                 </span>
               </div>
@@ -1035,7 +1093,7 @@ export function TradingChart({
 
           {/* SL/TP drag hint */}
           {position && (position.slPct || position.tpPct) && !dragInfo && (
-            <div className="absolute bottom-3 left-14 z-10 text-[9px] font-mono text-[#6c7080] bg-[#131417]/80 px-2 py-0.5 rounded border border-[#1f2229] pointer-events-none">
+            <div className="absolute bottom-3 left-14 z-10 text-[9px] font-mono text-[var(--term-muted)] bg-[var(--term-surface)]/80 px-2 py-0.5 rounded border border-[var(--term-border)] pointer-events-none">
               Drag SL/TP lines to adjust
             </div>
           )}
@@ -1054,20 +1112,20 @@ export function TradingChart({
       </div>
 
       {/* ── Bottom Bar: Time Scale & TradingView Status ── */}
-      <div className="h-6 px-3 flex justify-between items-center shrink-0 text-[10px] font-mono bg-[#131417] border-t border-[#1f2229] text-[#6c7080] z-10">
+      <div className="h-6 px-3 flex justify-between items-center shrink-0 text-[10px] font-mono bg-[var(--term-surface)] border-t border-[var(--term-border)] text-[var(--term-muted)] z-10">
         <div className="flex items-center gap-2">
           {['1d', '5d', '1m', '3m', '6m', '1y', '5y'].map((rng) => (
-            <span key={rng} className="hover:text-[#d1d4dc] cursor-pointer transition-colors uppercase">
+            <span key={rng} className="hover:text-[var(--term-text)] cursor-pointer transition-colors uppercase">
               {rng}
             </span>
           ))}
         </div>
         <div className="flex items-center gap-3">
           <span>{candles.length} bars</span>
-          <span className="text-[#2a2e39]">•</span>
+          <span className="text-[var(--term-border-hi)]">•</span>
           <span>UTC+5:30</span>
-          <span className="text-[#2a2e39]">•</span>
-          <span className="text-[#089981] font-semibold">% log auto</span>
+          <span className="text-[var(--term-border-hi)]">•</span>
+          <span className="text-[var(--term-buy)] font-semibold">% log auto</span>
         </div>
       </div>
     </div>

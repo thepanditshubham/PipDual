@@ -143,27 +143,27 @@ export function OrderPanel({
   const isDisabled = disabled || pendingAction;
 
   return (
-    <div className="flex flex-col select-none text-xs bg-[#131417] text-[#d1d4dc] border-b border-[#1f2229]">
+    <div className="flex flex-col select-none text-xs bg-[var(--term-surface)] text-[var(--term-text)] border-b border-[var(--term-border)]">
       {/* ── TopstepX Header: [⚡] Order ── */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[#1f2229] bg-[#111215]">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--term-border)] bg-[var(--term-panel-deep)]">
         <div className="flex items-center gap-2">
-          <span className="w-4 h-4 rounded flex items-center justify-center text-[10px] font-extrabold bg-[#2962ff]/20 text-[#2962ff] border border-[#2962ff]/40">
+          <span className="w-4 h-4 rounded flex items-center justify-center text-[10px] font-extrabold bg-[var(--term-primary)]/20 text-[var(--term-primary)] border border-[var(--term-primary)]/40">
             H
           </span>
-          <span className="font-bold text-xs uppercase tracking-wider text-[#d1d4dc]">
+          <span className="font-bold text-xs uppercase tracking-wider text-[var(--term-text)]">
             Order
           </span>
         </div>
         {pendingAction ? (
-          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#f23645]/15 border border-[#f23645]/30 text-[#f23645] animate-pulse">
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[var(--term-sell)]/15 border border-[var(--term-sell)]/30 text-[var(--term-sell)] animate-pulse">
             Filling…
           </span>
         ) : (
           <span
             className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border ${
               outOfOrders
-                ? 'bg-[#f23645]/15 border-[#f23645]/30 text-[#f23645]'
-                : 'bg-[#181a20] border-[#22252c] text-[#787b86]'
+                ? 'bg-[var(--term-sell)]/15 border-[var(--term-sell)]/30 text-[var(--term-sell)]'
+                : 'bg-[var(--term-raised)] border-[var(--term-border)] text-[var(--term-label)]'
             }`}
             title={`Entry orders used this match (max ${maxOrders})`}
           >
@@ -175,7 +175,7 @@ export function OrderPanel({
       <div className="p-3 flex flex-col gap-2.5">
         {/* Warning Notification */}
         {warningMsg && (
-          <div className="p-2 rounded text-[11px] flex items-center gap-1.5 bg-[#f23645]/10 border border-[#f23645]/20 text-[#f23645] animate-fade-in">
+          <div className="p-2 rounded text-[11px] flex items-center gap-1.5 bg-[var(--term-sell)]/10 border border-[var(--term-sell)]/20 text-[var(--term-sell)] animate-fade-in">
             <AlertTriangle size={13} className="shrink-0" />
             <span>{warningMsg}</span>
           </div>
@@ -183,31 +183,31 @@ export function OrderPanel({
 
         {/* ── TopstepX Row 1: Order Type ── */}
         <div>
-          <div className="text-[10px] font-semibold text-[#787b86] mb-1 uppercase tracking-wide">
+          <div className="text-[10px] font-semibold text-[var(--term-label)] mb-1 uppercase tracking-wide">
             Order Type
           </div>
-          <div className="flex items-center justify-between px-2.5 py-1.5 rounded bg-[#181a20] border border-[#22252c] text-xs font-semibold text-[#d1d4dc]">
+          <div className="flex items-center justify-between px-2.5 py-1.5 rounded bg-[var(--term-raised)] border border-[var(--term-border)] text-xs font-semibold text-[var(--term-text)]">
             <span>Market</span>
-            <ChevronDown size={12} className="text-[#6c7080]" />
+            <ChevronDown size={12} className="text-[var(--term-muted)]" />
           </div>
         </div>
 
         {/* ── TopstepX Row 2: # of Contracts ── */}
         <div>
-          <div className="text-[10px] font-semibold text-[#787b86] mb-1 uppercase tracking-wide">
+          <div className="text-[10px] font-semibold text-[var(--term-label)] mb-1 uppercase tracking-wide">
             # of Contracts
           </div>
-          <div className="flex items-center rounded border border-[#22252c] bg-[#181a20] overflow-hidden">
+          <div className="flex items-center rounded border border-[var(--term-border)] bg-[var(--term-raised)] overflow-hidden">
             <button
               onClick={() => {
                 const idx = ALLOWED_SIZES.indexOf(selectedSize);
                 if (idx > 0) setSelectedSize(ALLOWED_SIZES[idx - 1]);
               }}
-              className="px-3 py-1.5 text-sm font-bold text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#22252c] transition-colors"
+              className="px-3 py-1.5 text-sm font-bold text-[var(--term-label)] hover:text-[var(--term-text)] hover:bg-[var(--term-border)] transition-colors"
             >
               −
             </button>
-            <span className="flex-1 font-mono font-extrabold text-sm text-center text-[#d1d4dc]">
+            <span className="flex-1 font-mono font-extrabold text-sm text-center text-[var(--term-text)]">
               {selectedSize}
             </span>
             <button
@@ -215,7 +215,7 @@ export function OrderPanel({
                 const idx = ALLOWED_SIZES.indexOf(selectedSize);
                 if (idx < ALLOWED_SIZES.length - 1) setSelectedSize(ALLOWED_SIZES[idx + 1]);
               }}
-              className="px-3 py-1.5 text-sm font-bold text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#22252c] transition-colors"
+              className="px-3 py-1.5 text-sm font-bold text-[var(--term-label)] hover:text-[var(--term-text)] hover:bg-[var(--term-border)] transition-colors"
             >
               +
             </button>
@@ -229,8 +229,8 @@ export function OrderPanel({
               key={size}
               onClick={() => setSelectedSize(size)}
               className={`flex-1 h-7 rounded font-mono font-bold text-xs transition-all ${selectedSize === size
-                  ? 'bg-[#2962ff] text-white shadow-sm'
-                  : 'bg-[#181a20] border border-[#22252c] text-[#787b86] hover:text-[#d1d4dc] hover:border-[#2a2e39]'
+                  ? 'bg-[var(--term-primary)] text-white shadow-sm'
+                  : 'bg-[var(--term-raised)] border border-[var(--term-border)] text-[var(--term-label)] hover:text-[var(--term-text)] hover:border-[var(--term-border-hi)]'
                 }`}
             >
               {size}
@@ -239,39 +239,39 @@ export function OrderPanel({
         </div>
 
         {/* ── TopstepX Bid / Last / Ask Readout ── */}
-        <div className="grid grid-cols-3 text-center py-1.5 px-2 rounded bg-[#181a20] border border-[#22252c] my-0.5">
+        <div className="grid grid-cols-3 text-center py-1.5 px-2 rounded bg-[var(--term-raised)] border border-[var(--term-border)] my-0.5">
           <div>
-            <div className="text-[9px] text-[#787b86] uppercase">Bid</div>
-            <div className="font-mono text-[11px] font-bold text-[#089981] tabular-nums">
+            <div className="text-[9px] text-[var(--term-label)] uppercase">Bid</div>
+            <div className="font-mono text-[11px] font-bold text-[var(--term-buy)] tabular-nums">
               {bidPrice}
             </div>
           </div>
-          <div className="border-x border-[#22252c]">
-            <div className="text-[9px] text-[#787b86] uppercase">Last</div>
-            <div className="font-mono text-xs font-extrabold text-[#d1d4dc] tabular-nums">
+          <div className="border-x border-[var(--term-border)]">
+            <div className="text-[9px] text-[var(--term-label)] uppercase">Last</div>
+            <div className="font-mono text-xs font-extrabold text-[var(--term-text)] tabular-nums">
               {currentPrice.toFixed(2)}
             </div>
           </div>
           <div>
-            <div className="text-[9px] text-[#787b86] uppercase">Ask</div>
-            <div className="font-mono text-[11px] font-bold text-[#f23645] tabular-nums">
+            <div className="text-[9px] text-[var(--term-label)] uppercase">Ask</div>
+            <div className="font-mono text-[11px] font-bold text-[var(--term-sell)] tabular-nums">
               {askPrice}
             </div>
           </div>
         </div>
 
         {/* ── TopstepX Position & UP&L Bar ── */}
-        <div className="p-2 rounded bg-[#181a20] border border-[#22252c] flex items-center justify-between">
+        <div className="p-2 rounded bg-[var(--term-raised)] border border-[var(--term-border)] flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <span
               className={`w-2 h-2 rounded-full ${position
                   ? position.direction === 'long'
-                    ? 'bg-[#089981] animate-pulse'
-                    : 'bg-[#f23645] animate-pulse'
-                  : 'bg-[#6c7080]'
+                    ? 'bg-[var(--term-buy)] animate-pulse'
+                    : 'bg-[var(--term-sell)] animate-pulse'
+                  : 'bg-[var(--term-muted)]'
                 }`}
             />
-            <span className="font-mono font-bold text-xs text-[#d1d4dc]">
+            <span className="font-mono font-bold text-xs text-[var(--term-text)]">
               {position
                 ? `${position.direction === 'long' ? '+' : '-'}${position.size} @ ${position.entryPrice.toFixed(2)}`
                 : 'Flat'}
@@ -279,11 +279,11 @@ export function OrderPanel({
           </div>
           <div className="font-mono font-extrabold text-xs tabular-nums">
             {position ? (
-              <span style={{ color: unrealisedPnl >= 0 ? '#089981' : '#f23645' }}>
+              <span style={{ color: unrealisedPnl >= 0 ? 'var(--term-buy)' : 'var(--term-sell)' }}>
                 UP&L {unrealisedPnl >= 0 ? '+' : ''}${unrealisedPnl.toFixed(2)}
               </span>
             ) : (
-              <span className="text-[#6c7080]">UP&L $0.00</span>
+              <span className="text-[var(--term-muted)]">UP&L $0.00</span>
             )}
           </div>
         </div>
@@ -291,9 +291,9 @@ export function OrderPanel({
         {/* ── Bracket by price: type the level, we convert it to a % from entry ── */}
         <div className="grid grid-cols-2 gap-1.5">
           <label className="flex flex-col gap-1">
-            <span className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-[#787b86]">
+            <span className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-[var(--term-label)]">
               <span>Stop Loss</span>
-              <span className="font-mono text-[9px] normal-case text-[#6c7080]">
+              <span className="font-mono text-[9px] normal-case text-[var(--term-muted)]">
                 {position?.slPct ? `${position.slPct.toFixed(2)}%` : 'off'}
               </span>
             </span>
@@ -311,15 +311,15 @@ export function OrderPanel({
                 }
               }}
               onBlur={(e) => commitBracket('sl', e.currentTarget.value)}
-              style={{ borderColor: 'rgba(242,54,69,0.4)', color: '#f23645' }}
-              className="w-full min-w-0 rounded border bg-[#181a20] px-2 py-1 font-mono text-xs font-bold tabular-nums outline-none placeholder:font-normal placeholder:text-[#6c7080] focus:border-current disabled:opacity-40"
+              style={{ borderColor: 'color-mix(in srgb, var(--term-sell) 40%, transparent)', color: 'var(--term-sell)' }}
+              className="w-full min-w-0 rounded border bg-[var(--term-raised)] px-2 py-1 font-mono text-xs font-bold tabular-nums outline-none placeholder:font-normal placeholder:text-[var(--term-muted)] focus:border-current disabled:opacity-40"
             />
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-[#787b86]">
+            <span className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-[var(--term-label)]">
               <span>Take Profit</span>
-              <span className="font-mono text-[9px] normal-case text-[#6c7080]">
+              <span className="font-mono text-[9px] normal-case text-[var(--term-muted)]">
                 {position?.tpPct ? `${position.tpPct.toFixed(2)}%` : 'off'}
               </span>
             </span>
@@ -337,8 +337,8 @@ export function OrderPanel({
                 }
               }}
               onBlur={(e) => commitBracket('tp', e.currentTarget.value)}
-              style={{ borderColor: 'rgba(8,153,129,0.4)', color: '#0ecb81' }}
-              className="w-full min-w-0 rounded border bg-[#181a20] px-2 py-1 font-mono text-xs font-bold tabular-nums outline-none placeholder:font-normal placeholder:text-[#6c7080] focus:border-current disabled:opacity-40"
+              style={{ borderColor: 'color-mix(in srgb, var(--term-buy) 40%, transparent)', color: 'var(--term-buy-bright)' }}
+              className="w-full min-w-0 rounded border bg-[var(--term-raised)] px-2 py-1 font-mono text-xs font-bold tabular-nums outline-none placeholder:font-normal placeholder:text-[var(--term-muted)] focus:border-current disabled:opacity-40"
             />
           </label>
         </div>
@@ -349,7 +349,7 @@ export function OrderPanel({
             onClick={handleBuy}
             disabled={isDisabled}
             aria-disabled={outOfOrders}
-            className={`w-full py-2.5 rounded font-extrabold text-xs uppercase tracking-wider transition-all disabled:opacity-30 cursor-pointer text-white shadow-sm flex items-center justify-center gap-1.5 bg-[#089981] hover:brightness-110 active:scale-[0.99] ${
+            className={`w-full py-2.5 rounded font-extrabold text-xs uppercase tracking-wider transition-all disabled:opacity-30 cursor-pointer text-[var(--term-canvas)] shadow-sm flex items-center justify-center gap-1.5 bg-[var(--term-buy)] hover:brightness-110 active:scale-[0.99] ${
               outOfOrders ? 'opacity-40' : ''
             }`}
           >
@@ -360,7 +360,7 @@ export function OrderPanel({
             onClick={handleSell}
             disabled={isDisabled}
             aria-disabled={outOfOrders}
-            className={`w-full py-2.5 rounded font-extrabold text-xs uppercase tracking-wider transition-all disabled:opacity-30 cursor-pointer text-white shadow-sm flex items-center justify-center gap-1.5 bg-[#f23645] hover:brightness-110 active:scale-[0.99] ${
+            className={`w-full py-2.5 rounded font-extrabold text-xs uppercase tracking-wider transition-all disabled:opacity-30 cursor-pointer text-[var(--term-canvas)] shadow-sm flex items-center justify-center gap-1.5 bg-[var(--term-sell)] hover:brightness-110 active:scale-[0.99] ${
               outOfOrders ? 'opacity-40' : ''
             }`}
           >
@@ -374,14 +374,14 @@ export function OrderPanel({
             <button
               onClick={onClose}
               disabled={isDisabled || !position}
-              className="py-1.5 rounded text-xs font-bold uppercase bg-[#181a20] hover:bg-[#22252c] text-[#d1d4dc] border border-[#22252c] disabled:opacity-30 transition-colors cursor-pointer"
+              className="py-1.5 rounded text-xs font-bold uppercase bg-[var(--term-raised)] hover:bg-[var(--term-border)] text-[var(--term-text)] border border-[var(--term-border)] disabled:opacity-30 transition-colors cursor-pointer"
             >
               Close Position
             </button>
             <button
               onClick={handleReverse}
               disabled={isDisabled || !position}
-              className={`py-1.5 rounded text-xs font-bold uppercase bg-[#181a20] hover:bg-[#22252c] text-[#d1d4dc] border border-[#22252c] disabled:opacity-30 transition-colors cursor-pointer ${
+              className={`py-1.5 rounded text-xs font-bold uppercase bg-[var(--term-raised)] hover:bg-[var(--term-border)] text-[var(--term-text)] border border-[var(--term-border)] disabled:opacity-30 transition-colors cursor-pointer ${
                 outOfOrders ? 'opacity-40' : ''
               }`}
             >
@@ -392,7 +392,7 @@ export function OrderPanel({
           <button
             onClick={onClose}
             disabled={isDisabled || !position}
-            className="w-full py-1.5 rounded text-[11px] font-bold uppercase tracking-wider bg-[#181a20] hover:bg-[#22252c] text-[#787b86] hover:text-[#d1d4dc] border border-[#22252c] disabled:opacity-30 transition-colors cursor-pointer"
+            className="w-full py-1.5 rounded text-[11px] font-bold uppercase tracking-wider bg-[var(--term-raised)] hover:bg-[var(--term-border)] text-[var(--term-label)] hover:text-[var(--term-text)] border border-[var(--term-border)] disabled:opacity-30 transition-colors cursor-pointer"
           >
             Flatten All
           </button>

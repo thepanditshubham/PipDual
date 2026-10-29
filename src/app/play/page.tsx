@@ -4,7 +4,7 @@ import { useCallback, useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Swords, Bot, KeyRound, BarChart3, HelpCircle, Crosshair,
+  Swords, Bot, BarChart3, HelpCircle, Crosshair,
   Settings as SettingsIcon, Mail, Share2, Headphones,
   Coins, ChevronDown, ChevronUp, Flame,
   Volume2, VolumeX, Clock, ArrowLeft, AlertCircle, CheckCircle2,
@@ -253,7 +253,14 @@ function PlayLobbyContent() {
   /** Live charges a coin entry and pays the pot; Demo and bot are free. */
   const [mode, setMode] = useState<'live' | 'demo' | 'bot'>('live');
   const [roomCodeInput, setRoomCodeInput] = useState('');
-  const [showCodeInput, setShowCodeInput] = useState(false);
+  /* Private table. The coins are frozen the moment the code is minted, so the
+     invite link and the host's own seat always quote the same stake. */
+  const [tableCoinsInput, setTableCoinsInput] = useState('');
+  const [table, setTable] = useState<{ code: string; stake: number; duration: MatchDurationId } | null>(null);
+  const [tableCopied, setTableCopied] = useState<'code' | 'link' | null>(null);
+  /* Seat carried by a `?table=` invite link. A typed five-character code has no
+     room for a stake, so only a linked table arrives pre-charged. */
+  const [linkTable, setLinkTable] = useState<{ code: string; stake: number; duration: MatchDurationId } | null>(null);
 
   // Matchmaking Queue
   const [queueing, setQueueing] = useState(false);
@@ -451,6 +458,8 @@ function PlayLobbyContent() {
   const minChallengeStake = stakeLadderHas(ticketFee) ? ticketFee : nextStakeChip(ticketFee);
   /* Tallest chip the wallet can fully cover; never below the lowest step. */
   const maxChipForBalance = Math.max(minChallengeStake, snapStakeChip(userCoins));
+  /* The invite seat only applies while the code box still holds that code. */
+  const activeLinkTable = linkTable && linkTable.code === roomCodeInput ? linkTable : null;
 
   const progressPlayed = progressStats.matches;
   const progressWinRate = progressPlayed > 0 ? Math.round((progressStats.wins / progressPlayed) * 100) : 0;
@@ -595,6 +604,24 @@ function PlayLobbyContent() {
     if (modeParam === 'demo' || modeParam === 'friendly') setMode('demo');
     if (modeParam === 'live' || modeParam === 'ranked') setMode('live');
     if (modeParam === 'bot') setMode('bot');
+
+    // `?table=CODE&stake=…&duration=…` is a private-table invite: it arrives
+    // with its coins, so Join charges the seat before opening the room.
+    const tableParam = searchParams.get('table');
+    if (tableParam) {
+      const code = tableParam.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5);
+      const durationParam = searchParams.get('duration');
+      if (code.length === 5) {
+        setRoomCodeInput(code);
+        setLinkTable({
+          code,
+          stake: Math.max(0, Math.floor(Number(searchParams.get('stake') ?? 0)) || 0),
+          duration: (durationParam && durationParam in MATCH_DURATIONS
+            ? durationParam
+            : DEFAULT_MATCH_DURATION) as MatchDurationId,
+        });
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -890,11 +917,85 @@ function PlayLobbyContent() {
   const handleJoinWithCode = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     sound.playClick();
-    if (roomCodeInput.length === 5) {
-      const code = roomCodeInput.toUpperCase();
-      stashRoomSession(code, { duration: selectedDuration, ranked: false });
-      router.push(`/play/${code}`);
+    if (roomCodeInput.length !== 5) return;
+    const code = roomCodeInput.toUpperCase();
+    const seat = activeLinkTable?.stake ?? 0;
+    const duration = activeLinkTable?.duration ?? selectedDuration;
+    /* A linked table arrives with its coins. Charge the seat here the way a
+       queued Live entry is charged, so the room itself only settles the pot.
+       A typed code carries no stake, so it stays a free room. */
+    if (seat > 0) {
+      if (seat > userCoins) {
+        setQueueNotice(`That seat costs ${seat.toLocaleString()} coins — you hold ${userCoins.toLocaleString()}.`);
+        return;
+      }
+      if (!spendCoins(seat)) {
+        setQueueNotice('The wallet fell short of that table — deposit coins first.');
+        return;
+      }
+      stashRoomSession(code, { mode: 'standard', opponent: 'live', duration, ranked: true, stake: seat });
+    } else {
+      stashRoomSession(code, { duration, ranked: false });
     }
+    router.push(`/play/${code}`);
+  };
+
+  /* Mint a private table at a chip-ladder stake. Nothing is charged here — the
+     seat is paid when the table is opened, so minting and changing your mind
+     stays free. */
+  const handleGenerateTableCode = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    sound.playClick();
+    const stake = clampStake(Number(tableCoinsInput) || ticketFee);
+    setTableCoinsInput(String(stake));
+    setTable({ code: generateRoomCode(), stake, duration: selectedDuration });
+    setTableCopied(null);
+  };
+
+  const tableInviteLink = (entry: { code: string; stake: number; duration: MatchDurationId }) =>
+    `${window.location.origin}/play?table=${entry.code}&stake=${entry.stake}&duration=${entry.duration}`;
+
+  const copyTableValue = (kind: 'code' | 'link') => {
+    if (!table) return;
+    sound.playClick();
+    if (typeof navigator === 'undefined' || !navigator.clipboard) {
+      setQueueNotice('Your browser blocked the clipboard — write the code down by hand.');
+      return;
+    }
+    const text = kind === 'code' ? table.code : tableInviteLink(table);
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setTableCopied(kind);
+        setTimeout(() => setTableCopied(null), 1600);
+      })
+      .catch(() => setQueueNotice('Your browser blocked the clipboard — write the code down by hand.'));
+  };
+
+  /* Sit down at our own table: the seat leaves the wallet here, exactly like a
+     queued Live entry, and the room settles the payout from the stashed stake. */
+  const handleOpenTable = () => {
+    if (!table) return;
+    sound.playClick();
+    if (table.stake > userCoins) {
+      setQueueNotice(
+        `Opening a ${table.stake.toLocaleString()}-coin table needs that much in the wallet — you hold ${userCoins.toLocaleString()}.`,
+      );
+      return;
+    }
+    if (!spendCoins(table.stake)) {
+      setQueueNotice('The wallet fell short of that table — deposit coins first.');
+      return;
+    }
+    stashRoomSession(table.code, {
+      mode: 'standard',
+      opponent: 'live',
+      duration: table.duration,
+      host: true,
+      ranked: true,
+      stake: table.stake,
+    });
+    router.push(`/play/${table.code}`);
   };
 
   const handleFindMatch = () => {
@@ -1228,8 +1329,11 @@ function PlayLobbyContent() {
       {/* ── Blurred ambient background layers ── */}
       {/* NOTE: `isolate` on the page root keeps these -z-10 layers above the opaque bg-bg of <main>. */}
       <div className="fixed inset-0 bg-[var(--term-canvas)] -z-10" />
-      {/* Neutral veil only: vignette + faint CRT scanlines, no colour wash */}
+      {/* Neutral veil only: vignette, no colour wash and no scanlines */}
       <div className="lobby-glow-veil fixed inset-0 -z-10 pointer-events-none" aria-hidden="true" />
+      {/* CRT texture — the same fixed full-viewport scanline the landing page
+          carries, so it reads over the whole screen instead of only the floor */}
+      <div className="site-scanlines" aria-hidden="true" />
 
       {/* ── Announcement strip — the first thing on the page, above the header ── */}
       <AnnouncementBar />
@@ -1916,26 +2020,12 @@ function PlayLobbyContent() {
                     </div>
                   </div>
 
-                  {/* Actions stub — dashed perforation line, poster anchored to the bottom edge.
-                      No space-y here: its margin offsets absolutely positioned children
-                      inside a flex column, which pulled the bottom notch up off the edge. */}
+                  {/* Actions stub — dashed perforation line. No artwork behind the
+                      actions: the Find Match button owns this half on its own.
+                      No space-y here: its margin offsets absolutely positioned
+                      children inside a flex column, which pulled the bottom notch
+                      up off the edge. */}
                   <div className="md:col-span-4 p-4 bg-[var(--term-panel-deep)] md:border-l md:border-dashed md:border-[var(--term-border-hi)] flex flex-col justify-between relative">
-                    {/* Lightning poster behind the actions. The mask takes it to zero
-                        alpha exactly at the panel's bottom edge, so the artwork melts
-                        into the panel instead of ending on a hard light line. */}
-                    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-                      <div
-                        className="absolute inset-0 bg-cover bg-top bg-no-repeat opacity-60"
-                        style={{
-                          backgroundImage: "url('/match-ticket-bg.avif')",
-                          WebkitMaskImage:
-                            'linear-gradient(to top, transparent 0%, rgba(0,0,0,0.35) 7%, rgba(0,0,0,0.8) 14%, #000 24%)',
-                          maskImage:
-                            'linear-gradient(to top, transparent 0%, rgba(0,0,0,0.35) 7%, rgba(0,0,0,0.8) 14%, #000 24%)',
-                        }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-b from-[var(--term-panel-deep)]/70 via-[var(--term-panel-deep)]/20 to-[var(--term-panel-deep)]/45" />
-                    </div>
 
                     {/* Semicircle cutouts centred on the dashed perforation line */}
                     <div className="hidden md:block absolute -top-3 -left-3 w-6 h-6 rounded-full bg-[var(--term-bg)] border border-[var(--term-border)] shadow-inner pointer-events-none" />
@@ -2043,49 +2133,6 @@ function PlayLobbyContent() {
                           <Bot size={15} className="text-[var(--term-soft)]" />
                           <span>Practice vs bot</span>
                         </button>
-
-                        {/* Button: Join with code */}
-                        {!showCodeInput ? (
-                          <button
-                            onClick={() => {
-                              sound.playClick();
-                              setShowCodeInput(true);
-                            }}
-                            className="w-full h-9 bg-[var(--term-raised)] hover:bg-[var(--term-raised-hi)] border border-[var(--term-border)] text-[var(--term-text)] hover:text-[var(--term-strong)] text-xs font-semibold rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                          >
-                            <KeyRound size={15} className="text-[var(--term-soft)]" />
-                            <span>Join with code</span>
-                          </button>
-                        ) : (
-                          <form onSubmit={handleJoinWithCode} className="flex gap-1.5">
-                            <input
-                              type="text"
-                              value={roomCodeInput}
-                              onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5))}
-                              placeholder="CODE"
-                              maxLength={5}
-                              autoFocus
-                              className="w-full h-9 bg-[var(--term-bg)] border border-[var(--term-primary)] rounded px-2.5 text-center text-xs font-mono font-bold uppercase text-[var(--term-strong)] placeholder:text-[var(--term-muted)] focus:outline-none"
-                            />
-                            <button
-                              type="submit"
-                              disabled={roomCodeInput.length !== 5}
-                              className="h-9 px-3 bg-[var(--term-primary)] hover:bg-[var(--term-primary-hi)] text-white font-bold text-xs rounded cursor-pointer disabled:opacity-40"
-                            >
-                              Join
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setShowCodeInput(false);
-                                setRoomCodeInput('');
-                              }}
-                              className="h-9 px-2 text-[var(--term-muted)] hover:text-[var(--term-strong)] text-sm"
-                            >
-                              ✕
-                            </button>
-                          </form>
-                        )}
                       </div>
                     </div>
 
@@ -2100,7 +2147,152 @@ function PlayLobbyContent() {
               </div>
             )}
 
-            {/* Partner banner — sits directly under the ticket, on that tab only. */}
+            {/* Private table — the code door, under the ticket. Left half joins a
+                shared code; right half mints one at a stake from the chip ladder.
+                A typed code carries no stake, so its room is free; the invite
+                link carries the coins and charges the seat on Join. */}
+            {centerTab === 'ticket' && !matchFoundData && (
+              <div className="bg-[var(--term-surface)]/70 backdrop-blur-md border border-[var(--term-border)] rounded-xl overflow-hidden animate-in fade-in duration-200">
+                <div className="flex items-center justify-between border-b border-[var(--term-border)] px-4 py-2.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--term-strong)] font-mono">
+                    Private table
+                  </span>
+                  <span className="text-[10px] font-mono text-[var(--term-soft)]">
+                    Code · coins ride the link
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2">
+                  {/* Join half */}
+                  <div className="space-y-2 p-4">
+                    <label
+                      htmlFor="match-code-input"
+                      className="block text-[10px] font-mono uppercase tracking-wider text-[var(--term-label)]"
+                    >
+                      Join with code
+                    </label>
+                    <form onSubmit={handleJoinWithCode} className="flex items-stretch gap-2">
+                      <input
+                        id="match-code-input"
+                        type="text"
+                        value={roomCodeInput}
+                        onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5))}
+                        placeholder="CODE"
+                        maxLength={5}
+                        autoComplete="off"
+                        spellCheck={false}
+                        className="flex-1 min-w-0 h-10 bg-[var(--term-bg)] border border-[var(--term-border)] focus:border-[var(--term-primary)] rounded px-3 text-center text-sm font-mono font-bold uppercase tracking-[0.35em] text-[var(--term-strong)] placeholder:text-[var(--term-muted)] focus:outline-none transition-colors"
+                      />
+                      <button
+                        type="submit"
+                        disabled={roomCodeInput.length !== 5}
+                        className="h-10 px-5 shrink-0 bg-[var(--term-primary)] hover:bg-[var(--term-primary-hi)] text-white font-bold text-xs uppercase tracking-wider rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Join
+                      </button>
+                    </form>
+                    <p className="text-[10px] font-mono text-[var(--term-soft)]">
+                      {activeLinkTable
+                        ? activeLinkTable.stake > 0
+                          ? `Invite · ${activeLinkTable.stake.toLocaleString()} coins · ${activeLinkTable.duration} — charged when you join.`
+                          : `Invite · free · ${activeLinkTable.duration}.`
+                        : 'Five characters, no dashes. A typed code opens a free room.'}
+                    </p>
+                  </div>
+
+                  {/* Create half */}
+                  <div className="space-y-2 p-4 border-t border-[var(--term-border)] md:border-t-0 md:border-l">
+                    {table ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="block text-[10px] font-mono uppercase tracking-wider text-[var(--term-label)]">
+                            Table code
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sound.playClick();
+                              setTable(null);
+                              setTableCopied(null);
+                            }}
+                            className="text-[10px] font-mono text-[var(--term-muted)] hover:text-[var(--term-strong)] cursor-pointer"
+                          >
+                            Change stake
+                          </button>
+                        </div>
+                        <div className="flex items-stretch gap-2">
+                          <div className="flex h-10 flex-1 min-w-0 items-center justify-center rounded border border-[var(--term-primary)]/40 bg-[var(--term-bg)] font-mono text-sm font-bold tracking-[0.35em] text-[var(--term-strong)]">
+                            {table.code}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => copyTableValue('code')}
+                            className="h-10 px-3 shrink-0 bg-[var(--term-raised)] hover:bg-[var(--term-raised-hi)] border border-[var(--term-border)] text-[var(--term-text)] hover:text-[var(--term-strong)] text-xs font-semibold rounded cursor-pointer transition-colors"
+                          >
+                            {tableCopied === 'code' ? 'Copied' : 'Copy'}
+                          </button>
+                        </div>
+                        <div className="flex items-stretch gap-2">
+                          <button
+                            type="button"
+                            onClick={() => copyTableValue('link')}
+                            className="h-10 flex-1 min-w-0 bg-[var(--term-raised)] hover:bg-[var(--term-raised-hi)] border border-[var(--term-border)] text-[var(--term-text)] hover:text-[var(--term-strong)] text-xs font-semibold rounded cursor-pointer transition-colors"
+                          >
+                            {tableCopied === 'link'
+                              ? 'Link copied'
+                              : `Copy ${table.stake.toLocaleString()}-coin link`}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleOpenTable}
+                            className="h-10 px-4 shrink-0 bg-[var(--term-primary)] hover:bg-[var(--term-primary-hi)] text-white text-xs font-bold uppercase tracking-wider rounded cursor-pointer transition-colors"
+                          >
+                            Open
+                          </button>
+                        </div>
+                        <p className="text-[10px] font-mono text-[var(--term-soft)]">
+                          {table.duration} · the seat leaves your wallet when you open it.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <label
+                          htmlFor="table-coins-input"
+                          className="block text-[10px] font-mono uppercase tracking-wider text-[var(--term-label)]"
+                        >
+                          Coins to play for
+                        </label>
+                        <form onSubmit={handleGenerateTableCode} className="flex items-stretch gap-2">
+                          <div className="relative flex-1 min-w-0">
+                            <Coins size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--term-muted)]" />
+                            <input
+                              id="table-coins-input"
+                              type="text"
+                              inputMode="numeric"
+                              value={tableCoinsInput}
+                              onChange={(e) => setTableCoinsInput(e.target.value.replace(/[^0-9]/g, ''))}
+                              placeholder={String(ticketFee)}
+                              className="w-full h-10 bg-[var(--term-bg)] border border-[var(--term-border)] focus:border-[var(--term-primary)] rounded pl-8 pr-3 text-sm font-mono font-bold text-[var(--term-strong)] placeholder:text-[var(--term-muted)] focus:outline-none transition-colors"
+                            />
+                          </div>
+                          <button
+                            type="submit"
+                            className="h-10 px-4 shrink-0 bg-[var(--term-primary)] hover:bg-[var(--term-primary-hi)] text-white font-bold text-xs uppercase tracking-wider rounded cursor-pointer transition-colors"
+                          >
+                            Generate code
+                          </button>
+                        </form>
+                        <p className="text-[10px] font-mono text-[var(--term-soft)]">
+                          Chips: 100, 200, then 500s. Same chart and length for both seats.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Partner banner — sits directly under the join card, on that tab only. */}
             {centerTab === 'ticket' && (
               <a
                 href="https://ib.ecmarkets.co/PL/2/9EETK"
