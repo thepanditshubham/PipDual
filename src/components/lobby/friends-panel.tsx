@@ -53,7 +53,9 @@ function Avatar({ name }: { name: string }) {
 export function FriendsPanel({ user, inviteCode }: FriendsPanelProps) {
   const router = useRouter();
 
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+  // Conversation filter under the header: everyone, or only who is online.
+  const [dockFilter, setDockFilter] = useState<'all' | 'online'>('all');
   const [friends, setFriends] = useState<FriendEntry[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
@@ -82,6 +84,8 @@ export function FriendsPanel({ user, inviteCode }: FriendsPanelProps) {
   const incoming = friends.filter((entry) => entry.relation === 'incoming');
   const outgoing = friends.filter((entry) => entry.relation === 'outgoing');
   const onlineFriends = accepted.filter((entry) => isOnline(entry)).length;
+  // What the list shows: the whole friend list, or the online slice of it.
+  const visibleAccepted = dockFilter === 'online' ? accepted.filter((entry) => isOnline(entry)) : accepted;
 
   /** Presence reports account ids and username aliases; match either. */
   function isOnline(entry: FriendEntry): boolean {
@@ -326,15 +330,28 @@ export function FriendsPanel({ user, inviteCode }: FriendsPanelProps) {
       results.some((player) => player.id === typedPlayer.id));
 
   return (
-    <div className="bg-[var(--term-surface)]/70 backdrop-blur-md border border-[var(--term-border)] rounded-lg p-3.5 space-y-2.5">
-      {/* Header: count, online friends, expand toggle */}
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="font-bold text-[var(--term-strong)] uppercase font-mono tracking-wider text-xs">Friends</span>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--term-raised)] border border-[var(--term-border-hi)] text-[var(--term-label)] whitespace-nowrap">
-            {accepted.length}
-            {onlineFriends > 0 && <span className="text-[var(--term-buy-bright)]"> · {onlineFriends} online</span>}
+    <div className="overflow-hidden rounded-lg border border-[var(--term-border)] bg-[var(--term-panel)]/90 backdrop-blur-md">
+      {/* Header — the messaging panel's masthead: avatar, name, presence, and
+          the collapse control pinned right */}
+      <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="relative shrink-0">
+            <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-full border border-[var(--term-border-hi)] bg-[var(--term-raised)]">
+              <img src={user?.avatarUrl || DEFAULT_AVATAR} alt="" className="h-full w-full object-cover" />
+            </span>
+            <span
+              className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-[var(--term-panel)] ${
+                onlineFriends > 0 ? 'bg-[var(--term-buy-bright)]' : 'bg-[var(--term-border-hover)]'
+              }`}
+            />
           </span>
+          <div className="min-w-0">
+            <p className="text-[13px] font-bold leading-tight text-[var(--term-strong)]">Messaging</p>
+            <p className="truncate text-[10px] font-mono leading-tight text-[var(--term-dim)]">
+              {accepted.length} friend{accepted.length === 1 ? '' : 's'}
+              {onlineFriends > 0 && <span className="text-[var(--term-buy-bright)]"> · {onlineFriends} online</span>}
+            </p>
+          </div>
         </div>
 
         <button
@@ -344,7 +361,7 @@ export function FriendsPanel({ user, inviteCode }: FriendsPanelProps) {
           }}
           title={expanded ? 'Collapse' : 'Expand'}
           aria-label={expanded ? 'Collapse friends' : 'Expand friends'}
-          className="w-6 h-6 rounded bg-[var(--term-raised)] hover:bg-[var(--term-raised-hi)] border border-[var(--term-border-hi)] hover:border-[var(--term-accent)] flex items-center justify-center text-[var(--term-label)] hover:text-[var(--term-strong)] transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+          className="w-6 h-6 shrink-0 rounded bg-[var(--term-raised)] hover:bg-[var(--term-raised-hi)] border border-[var(--term-border-hi)] hover:border-[var(--term-accent)] flex items-center justify-center text-[var(--term-label)] hover:text-[var(--term-strong)] transition-all cursor-pointer shadow-sm active:scale-95"
         >
           <ChevronDown
             size={14}
@@ -355,9 +372,58 @@ export function FriendsPanel({ user, inviteCode }: FriendsPanelProps) {
         </button>
       </div>
 
+      {/* Search — always under the masthead, the way a message search sits */}
+      {searchable && (
+        <div className="relative px-3.5 pb-2.5">
+          <Search size={12} className="absolute left-[22px] top-1/2 -translate-y-1/2 text-[var(--term-muted)]" />
+          <input
+            value={query}
+            onChange={(event) => runSearch(event.target.value)}
+            placeholder="Search traders"
+            spellCheck={false}
+            className="h-8 w-full rounded-full border border-[var(--term-border-hi)] bg-[var(--term-raised)] pl-7 pr-7 text-[11px] font-mono text-[var(--term-strong)] outline-none placeholder:text-[var(--term-dim)] focus:border-[var(--term-accent)]"
+          />
+          {searching && (
+            <Loader2 size={11} className="absolute right-[22px] top-1/2 -translate-y-1/2 animate-spin text-[var(--term-soft)]" />
+          )}
+        </div>
+      )}
+
+      {/* Focused / All — the same two-tab strip the reference panel carries */}
+      {expanded && (
+        <div className="flex items-stretch gap-1 border-y border-[var(--term-border)] px-2">
+          {([
+            ['all', 'All friends'],
+            ['online', 'Online'],
+          ] as const).map(([id, label]) => {
+            const active = dockFilter === id;
+            return (
+              <button
+                key={id}
+                onClick={() => {
+                  sound.playClick();
+                  setDockFilter(id);
+                }}
+                className={`relative px-2.5 py-2 text-[11px] font-bold transition-colors cursor-pointer ${
+                  active ? 'text-[var(--term-strong)]' : 'text-[var(--term-muted)] hover:text-[var(--term-text)]'
+                }`}
+              >
+                {label}
+                <span
+                  aria-hidden
+                  className={`absolute inset-x-1.5 bottom-0 h-[2px] transition-colors ${
+                    active ? 'bg-[var(--term-accent)]' : 'bg-transparent'
+                  }`}
+                />
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Incoming duel invite */}
       {invite && (
-        <div className="rounded border border-[var(--term-accent)]/50 bg-[var(--term-accent)]/10 p-2 space-y-1.5">
+        <div className="mx-3.5 mt-2.5 rounded border border-[var(--term-accent)]/50 bg-[var(--term-accent)]/10 p-2 space-y-1.5">
           <div className="flex items-start gap-2">
             <Swords size={14} className="text-[var(--term-accent)] mt-0.5 shrink-0" />
             <p className="text-[11px] text-[var(--term-text)] leading-snug flex-1">
@@ -382,23 +448,9 @@ export function FriendsPanel({ user, inviteCode }: FriendsPanelProps) {
 
       {/* Body */}
       {expanded && (
-        <div className="space-y-2 animate-in fade-in duration-150">
+        <div className="space-y-2 px-3.5 py-2.5 animate-in fade-in duration-150">
           {searchable ? (
             <>
-              <div className="relative">
-                <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--term-muted)]" />
-                <input
-                  value={query}
-                  onChange={(event) => runSearch(event.target.value)}
-                  placeholder="Add friend by username"
-                  spellCheck={false}
-                  className="w-full h-8 pl-7 pr-7 rounded bg-[var(--term-raised)] border border-[var(--term-border-hi)] focus:border-[var(--term-accent)] outline-none text-[11px] font-mono text-[var(--term-strong)] placeholder:text-[var(--term-dim)]"
-                />
-                {searching && (
-                  <Loader2 size={11} className="absolute right-2 top-1/2 -translate-y-1/2 animate-spin text-[var(--term-soft)]" />
-                )}
-              </div>
-
               {results.length > 0 && (
                 <ul className="space-y-1">
                   {results.map((player) => (
@@ -485,8 +537,8 @@ export function FriendsPanel({ user, inviteCode }: FriendsPanelProps) {
                   No friends yet — search a username above
                 </div>
               ) : (
-                <ul className="space-y-1">
-                  {accepted.map((entry) => (
+                <ul className="max-h-[280px] space-y-1 overflow-y-auto pr-0.5">
+                  {visibleAccepted.map((entry) => (
                     <li
                       key={entry.friendshipId}
                       className="group flex items-center gap-2 rounded border border-transparent hover:border-[var(--term-border-hi)] hover:bg-[var(--term-raised)]/70 px-2 py-1.5 transition-colors"
@@ -543,6 +595,13 @@ export function FriendsPanel({ user, inviteCode }: FriendsPanelProps) {
                   ))}
                 </ul>
               )}
+
+              {/* Online tab with nobody online — say so instead of an empty box */}
+              {dockFilter === 'online' && accepted.length > 0 && visibleAccepted.length === 0 && (
+                <p className="px-1 py-2 text-center text-[10px] font-mono text-[var(--term-muted)]">
+                  Nobody online right now.
+                </p>
+              )}
             </>
           ) : (
             <div className="py-2.5 px-2 text-center text-[10px] text-[var(--term-muted)] font-mono border border-dashed border-[var(--term-border)] rounded-lg">
@@ -554,12 +613,12 @@ export function FriendsPanel({ user, inviteCode }: FriendsPanelProps) {
       )}
 
       {localMode && !notice && (
-        <p className="text-[10px] font-mono text-[var(--term-muted)] leading-snug">{LOCAL_FRIENDS_NOTICE}</p>
+        <p className="px-3.5 pb-2.5 text-[10px] font-mono leading-snug text-[var(--term-muted)]">{LOCAL_FRIENDS_NOTICE}</p>
       )}
-      {notice && <p className="text-[10px] font-mono text-[var(--term-amber)] leading-snug">{notice}</p>}
+      {notice && <p className="px-3.5 pb-2.5 text-[10px] font-mono leading-snug text-[var(--term-amber)]">{notice}</p>}
 
       {/* Shareable room link */}
-      <div className="pt-1 flex items-center justify-between text-[11px] font-mono text-[var(--term-soft)]">
+      <div className="flex items-center justify-between border-t border-[var(--term-border)] px-3.5 py-2 text-[11px] font-mono text-[var(--term-soft)]">
         <span className="truncate">pipduel.com/play/{inviteCode}</span>
         <button
           onClick={copyLink}

@@ -45,7 +45,7 @@ const KIND: Record<LedgerKind, { label: string; tone: PillTone }> = {
   payout: { label: 'Payout', tone: 'accent' },
   payout_refund: { label: 'Refund', tone: 'pending' },
   adjustment: { label: 'Adjustment', tone: 'neutral' },
-  referral: { label: 'IB transfer', tone: 'ok' },
+  referral: { label: 'Affiliate transfer', tone: 'ok' },
 };
 
 const KIND_FILTERS: { id: LedgerFilter; label: string }[] = [
@@ -53,7 +53,7 @@ const KIND_FILTERS: { id: LedgerFilter; label: string }[] = [
   { id: 'deposit', label: 'Deposits' },
   { id: 'payout', label: 'Payouts' },
   { id: 'payout_refund', label: 'Refunds' },
-  { id: 'referral', label: 'IB transfers' },
+  { id: 'referral', label: 'Affiliate transfers' },
   { id: 'adjustment', label: 'Adjustments' },
 ];
 

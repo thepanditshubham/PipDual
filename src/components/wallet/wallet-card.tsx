@@ -60,7 +60,7 @@ export function WalletCard({ coins, onOpen }: WalletCardProps) {
         <div className="grid grid-cols-2 gap-2">
           <Link
             href="/register"
-            className="h-9 rounded bg-[var(--term-primary)] hover:bg-[var(--term-primary-hi)] text-white text-xs font-bold flex items-center justify-center transition-colors"
+            className="h-9 rounded border border-[var(--term-primary)]/55 bg-[var(--term-primary)]/10 hover:bg-[var(--term-primary)]/18 text-[var(--term-strong)] text-xs font-bold flex items-center justify-center transition-colors"
           >
             Register
           </Link>
@@ -75,7 +75,7 @@ export function WalletCard({ coins, onOpen }: WalletCardProps) {
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => openAt('deposit')}
-            className="h-9 rounded bg-[var(--term-primary)] hover:bg-[var(--term-primary-hi)] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            className="h-9 rounded border border-[var(--term-primary)]/55 bg-[var(--term-primary)]/10 hover:bg-[var(--term-primary)]/18 text-[var(--term-strong)] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
             <ArrowUpRight size={13} /> Deposit
           </button>

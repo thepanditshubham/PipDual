@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -8,7 +8,7 @@ import {
   Settings as SettingsIcon, Mail, Share2, Headphones,
   Coins, ChevronDown, ChevronUp, Flame,
   Volume2, VolumeX, Clock, ArrowLeft, AlertCircle, CheckCircle2,
-  ExternalLink, User, Ticket, Pencil, LogIn, LogOut,
+  ExternalLink, User, Ticket, LogIn, LogOut,
   AlertTriangle, Info, X
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth/store';
@@ -24,13 +24,14 @@ import {
 } from '@/lib/challenges/challenge-board';
 import { MATCH_DURATIONS, DEFAULT_MATCH_DURATION, type MatchDurationId } from '@/lib/engine/constants';
 import { stashRoomSession } from '@/lib/rooms/session';
+import { openPrivateTable } from '@/lib/tables/private-table';
 import { FriendsPanel } from '@/components/lobby/friends-panel';
+import { LobbyLeftRail, type LobbyTab } from '@/components/lobby/lobby-rail';
 import { AnnouncementBar } from '@/components/announcement-bar';
 import { WalletCard, WalletPanel, WALLET_TABS, type WalletTab } from '@/components/wallet';
 import { TerminalModeToggle, useTerminalMode } from '@/components/terminal/theme-mode';
 import { ProgressCelebrations, StatsPanel } from '@/components/progress';
 import { useProgressStore } from '@/lib/progress/store';
-import { ACHIEVEMENTS } from '@/lib/progress/config';
 import { liveFeeFor, potFor, houseBurnFor } from '@/lib/economy/stakes';
 import { HOUSE_CUT } from '@/lib/economy/config';
 import {
@@ -76,6 +77,24 @@ function formatWait(seconds: number): string {
   if (seconds < 60) return `00:${seconds.toString().padStart(2, '0')}`;
   if (seconds % 60 === 0) return `${Math.floor(seconds / 60)} min`;
   return `${Math.floor(seconds / 60)}m ${(seconds % 60).toString().padStart(2, '0')}s`;
+}
+
+/* Room codes are minted as XXXXX-XXXXX. People paste them straight off a
+   message, so the box accepts the dashed and the compact form and always hands
+   the rest of the page the canonical dashed one. */
+function formatRoomCodeInput(raw: string): string {
+  const compact = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+  return compact.length > 5 ? `${compact.slice(0, 5)}-${compact.slice(5)}` : compact;
+}
+function normalizeRoomCode(raw: string): string {
+  const compact = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (compact.length === 10) return `${compact.slice(0, 5)}-${compact.slice(5)}`;
+  return compact;
+}
+/** A code is complete when it is the short legacy 5 or a whole table's 10. */
+function roomCodeIsComplete(code: string): boolean {
+  const compact = code.replace(/[^A-Z0-9]/g, '').length;
+  return compact === 5 || compact === 10;
 }
 
 // Inbox cleanup window: the mailbox button and the row filter read the same
@@ -191,7 +210,7 @@ const STAKE_TIERS: StakeTier[] = [
     text: 'text-[var(--term-heat-1)]',
     chip: 'text-[var(--term-heat-1)] ring-[var(--term-heat-1)]/30',
     glow: '',
-    action: 'border-[var(--term-heat-1)]/50 bg-[var(--term-heat-1)]/85 text-white hover:bg-[var(--term-heat-1)]',
+    action: 'border-[var(--term-heat-1)]/45 bg-[var(--term-heat-1)]/10 text-[var(--term-heat-1)] hover:bg-[var(--term-heat-1)]/18',
   },
   {
     key: 'elevated',
@@ -200,7 +219,7 @@ const STAKE_TIERS: StakeTier[] = [
     text: 'text-[var(--term-heat-2)]',
     chip: 'text-[var(--term-heat-2)] ring-[var(--term-heat-2)]/30',
     glow: '',
-    action: 'border-[var(--term-heat-2)]/50 bg-[var(--term-heat-2)]/85 text-white hover:bg-[var(--term-heat-2)]',
+    action: 'border-[var(--term-heat-2)]/45 bg-[var(--term-heat-2)]/10 text-[var(--term-heat-2)] hover:bg-[var(--term-heat-2)]/18',
   },
   {
     key: 'hot',
@@ -209,7 +228,7 @@ const STAKE_TIERS: StakeTier[] = [
     text: 'text-[var(--term-heat-3)]',
     chip: 'text-[var(--term-heat-3)] ring-[var(--term-heat-3)]/30',
     glow: '',
-    action: 'border-[var(--term-heat-3)]/50 bg-[var(--term-heat-3)]/85 text-white hover:bg-[var(--term-heat-3)]',
+    action: 'border-[var(--term-heat-3)]/45 bg-[var(--term-heat-3)]/10 text-[var(--term-heat-3)] hover:bg-[var(--term-heat-3)]/18',
   },
   {
     key: 'whale',
@@ -218,7 +237,7 @@ const STAKE_TIERS: StakeTier[] = [
     text: 'text-[var(--term-heat-4)]',
     chip: 'text-[var(--term-heat-4)] ring-[var(--term-heat-4)]/40',
     glow: 'shadow-[0_0_22px_-8px_var(--term-heat-4)]',
-    action: 'border-[var(--term-heat-4)]/50 bg-[linear-gradient(135deg,var(--term-heat-3),var(--term-heat-4))] text-white hover:brightness-110',
+    action: 'border-[var(--term-heat-4)]/50 bg-[var(--term-heat-4)]/12 text-[var(--term-heat-4)] hover:bg-[var(--term-heat-4)]/20',
   },
 ];
 function stakeTierFor(stake: number, ticketFee: number): StakeTier {
@@ -258,8 +277,14 @@ function PlayLobbyContent() {
   const [tableCoinsInput, setTableCoinsInput] = useState('');
   const [table, setTable] = useState<{ code: string; stake: number; duration: MatchDurationId } | null>(null);
   const [tableCopied, setTableCopied] = useState<'code' | 'link' | null>(null);
-  /* Seat carried by a `?table=` invite link. A typed five-character code has no
-     room for a stake, so only a linked table arrives pre-charged. */
+  /* The table code this tab is knocking on as a guest. Non-null means we are
+     waiting for the host to seat us, which is what the join half paints. */
+  const [tableJoinCode, setTableJoinCode] = useState<string | null>(null);
+  /* The realtime table room. The host holds it open until a rival sits down;
+     the guest holds it while knocking. Both drop it on unmount. */
+  const tableChannelRef = useRef<ReturnType<typeof openPrivateTable> | null>(null);
+  /* Seat carried by a `?table=` invite link — the whole code, not just the
+     first five characters, so the link lands on the table it names. */
   const [linkTable, setLinkTable] = useState<{ code: string; stake: number; duration: MatchDurationId } | null>(null);
 
   // Matchmaking Queue
@@ -355,9 +380,7 @@ function PlayLobbyContent() {
   // Center column tab: the Match Ticket, the Stats screen, or one of the
   // utility screens the rail and the wallet card open. Money is a
   // center-column screen too — the wallet card only points at it.
-  const [centerTab, setCenterTab] = useState<
-    'ticket' | 'stats' | 'settings' | 'mail' | 'affiliate' | 'support' | 'wallet'
-  >('ticket');
+  const [centerTab, setCenterTab] = useState<LobbyTab>('ticket');
   // Which half of the money flow the wallet card asked for.
   const [walletTab, setWalletTab] = useState<WalletTab>('deposit');
 
@@ -605,13 +628,13 @@ function PlayLobbyContent() {
     if (modeParam === 'live' || modeParam === 'ranked') setMode('live');
     if (modeParam === 'bot') setMode('bot');
 
-    // `?table=CODE&stake=…&duration=…` is a private-table invite: it arrives
-    // with its coins, so Join charges the seat before opening the room.
+    // `?table=CODE&stake=…&duration=…` is a private-table invite. The code is
+    // the whole XXXXX-XXXXX table, so the link lands on the room it names.
     const tableParam = searchParams.get('table');
     if (tableParam) {
-      const code = tableParam.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5);
+      const code = normalizeRoomCode(tableParam);
       const durationParam = searchParams.get('duration');
-      if (code.length === 5) {
+      if (roomCodeIsComplete(code)) {
         setRoomCodeInput(code);
         setLinkTable({
           code,
@@ -914,42 +937,115 @@ function PlayLobbyContent() {
     router.push(`/play/${botRoom}`);
   };
 
+  /** Who this tab is, in the shape the table channel publishes. */
+  const tableIdentity = () => ({
+    sessionId,
+    userId: user?.id ?? null,
+    username: user?.username || 'Trader_' + sessionId.slice(-4),
+    rating: user?.rating || 1200,
+  });
+
+  /** Open the realtime room and wait there; nothing is charged while waiting. */
+  const startHostingTable = (entry: { code: string; stake: number; duration: MatchDurationId }) => {
+    tableChannelRef.current?.leave();
+    tableChannelRef.current = openPrivateTable({
+      code: entry.code,
+      role: 'host',
+      me: tableIdentity(),
+      stake: entry.stake,
+      duration: entry.duration,
+      onRivalJoined: (rival) =>
+        setQueueNotice(`${rival.username} sat down at your table — arming the match…`, 'success'),
+      onMatchFound: (match) => startChallengeMatch(match),
+      onRivalReady: handleRivalReady,
+      onError: (err) => console.warn('Private table error:', err),
+    });
+  };
+
   const handleJoinWithCode = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     sound.playClick();
-    if (roomCodeInput.length !== 5) return;
-    const code = roomCodeInput.toUpperCase();
-    const seat = activeLinkTable?.stake ?? 0;
-    const duration = activeLinkTable?.duration ?? selectedDuration;
-    /* A linked table arrives with its coins. Charge the seat here the way a
-       queued Live entry is charged, so the room itself only settles the pot.
-       A typed code carries no stake, so it stays a free room. */
-    if (seat > 0) {
-      if (seat > userCoins) {
-        setQueueNotice(`That seat costs ${seat.toLocaleString()} coins — you hold ${userCoins.toLocaleString()}.`);
-        return;
-      }
-      if (!spendCoins(seat)) {
-        setQueueNotice('The wallet fell short of that table — deposit coins first.');
-        return;
-      }
-      stashRoomSession(code, { mode: 'standard', opponent: 'live', duration, ranked: true, stake: seat });
-    } else {
-      stashRoomSession(code, { duration, ranked: false });
+    const code = normalizeRoomCode(roomCodeInput);
+    const compact = code.replace(/[^A-Z0-9]/g, '');
+
+    /* Your own table: knocking on it would drop the host channel and pair you
+       with your own tab. Send the code to a rival instead. */
+    if (table && table.code === code) {
+      setQueueNotice('That is your own table — send the code to a rival instead.', 'warn');
+      return;
     }
-    router.push(`/play/${code}`);
+
+    /* Short code: the old free room, kept for links minted before tables had a
+       full ten-character code. */
+    if (compact.length === 5) {
+      const seat = activeLinkTable?.stake ?? 0;
+      const duration = activeLinkTable?.duration ?? selectedDuration;
+      if (seat > 0) {
+        if (seat > userCoins) {
+          setQueueNotice(`That seat costs ${seat.toLocaleString()} coins — you hold ${userCoins.toLocaleString()}.`);
+          return;
+        }
+        if (!spendCoins(seat)) {
+          setQueueNotice('The wallet fell short of that table — deposit coins first.');
+          return;
+        }
+        stashRoomSession(code, { mode: 'standard', opponent: 'live', duration, ranked: true, stake: seat });
+      } else {
+        stashRoomSession(code, { duration, ranked: false });
+      }
+      router.push(`/play/${code}`);
+      return;
+    }
+
+    if (compact.length !== 10) {
+      setQueueNotice('A table code is ten characters — paste the whole thing; the dash is optional.');
+      return;
+    }
+
+    /* Full table code: knock and wait here. The host names the stake, the seed
+       and the shared start, then the ordinary MATCH FOUND reveal takes over. */
+    setQueueNotice(null);
+    // One tab, one seat: drop any table we were hosting before knocking.
+    if (table) {
+      tableChannelRef.current?.leave();
+      tableChannelRef.current = null;
+      setTable(null);
+      setTableCopied(null);
+    }
+    setTableJoinCode(code);
+    const handle = openPrivateTable({
+      code,
+      role: 'guest',
+      me: tableIdentity(),
+      stake: 0,
+      duration: selectedDuration,
+      onMatchFound: (match) => {
+        setTableJoinCode(null);
+        startChallengeMatch(match);
+      },
+      onRivalReady: handleRivalReady,
+      onError: (err) => console.warn('Private table error:', err),
+    });
+    tableChannelRef.current = handle;
+    handle.knock();
   };
 
-  /* Mint a private table at a chip-ladder stake. Nothing is charged here — the
-     seat is paid when the table is opened, so minting and changing your mind
-     stays free. */
+  /* Mint a private table at a chip-ladder stake and start waiting on it. The
+     seat only leaves the wallet when a rival actually sits down, so a table
+     nobody joins costs nothing. */
   const handleGenerateTableCode = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     sound.playClick();
     const stake = clampStake(Number(tableCoinsInput) || ticketFee);
     setTableCoinsInput(String(stake));
-    setTable({ code: generateRoomCode(), stake, duration: selectedDuration });
+    const entry = { code: generateRoomCode(), stake, duration: selectedDuration };
+    setTable(entry);
     setTableCopied(null);
+    startHostingTable(entry);
+    setQueueNotice(
+      `Table open at ${stake.toLocaleString()} coins — waiting for a rival. Nothing is charged until someone joins.`,
+      'info',
+    );
   };
 
   const tableInviteLink = (entry: { code: string; stake: number; duration: MatchDurationId }) =>
@@ -972,30 +1068,15 @@ function PlayLobbyContent() {
       .catch(() => setQueueNotice('Your browser blocked the clipboard — write the code down by hand.'));
   };
 
-  /* Sit down at our own table: the seat leaves the wallet here, exactly like a
-     queued Live entry, and the room settles the payout from the stashed stake. */
-  const handleOpenTable = () => {
-    if (!table) return;
+  /** Walk away from a table — as host before anyone sits, or as a knocking guest. */
+  const handleCloseTable = () => {
     sound.playClick();
-    if (table.stake > userCoins) {
-      setQueueNotice(
-        `Opening a ${table.stake.toLocaleString()}-coin table needs that much in the wallet — you hold ${userCoins.toLocaleString()}.`,
-      );
-      return;
-    }
-    if (!spendCoins(table.stake)) {
-      setQueueNotice('The wallet fell short of that table — deposit coins first.');
-      return;
-    }
-    stashRoomSession(table.code, {
-      mode: 'standard',
-      opponent: 'live',
-      duration: table.duration,
-      host: true,
-      ranked: true,
-      stake: table.stake,
-    });
-    router.push(`/play/${table.code}`);
+    tableChannelRef.current?.leave();
+    tableChannelRef.current = null;
+    setTable(null);
+    setTableCopied(null);
+    setTableJoinCode(null);
+    setQueueNotice('Table closed — no coins were charged.', 'info');
   };
 
   const handleFindMatch = () => {
@@ -1245,6 +1326,29 @@ function PlayLobbyContent() {
     return () => clearTimeout(t);
   }, [acceptingId]);
 
+  /* A guest knocking on a table code gives the host 15s to answer — a typo in
+     the code would otherwise leave the box spinning at a table that does not
+     exist. */
+  useEffect(() => {
+    if (!tableJoinCode) return;
+    const t = setTimeout(() => {
+      tableChannelRef.current?.leave();
+      tableChannelRef.current = null;
+      setTableJoinCode(null);
+      setQueueNotice(`No table answered ${tableJoinCode} — check the code with your rival.`, 'warn');
+    }, 15_000);
+    return () => clearTimeout(t);
+  }, [tableJoinCode]);
+
+  /* Leave whatever table channel this tab holds when the lobby unmounts (a
+     match started, or the player navigated away). */
+  useEffect(() => (
+    () => {
+      tableChannelRef.current?.leave();
+      tableChannelRef.current = null;
+    }
+  ), []);
+
   /* Affiliate: the code is the callsign, so there is nothing to mint here. The
      desk reads what Postgres already paid — tier, balance, every commission —
      and moves no coins of its own. Re-read on every open, the mailbox way. */
@@ -1324,7 +1428,7 @@ function PlayLobbyContent() {
     <div
       data-theme={themeMode}
       data-lobby
-      className="term-theme relative isolate min-h-screen w-full text-[var(--term-text)] flex flex-col select-none text-sm overflow-hidden font-sans"
+      className="term-theme relative isolate min-h-screen w-full text-[var(--term-text)] flex flex-col select-none text-sm overflow-x-clip font-sans"
     >
       {/* ── Blurred ambient background layers ── */}
       {/* NOTE: `isolate` on the page root keeps these -z-10 layers above the opaque bg-bg of <main>. */}
@@ -1367,252 +1471,144 @@ function PlayLobbyContent() {
         </div>
       )}
 
-      {/* ── Top Terminal Header (Tradovate / TradingView dark theme exact) ── */}
-      <header className="h-12 shrink-0 bg-[var(--term-surface)]/80 backdrop-blur-xl border-b border-[var(--term-border)] px-4 flex items-center justify-between text-sm sticky top-0 z-30">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-7 h-7 rounded bg-[var(--term-accent)]/20 text-[var(--term-accent)] border border-[var(--term-accent)]/40 flex items-center justify-center font-black text-sm">
-              <Swords size={15} />
+      {/* ── Top bar — a social shell rather than a terminal strip: brand pinned
+          left, section nav centred, account cluster right, and a 2px underline
+          marking the screen the center column is showing. ── */}
+      <header className="h-14 shrink-0 sticky top-0 z-30 border-b border-[var(--term-border)] bg-[var(--term-surface)]/95 backdrop-blur-xl">
+        <div className="mx-auto flex h-full w-full max-w-[1180px] items-center justify-between gap-3 px-3 md:px-4">
+          <Link href="/" className="flex shrink-0 items-center gap-2 group">
+            <div className="w-8 h-8 rounded bg-[var(--term-accent)]/20 text-[var(--term-accent)] border border-[var(--term-accent)]/40 flex items-center justify-center font-black">
+              <Swords size={16} />
             </div>
-            <span className="font-bold text-sm uppercase tracking-wider text-[var(--term-strong)]">
+            <span className="hidden sm:block font-bold text-[13px] uppercase tracking-[0.16em] leading-none text-[var(--term-strong)]">
               Pip Duel
             </span>
           </Link>
-          <span className="text-[var(--term-muted)] font-mono text-xs">|</span>
-          <span className="text-[var(--term-soft)] text-xs font-mono hidden sm:inline">
-            ARENA LOBBY
-          </span>
-        </div>
 
-        <div className="flex items-center gap-3">
-          {/* Online count */}
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded bg-[var(--term-raised)] border border-[var(--term-border)] text-xs font-mono">
-            <span className="w-2 h-2 rounded-full bg-[var(--term-buy)]" />
-            <span className="text-[var(--term-label)]">{onlineCount.toLocaleString()} online</span>
-          </div>
+          {/* Section nav — icon over label, the open screen carries the rail */}
+          <nav aria-label="Lobby sections" className="hidden md:flex h-full items-stretch">
+            {([
+              ['ticket', 'Battle', Swords],
+              ['stats', 'Stats', BarChart3],
+              ['wallet', 'Money', Coins],
+              ['affiliate', 'Affiliate', Share2],
+              ['mail', 'Inbox', Mail],
+            ] as const).map(([id, label, Icon]) => {
+              const active = centerTab === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    setCenterTab(id);
+                  }}
+                  aria-current={active ? 'page' : undefined}
+                  title={id === 'affiliate' ? 'Affiliate — rebate on referred volume' : undefined}
+                  className={`relative flex h-full min-w-[64px] flex-col items-center justify-center gap-1 px-2 text-[11px] font-semibold leading-none transition-colors cursor-pointer ${
+                    active
+                      ? 'text-[var(--term-accent-text)]'
+                      : 'text-[var(--term-muted)] hover:text-[var(--term-text)]'
+                  }`}
+                >
+                  <Icon size={16} />
+                  <span>{label}</span>
+                  <span
+                    aria-hidden
+                    className={`absolute inset-x-1 bottom-0 h-[2px] transition-colors ${
+                      active ? 'bg-[var(--term-accent)]' : 'bg-transparent'
+                    }`}
+                  />
+                </button>
+              );
+            })}
+          </nav>
 
-          {/* Light / dark switch — shared with the battle terminal */}
-          <TerminalModeToggle
-            className="w-8 h-8 rounded bg-[var(--term-raised)] border border-[var(--term-border)] hover:border-[var(--term-border-hi)] text-[var(--term-label)] hover:text-[var(--term-strong)] shrink-0"
-          />
-
-          {/* Sound Toggle */}
-          <button
-            onClick={() => {
-              const next = !soundEnabled;
-              setSoundEnabled(next);
-              sound.setEnabled(next);
-              if (next) sound.playClick();
-            }}
-            title={soundEnabled ? 'Mute' : 'Unmute'}
-            className="w-8 h-8 rounded bg-[var(--term-raised)] border border-[var(--term-border)] hover:border-[var(--term-border-hi)] flex items-center justify-center text-[var(--term-label)] hover:text-[var(--term-strong)] transition-colors cursor-pointer"
-          >
-            {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} className="text-[var(--term-sell)]" />}
-          </button>
-
-          {/* Authenticated Account Badge & Logout */}
-          {currentUser && (
-            <div className="flex items-center gap-1.5">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[var(--term-raised)] border border-[var(--term-raised-hi)] text-xs font-mono text-[var(--term-text)]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--term-buy)]" />
-                <span className="font-semibold max-w-[120px] truncate">{currentUser.displayName || currentUser.username}</span>
-              </div>
-              <button
-                onClick={async () => {
-                  sound.playClick();
-                  try {
-                    const supabase = getSupabase();
-                    if (supabase) await supabase.auth.signOut();
-                  } catch {}
-                  logout();
-                  router.push('/login');
-                }}
-                title="Log Out"
-                className="w-8 h-8 rounded bg-[var(--term-raised)] border border-[var(--term-border)] hover:border-[var(--term-sell)]/40 text-[var(--term-label)] hover:text-[var(--term-sell)] flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <LogOut size={14} />
-              </button>
+          <div className="flex items-center gap-1.5">
+            {/* Online count */}
+            <div className="hidden lg:flex items-center gap-1.5 h-8 px-2.5 rounded bg-[var(--term-raised)] border border-[var(--term-border)] text-[11px] font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--term-buy)]" />
+              <span className="text-[var(--term-label)]">{onlineCount.toLocaleString()} online</span>
             </div>
-          )}
 
+            {/* Light / dark switch — shared with the battle terminal */}
+            <TerminalModeToggle
+              className="w-8 h-8 rounded bg-[var(--term-raised)] border border-[var(--term-border)] hover:border-[var(--term-border-hi)] text-[var(--term-label)] hover:text-[var(--term-strong)] shrink-0"
+            />
+
+            {/* Sound Toggle */}
+            <button
+              onClick={() => {
+                const next = !soundEnabled;
+                setSoundEnabled(next);
+                sound.setEnabled(next);
+                if (next) sound.playClick();
+              }}
+              title={soundEnabled ? 'Mute' : 'Unmute'}
+              className="w-8 h-8 rounded bg-[var(--term-raised)] border border-[var(--term-border)] hover:border-[var(--term-border-hi)] flex items-center justify-center text-[var(--term-label)] hover:text-[var(--term-strong)] transition-colors cursor-pointer"
+            >
+              {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} className="text-[var(--term-sell)]" />}
+            </button>
+
+            {/* Account — avatar first, the way a social header wears it */}
+            {currentUser && (
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 h-8 pl-1 pr-2 rounded-full bg-[var(--term-raised)] border border-[var(--term-raised-hi)]">
+                  <img
+                    src={currentUser.avatarUrl || DEFAULT_AVATAR}
+                    alt=""
+                    className="w-6 h-6 rounded-full object-cover shrink-0"
+                  />
+                  <span className="hidden sm:inline font-semibold text-[11px] max-w-[110px] truncate text-[var(--term-text)]">
+                    {currentUser.displayName || currentUser.username}
+                  </span>
+                </div>
+                <button
+                  onClick={async () => {
+                    sound.playClick();
+                    try {
+                      const supabase = getSupabase();
+                      if (supabase) await supabase.auth.signOut();
+                    } catch {}
+                    logout();
+                    router.push('/login');
+                  }}
+                  title="Log Out"
+                  className="w-8 h-8 rounded bg-[var(--term-raised)] border border-[var(--term-border)] hover:border-[var(--term-sell)]/40 text-[var(--term-label)] hover:text-[var(--term-sell)] flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
+            )}
+
+          </div>
         </div>
       </header>
 
-      {/* ── Main 3-Column Content ── */}
-      <main className="flex-1 max-w-[1280px] w-full mx-auto p-4 md:p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      {/* ── Main rails — social geometry: a 225px identity rail, a flexible
+          feed column capped at 620px, then a 300px widget rail. Below lg the
+          rails stack, center column first, so the ticket stays above the fold. ── */}
+      <main className="flex-1 w-full">
+        <div className="mx-auto flex w-full max-w-[1180px] flex-wrap items-start gap-3 px-3 py-4 md:gap-4 md:px-4 md:py-5">
 
           {/* ══════════════════════════════════════════════════════════
-              LEFT COLUMN: Profile Card, Friends Card, Action Buttons
+              LEFT RAIL: identity, season snapshot, referral, rail nav
           ══════════════════════════════════════════════════════════ */}
-          <div className="lg:col-span-3 space-y-3.5">
-
-            {/* Profile Card: artwork-blended cover banner, zero-corner square avatar */}
-            <div className="bg-[var(--term-surface)]/70 backdrop-blur-md border border-[var(--term-border)] rounded-xl overflow-hidden">
-              {/* Cover Banner: the arena artwork laid over the red→green
-                  gradient and multiplied into it, so the image reads as the
-                  banner's own surface instead of a pasted rectangle. The mask
-                  fades it out along the bottom edge into the card body. */}
-              <div className="relative h-20 w-full overflow-hidden bg-gradient-to-r from-[var(--term-sell-2)] via-[var(--term-sell)] to-[var(--term-buy-bright)]">
-                <div
-                  className="absolute inset-0 bg-cover bg-center mix-blend-multiply opacity-40"
-                  style={{
-                    backgroundImage: "url('/lobby-arena-bg.jpg')",
-                    WebkitMaskImage:
-                      'linear-gradient(to bottom, #000 55%, rgba(0,0,0,0.6) 80%, transparent 100%)',
-                    maskImage:
-                      'linear-gradient(to bottom, #000 55%, rgba(0,0,0,0.6) 80%, transparent 100%)',
-                  }}
-                  aria-hidden="true"
-                />
-                <span className="absolute top-2 right-2 text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--term-bg)]/80 backdrop-blur-sm border border-[var(--term-border)] text-[var(--term-strong)] font-bold">
-                  PRO SCALE
-                </span>
-              </div>
-
-              {/* Profile Details with Zero-Corner Square Profile Picture */}
-              <div className="p-4 pt-0 space-y-3.5 relative">
-                <div className="flex items-end justify-between -mt-8 gap-3 relative z-10">
-                  {/* Square Profile Picture */}
-                  <div className="w-[72px] h-[72px] shrink-0 bg-[var(--term-panel)] border border-[var(--term-border-hi)] flex items-center justify-center relative group overflow-hidden">
-                    <img
-                      src={currentUser?.avatarUrl || DEFAULT_AVATAR}
-                      alt={currentUser?.displayName ?? currentUser?.username ?? 'Player'}
-                      className="relative z-10 h-full w-full object-cover"
-                    />
-                    <div className="absolute bottom-0 inset-x-0 z-20 h-1 bg-[var(--term-buy-bright)]" />
-                  </div>
-
-                  {/* Edit Profile Button pinned flush to the right border */}
-                  <div className="relative group/edit -mr-4 -mt-2">
-                    <button
-                      onClick={() => {
-                        sound.playClick();
-                        setCenterTab('settings');
-                      }}
-                      aria-label="Edit Profile"
-                      className="w-8 h-8 rounded-none bg-[var(--term-raised)] hover:bg-[var(--term-raised-hi)] border-y border-l border-r-0 border-[var(--term-border-hi)] hover:border-[var(--term-accent)] flex items-center justify-center text-[var(--term-label)] hover:text-[var(--term-strong)] transition-all cursor-pointer shadow-sm active:scale-95"
-                    >
-                      <Pencil size={13} />
-                    </button>
-
-                    {/* Tooltip */}
-                    <div className="absolute right-2 -top-8 px-2 py-1 rounded bg-[var(--term-raised)] border border-[var(--term-border-hi)] text-[11px] font-mono text-[var(--term-strong)] whitespace-nowrap shadow-lg opacity-0 group-hover/edit:opacity-100 pointer-events-none transition-opacity z-20">
-                      Edit Profile
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-bold text-base text-[var(--term-strong)] truncate">
-                    {currentUser?.displayName || 'Trader'}
-                  </h3>
-                  <p className="text-xs font-mono text-[var(--term-soft)] mt-0.5">
-                    {progressWinRate}% Win Rate
-                  </p>
-                  {progressTitle && (
-                    <p className="text-[10px] font-mono text-[var(--term-amber)] mt-0.5 truncate">“{progressTitle}”</p>
-                  )}
-                </div>
-
-                {progressPinned.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {progressPinned.map((id) => (
-                      <span key={id} className="px-1.5 py-0.5 rounded border border-[var(--term-amber)]/40 bg-[var(--term-amber)]/10 text-[9px] font-mono font-bold text-[var(--term-amber)]">
-                        {ACHIEVEMENTS.find((entry) => entry.id === id)?.name ?? id}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Friends Card: add by username, requests, presence, duel invites */}
-            <FriendsPanel user={currentUser} inviteCode={friendsInviteCode} />
-
-            {/* Vertical Action Buttons: [ Settings ] [ Mail ] [ Affiliate ] [ Support ] */}
-            <div className="space-y-2">
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  setCenterTab('settings');
-                }}
-                className={`w-full h-10 px-3.5 rounded backdrop-blur-sm border text-sm font-semibold flex items-center justify-between transition-all cursor-pointer ${
-                  centerTab === 'settings'
-                    ? 'bg-[var(--term-raised)] border-[var(--term-primary)] text-[var(--term-strong)]'
-                    : 'bg-[var(--term-surface)]/70 hover:bg-[var(--term-raised)] border-[var(--term-border)] hover:border-[var(--term-border-hi)] text-[var(--term-text)]'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <SettingsIcon size={16} className={centerTab === 'settings' ? 'text-[var(--term-primary)]' : 'text-[var(--term-muted)]'} />
-                  <span>Settings</span>
-                </div>
-                <span className={centerTab === 'settings' ? 'text-[var(--term-primary)]' : 'text-[var(--term-muted)]'}>›</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  setCenterTab('mail');
-                }}
-                className={`w-full h-10 px-3.5 rounded backdrop-blur-sm border text-sm font-semibold flex items-center justify-between transition-all cursor-pointer ${
-                  centerTab === 'mail'
-                    ? 'bg-[var(--term-raised)] border-[var(--term-primary)] text-[var(--term-strong)]'
-                    : 'bg-[var(--term-surface)]/70 hover:bg-[var(--term-raised)] border-[var(--term-border)] hover:border-[var(--term-border-hi)] text-[var(--term-text)]'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Mail size={16} className={centerTab === 'mail' ? 'text-[var(--term-primary)]' : 'text-[var(--term-muted)]'} />
-                  <span>Mail</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {unreadMailCount > 0 && (
-                    <span className="px-2 py-0.5 rounded bg-[var(--term-primary)] text-white text-xs font-mono font-bold">
-                      {unreadMailCount}
-                    </span>
-                  )}
-                  <span className={centerTab === 'mail' ? 'text-[var(--term-primary)]' : 'text-[var(--term-muted)]'}>›</span>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  setCenterTab('affiliate');
-                }}
-                className={`w-full h-10 px-3.5 rounded backdrop-blur-sm border text-sm font-semibold flex items-center justify-between transition-all cursor-pointer ${
-                  centerTab === 'affiliate'
-                    ? 'bg-[var(--term-raised)] border-[var(--term-primary)] text-[var(--term-strong)]'
-                    : 'bg-[var(--term-surface)]/70 hover:bg-[var(--term-raised)] border-[var(--term-border)] hover:border-[var(--term-border-hi)] text-[var(--term-text)]'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Share2 size={16} className={centerTab === 'affiliate' ? 'text-[var(--term-primary)]' : 'text-[var(--term-muted)]'} />
-                  <span>Affiliate</span>
-                </div>
-                <span className="text-xs font-mono font-bold text-[var(--term-primary)]">REF</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  setCenterTab('support');
-                }}
-                className={`w-full h-10 px-3.5 rounded backdrop-blur-sm border text-sm font-semibold flex items-center justify-between transition-all cursor-pointer ${
-                  centerTab === 'support'
-                    ? 'bg-[var(--term-raised)] border-[var(--term-primary)] text-[var(--term-strong)]'
-                    : 'bg-[var(--term-surface)]/70 hover:bg-[var(--term-raised)] border-[var(--term-border)] hover:border-[var(--term-border-hi)] text-[var(--term-text)]'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <HelpCircle size={16} className={centerTab === 'support' ? 'text-[var(--term-primary)]' : 'text-[var(--term-muted)]'} />
-                  <span>How to Play</span>
-                </div>
-                <span className={centerTab === 'support' ? 'text-[var(--term-primary)]' : 'text-[var(--term-muted)]'}>›</span>
-              </button>
-            </div>
-
-          </div>
+          <aside className="order-2 w-full shrink-0 lg:order-1 lg:w-[225px]">
+            <LobbyLeftRail
+              user={currentUser}
+              rating={userRating}
+              tier={tier}
+              winRate={progressWinRate}
+              played={progressPlayed}
+              wins={progressStats.wins}
+              title={progressTitle ?? ''}
+              pinned={progressPinned}
+              unreadMail={unreadMailCount}
+              activeTab={centerTab}
+              onNavigate={setCenterTab}
+            />
+          </aside>
 
           {/* ══════════════════════════════════════════════════════════
               CENTER COLUMN: [ Battle ] [ Stats ]
@@ -1620,61 +1616,60 @@ function PlayLobbyContent() {
                              — or, opened from the wallet card:
                              [ Deposit ] [ Withdraw ]
           ══════════════════════════════════════════════════════════ */}
-          <div className="lg:col-span-6 space-y-3.5">
+          <div className="order-1 w-full min-w-0 space-y-3 lg:order-2 lg:flex-1 lg:max-w-[620px]">
 
-            {/* Top Navigation Tabs: [ Battle ] [ Stats ] — always
-                present, so opening the wallet never hides the arena's own tabs */}
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  setCenterTab('ticket');
-                }}
-                className={`h-10 rounded backdrop-blur-sm border text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                  centerTab === 'ticket'
-                    ? 'bg-[var(--term-raised)] border-[var(--term-primary)] text-[var(--term-strong)]'
-                    : 'bg-[var(--term-surface)]/70 border-[var(--term-border)] hover:border-[var(--term-border-hi)] text-[var(--term-text)] hover:text-[var(--term-strong)]'
-                }`}
-              >
-                <Ticket size={16} className={centerTab === 'ticket' ? 'text-[var(--term-primary)]' : 'text-[var(--term-muted)]'} />
-                <span className="truncate">Battle</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  setCenterTab('stats');
-                }}
-                className={`h-10 rounded backdrop-blur-sm border text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                  centerTab === 'stats'
-                    ? 'bg-[var(--term-raised)] border-[var(--term-primary)] text-[var(--term-strong)]'
-                    : 'bg-[var(--term-surface)]/70 border-[var(--term-border)] hover:border-[var(--term-border-hi)] text-[var(--term-text)] hover:text-[var(--term-strong)]'
-                }`}
-              >
-                <BarChart3 size={16} className={centerTab === 'stats' ? 'text-[var(--term-primary)]' : 'text-[var(--term-muted)]'} />
-                <span>Stats</span>
-              </button>
+            {/* Section tabs — a small-screen stand-in for the top bar's nav.
+                From md up the header already carries Battle and Stats, so the
+                card strip is hidden there and the pair is never shown twice */}
+            <div className="md:hidden overflow-hidden rounded-lg border border-[var(--term-border)] bg-[var(--term-panel)]/90 backdrop-blur-md">
+              <div className="flex items-stretch">
+                {([
+                  ['ticket', 'Battle', Ticket],
+                  ['stats', 'Stats', BarChart3],
+                ] as const).map(([id, label, Icon]) => {
+                  const active = centerTab === id;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => {
+                        sound.playClick();
+                        setCenterTab(id);
+                      }}
+                      aria-current={active ? 'page' : undefined}
+                      className={`relative flex h-11 flex-1 items-center justify-center gap-2 text-[13px] font-bold transition-colors cursor-pointer sm:flex-none sm:px-7 ${
+                        active
+                          ? 'text-[var(--term-strong)]'
+                          : 'text-[var(--term-muted)] hover:text-[var(--term-text)]'
+                      }`}
+                    >
+                      <Icon
+                        size={15}
+                        className={active ? 'text-[var(--term-accent)]' : 'text-[var(--term-muted)]'}
+                      />
+                      <span>{label}</span>
+                      <span
+                        aria-hidden
+                        className={`absolute inset-x-0 bottom-0 h-[2px] transition-colors ${
+                          active ? 'bg-[var(--term-accent)]' : 'bg-transparent'
+                        }`}
+                      />
+                    </button>
+                  );
+                })}
+                <span className="ml-auto hidden items-center pr-4 text-[10px] font-mono text-[var(--term-dim)] sm:flex">
+                  Season 1 · Live
+                </span>
+              </div>
             </div>
 
             {centerTab === 'wallet' && (
-              <div className="bg-[var(--term-surface)]/70 backdrop-blur-md border border-[var(--term-border)] rounded-xl p-4 space-y-4 animate-in fade-in duration-200">
+              <div className="bg-[var(--term-panel)]/90 backdrop-blur-md border border-[var(--term-border)] rounded-lg p-4 space-y-4 animate-in fade-in duration-200">
                 <div className="flex items-center justify-between gap-3 pb-2.5 border-b border-[var(--term-border)]">
                   <div className="flex items-center gap-2 min-w-0">
                     <Coins size={16} className="text-[var(--term-amber)] shrink-0" />
                     <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--term-strong)] font-mono truncate">
-                      {WALLET_TABS.find((entry) => entry.id === walletTab)?.label ?? 'Wallet'}
+                      Wallet
                     </h3>
-                    {/* The right-column wallet buttons pick the direction; this
-                        is the same control, so it is not repeated as tabs. */}
-                    <button
-                      onClick={() => {
-                        sound.playClick();
-                        setWalletTab(walletTab === 'deposit' ? 'withdraw' : 'deposit');
-                      }}
-                      className="text-[10px] font-mono uppercase tracking-wide text-[var(--term-muted)] hover:text-[var(--term-primary)] cursor-pointer"
-                    >
-                      switch
-                    </button>
                   </div>
                   <div className="flex items-center gap-2.5 shrink-0">
                     <span className="text-xs font-mono font-bold text-[var(--term-strong)] hidden sm:inline">
@@ -1687,6 +1682,32 @@ function PlayLobbyContent() {
                       ✕ Close
                     </button>
                   </div>
+                </div>
+
+                {/* Money lands here from the top bar, so both halves are laid
+                    out as tabs — opening the screen never hides one of them
+                    behind whichever direction was used last. */}
+                <div className="grid grid-cols-2 gap-2">
+                  {WALLET_TABS.map((entry) => {
+                    const active = walletTab === entry.id;
+                    return (
+                      <button
+                        key={entry.id}
+                        onClick={() => {
+                          sound.playClick();
+                          setWalletTab(entry.id);
+                        }}
+                        aria-current={active ? 'page' : undefined}
+                        className={`h-9 rounded border text-[12px] font-bold transition-colors cursor-pointer ${
+                          active
+                            ? 'border-[var(--term-primary)] bg-[var(--term-raised)] text-[var(--term-strong)]'
+                            : 'border-[var(--term-border)] bg-[var(--term-bg)] text-[var(--term-muted)] hover:border-[var(--term-border-hi)] hover:text-[var(--term-text)]'
+                        }`}
+                      >
+                        {entry.label}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <WalletPanel
@@ -1905,7 +1926,7 @@ function PlayLobbyContent() {
                                 soon
                                   ? 'cursor-not-allowed bg-[var(--term-bg)] text-[var(--term-dim)] border border-dashed border-[var(--term-border)]'
                                   : active
-                                    ? 'bg-[var(--term-primary)] text-white border border-[var(--term-primary)] cursor-pointer'
+                                    ? 'bg-[var(--term-primary)]/10 text-[var(--term-strong)] border border-[var(--term-primary)]/70 cursor-pointer'
                                     : 'bg-[var(--term-bg)] text-[var(--term-muted)] border border-[var(--term-border)] hover:border-[var(--term-primary)]/40 hover:text-[var(--term-primary)] cursor-pointer'
                               }`}
                             >
@@ -1944,10 +1965,10 @@ function PlayLobbyContent() {
                               className={`h-9 rounded text-sm font-semibold transition-all duration-150 cursor-pointer ${
                                 active
                                   ? isLive
-                                    ? 'bg-[var(--term-sell)] text-white border border-[var(--term-sell)]'
-                                    : 'bg-[var(--term-primary)] text-white border border-[var(--term-primary)]'
+                                    ? 'bg-[var(--term-buy)]/10 text-[var(--term-strong)] border border-[var(--term-buy)]/70'
+                                    : 'bg-[var(--term-primary)]/10 text-[var(--term-strong)] border border-[var(--term-primary)]/70'
                                   : isLive
-                                    ? 'bg-[var(--term-bg)] text-[var(--term-muted)] border border-[var(--term-border)] hover:border-[var(--term-sell)]/40 hover:text-[var(--term-sell)]'
+                                    ? 'bg-[var(--term-bg)] text-[var(--term-muted)] border border-[var(--term-border)] hover:border-[var(--term-buy)]/40 hover:text-[var(--term-buy)]'
                                     : 'bg-[var(--term-bg)] text-[var(--term-muted)] border border-[var(--term-border)] hover:border-[var(--term-primary)]/40 hover:text-[var(--term-primary)]'
                               }`}
                             >
@@ -2147,10 +2168,11 @@ function PlayLobbyContent() {
               </div>
             )}
 
-            {/* Private table — the code door, under the ticket. Left half joins a
-                shared code; right half mints one at a stake from the chip ladder.
-                A typed code carries no stake, so its room is free; the invite
-                link carries the coins and charges the seat on Join. */}
+            {/* Private table — the code door, under the ticket. The left half
+                knocks on a table code and waits there; the right half mints a
+                code and waits for a rival. Neither side opens the arena until
+                both tabs are on the channel, and the seat is charged only when
+                the rival actually sits down. */}
             {centerTab === 'ticket' && !matchFoundData && (
               <div className="bg-[var(--term-surface)]/70 backdrop-blur-md border border-[var(--term-border)] rounded-xl overflow-hidden animate-in fade-in duration-200">
                 <div className="flex items-center justify-between border-b border-[var(--term-border)] px-4 py-2.5">
@@ -2171,33 +2193,56 @@ function PlayLobbyContent() {
                     >
                       Join with code
                     </label>
-                    <form onSubmit={handleJoinWithCode} className="flex items-stretch gap-2">
-                      <input
-                        id="match-code-input"
-                        type="text"
-                        value={roomCodeInput}
-                        onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5))}
-                        placeholder="CODE"
-                        maxLength={5}
-                        autoComplete="off"
-                        spellCheck={false}
-                        className="flex-1 min-w-0 h-10 bg-[var(--term-bg)] border border-[var(--term-border)] focus:border-[var(--term-primary)] rounded px-3 text-center text-sm font-mono font-bold uppercase tracking-[0.35em] text-[var(--term-strong)] placeholder:text-[var(--term-muted)] focus:outline-none transition-colors"
-                      />
-                      <button
-                        type="submit"
-                        disabled={roomCodeInput.length !== 5}
-                        className="h-10 px-5 shrink-0 bg-[var(--term-primary)] hover:bg-[var(--term-primary-hi)] text-white font-bold text-xs uppercase tracking-wider rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Join
-                      </button>
-                    </form>
-                    <p className="text-[10px] font-mono text-[var(--term-soft)]">
-                      {activeLinkTable
-                        ? activeLinkTable.stake > 0
-                          ? `Invite · ${activeLinkTable.stake.toLocaleString()} coins · ${activeLinkTable.duration} — charged when you join.`
-                          : `Invite · free · ${activeLinkTable.duration}.`
-                        : 'Five characters, no dashes. A typed code opens a free room.'}
-                    </p>
+                    {tableJoinCode ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 rounded border border-[var(--term-buy)]/40 bg-[var(--term-buy)]/10 px-3 py-2.5">
+                          <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[var(--term-buy)]" />
+                          <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[var(--term-buy)]">
+                            Waiting for the host · {tableJoinCode}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleCloseTable}
+                          className="h-9 w-full rounded border border-[var(--term-border)] bg-[var(--term-raised)] text-[11px] font-semibold text-[var(--term-text)] transition-colors hover:text-[var(--term-strong)] cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <p className="text-[10px] font-mono text-[var(--term-soft)]">
+                          The host seats you and the match opens — the entry is charged only then.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <form onSubmit={handleJoinWithCode} className="flex items-stretch gap-2">
+                          <input
+                            id="match-code-input"
+                            type="text"
+                            value={roomCodeInput}
+                            onChange={(e) => setRoomCodeInput(formatRoomCodeInput(e.target.value))}
+                            placeholder="XXXXX-XXXXX"
+                            maxLength={11}
+                            autoComplete="off"
+                            spellCheck={false}
+                            className="flex-1 min-w-0 h-10 bg-[var(--term-bg)] border border-[var(--term-border)] focus:border-[var(--term-primary)] rounded px-3 text-center text-sm font-mono font-bold uppercase tracking-[0.35em] text-[var(--term-strong)] placeholder:text-[var(--term-muted)] focus:outline-none transition-colors"
+                          />
+                          <button
+                            type="submit"
+                            disabled={!roomCodeIsComplete(roomCodeInput)}
+                            className="h-10 px-5 shrink-0 rounded border border-[var(--term-primary)]/55 bg-[var(--term-primary)]/10 text-[var(--term-strong)] font-bold text-xs uppercase tracking-wider transition-colors hover:bg-[var(--term-primary)]/18 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Join
+                          </button>
+                        </form>
+                        <p className="text-[10px] font-mono text-[var(--term-soft)]">
+                          {activeLinkTable
+                            ? activeLinkTable.stake > 0
+                              ? `Invite · ${activeLinkTable.stake.toLocaleString()} coins · ${activeLinkTable.duration} — charged when the host seats you.`
+                              : `Invite · free · ${activeLinkTable.duration}.`
+                            : 'Paste the whole table code — the dash is optional. A five-character code still opens a free room.'}
+                        </p>
+                      </>
+                    )}
                   </div>
 
                   {/* Create half */}
@@ -2210,14 +2255,10 @@ function PlayLobbyContent() {
                           </span>
                           <button
                             type="button"
-                            onClick={() => {
-                              sound.playClick();
-                              setTable(null);
-                              setTableCopied(null);
-                            }}
+                            onClick={handleCloseTable}
                             className="text-[10px] font-mono text-[var(--term-muted)] hover:text-[var(--term-strong)] cursor-pointer"
                           >
-                            Change stake
+                            Close table
                           </button>
                         </div>
                         <div className="flex items-stretch gap-2">
@@ -2242,16 +2283,17 @@ function PlayLobbyContent() {
                               ? 'Link copied'
                               : `Copy ${table.stake.toLocaleString()}-coin link`}
                           </button>
-                          <button
-                            type="button"
-                            onClick={handleOpenTable}
-                            className="h-10 px-4 shrink-0 bg-[var(--term-primary)] hover:bg-[var(--term-primary-hi)] text-white text-xs font-bold uppercase tracking-wider rounded cursor-pointer transition-colors"
-                          >
-                            Open
-                          </button>
+                        </div>
+                        {/* The host stays here, on the code, until a rival
+                            knocks — the arena only opens once both tabs are in */}
+                        <div className="flex items-center gap-2 rounded border border-[var(--term-buy)]/40 bg-[var(--term-buy)]/10 px-3 py-2.5">
+                          <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[var(--term-buy)]" />
+                          <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[var(--term-buy)]">
+                            Waiting for a rival to join…
+                          </span>
                         </div>
                         <p className="text-[10px] font-mono text-[var(--term-soft)]">
-                          {table.duration} · the seat leaves your wallet when you open it.
+                          {table.duration} · {table.stake.toLocaleString()} coins a seat · charged only when someone joins.
                         </p>
                       </>
                     ) : (
@@ -2277,7 +2319,7 @@ function PlayLobbyContent() {
                           </div>
                           <button
                             type="submit"
-                            className="h-10 px-4 shrink-0 bg-[var(--term-primary)] hover:bg-[var(--term-primary-hi)] text-white font-bold text-xs uppercase tracking-wider rounded cursor-pointer transition-colors"
+                            className="h-10 px-4 shrink-0 rounded border border-[var(--term-primary)]/55 bg-[var(--term-primary)]/10 text-[var(--term-strong)] font-bold text-xs uppercase tracking-wider transition-colors hover:bg-[var(--term-primary)]/18 cursor-pointer"
                           >
                             Generate code
                           </button>
@@ -2660,12 +2702,19 @@ function PlayLobbyContent() {
                 : null;
 
               return (
-              <div className="bg-[var(--term-surface)]/70 backdrop-blur-md border border-[var(--term-border)] rounded-xl p-4 space-y-4 animate-in fade-in duration-200">
+              <div className="bg-[var(--term-panel)]/90 backdrop-blur-md border border-[var(--term-border)] rounded-lg p-4 space-y-4 animate-in fade-in duration-200">
                 {/* Header */}
                 <div className="flex items-center justify-between gap-3 pb-2.5 border-b border-[var(--term-border)]">
                   <div className="flex items-center gap-2 min-w-0">
                     <Share2 size={16} className="text-[var(--term-primary)] shrink-0" />
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--term-strong)] font-mono truncate">IB Affiliate Desk</h3>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--term-strong)] font-mono">Affiliate desk</h3>
+                      {/* What the desk pays and on what: volume, not sign-ups */}
+                      <p className="text-[10px] font-mono leading-snug text-[var(--term-muted)]">
+                        Rebate on the house fee — your rate follows the volume your invited traders
+                        stake, not how many sign up.
+                      </p>
+                    </div>
                   </div>
                   <button
                     onClick={() => setCenterTab('ticket')}
@@ -2695,7 +2744,7 @@ function PlayLobbyContent() {
                 ) : affiliateUnavailable && !desk ? (
                   <div className="rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-6 text-center text-[11px] font-mono leading-relaxed text-[var(--term-muted)]">
                     The affiliate desk is unreadable right now — run supabase/setup.sql so the
-                    IB tables exist, then reopen this tab.
+                    affiliate tables exist, then reopen this tab.
                   </div>
                 ) : (
                   <>
@@ -2704,7 +2753,7 @@ function PlayLobbyContent() {
                       {[
                         { label: 'Desk balance', value: desk ? desk.balance.toLocaleString() : '—', color: 'text-[var(--term-amber)]' },
                         { label: 'Lifetime earned', value: desk ? desk.lifetime.toLocaleString() : '—', color: 'text-[var(--term-buy)]' },
-                        { label: 'Funded team', value: tier ? tier.funded.toLocaleString() : '—', color: 'text-[var(--term-accent-text)]' },
+                        { label: 'Team volume', value: tier ? tier.lifetimeVolume.toLocaleString() : '—', color: 'text-[var(--term-accent-text)]' },
                         { label: 'Your rate', value: tier ? `${tier.ratePer100} / 100` : '—', color: 'text-[var(--term-strong)]' },
                       ].map((s) => (
                         <div key={s.label} className="rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-2">
@@ -2726,16 +2775,16 @@ function PlayLobbyContent() {
                             {tier.ratePer100} coins per 100 staked{cfg ? ` · fee ${cfg.houseFeePct}%` : ''}
                           </span>
                         </div>
-                        {nextTier && tier.nextMinFunded !== null ? (
+                        {nextTier && tier.nextMinVolume !== null ? (
                           <>
                             <div className="h-1.5 rounded bg-[var(--term-surface)] overflow-hidden">
                               <div
                                 className="h-full bg-[var(--term-primary)]"
-                                style={{ width: `${Math.min(100, Math.round((tier.funded / Math.max(1, tier.nextMinFunded)) * 100))}%` }}
+                                style={{ width: `${Math.min(100, Math.round((tier.lifetimeVolume / Math.max(1, tier.nextMinVolume)) * 100))}%` }}
                               />
                             </div>
                             <p className="text-[10px] font-mono text-[var(--term-muted)]">
-                              {tier.needForNext} more funded invite{tier.needForNext === 1 ? '' : 's'} → Level {nextTier.level} ({nextTier.ratePer100} per 100)
+                              {tier.needForNext.toLocaleString()} more volume → Level {nextTier.level} ({nextTier.ratePer100} per 100)
                             </p>
                           </>
                         ) : (
@@ -2849,7 +2898,7 @@ function PlayLobbyContent() {
                               <span className="w-4 shrink-0 text-right text-[var(--term-muted)]">L{t.level}</span>
                               <span className={`min-w-0 flex-1 truncate ${tier && t.level === tier.level ? 'text-[var(--term-primary)] font-bold' : 'text-[var(--term-text)]'}`}>{t.name}</span>
                               <span className="shrink-0 text-[var(--term-amber)]">{t.ratePer100} / 100</span>
-                              <span className="shrink-0 text-[var(--term-soft)]">{t.minFunded} funded</span>
+                              <span className="shrink-0 text-[var(--term-soft)]">{t.minVolume > 0 ? `${t.minVolume.toLocaleString()} volume` : 'start'}</span>
                             </div>
                           ))}
                         </div>
@@ -2897,13 +2946,13 @@ function PlayLobbyContent() {
                     {/* The ladder race */}
                     {affiliateBoard.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">IB leaderboard</p>
+                        <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">Affiliate ladder</p>
                         <div className="rounded-md border border-[var(--term-border)] divide-y divide-[var(--term-border)] overflow-hidden">
                           {affiliateBoard.map((row, i) => (
                             <div key={row.callsign} className="flex items-center gap-2.5 px-3 py-1.5 bg-[var(--term-bg)] text-xs font-mono">
                               <span className="w-4 shrink-0 text-right text-[var(--term-muted)]">{i + 1}</span>
                               <span className={`min-w-0 flex-1 truncate ${row.callsign === code ? 'text-[var(--term-primary)] font-bold' : 'text-[var(--term-text)]'}`}>@{row.callsign}</span>
-                              <span className="shrink-0 text-[var(--term-soft)]">{row.funded} funded</span>
+                              <span className="shrink-0 text-[var(--term-soft)]">{row.volume.toLocaleString()} vol</span>
                               <span className="shrink-0 text-[var(--term-buy)]">{row.coins.toLocaleString()}</span>
                             </div>
                           ))}
@@ -2922,7 +2971,7 @@ function PlayLobbyContent() {
 
             {/* ── TAB CONTENT: SUPPORT / HOW TO PLAY ── */}
             {centerTab === 'support' && (
-              <div className="bg-[var(--term-surface)]/70 backdrop-blur-md border border-[var(--term-border)] rounded-xl p-4 space-y-4 animate-in fade-in duration-200">
+              <div className="bg-[var(--term-panel)]/90 backdrop-blur-md border border-[var(--term-border)] rounded-lg p-4 space-y-4 animate-in fade-in duration-200">
                 {/* Header */}
                 <div className="flex items-center justify-between gap-3 pb-2.5 border-b border-[var(--term-border)]">
                   <div className="flex items-center gap-2 min-w-0">
@@ -3010,31 +3059,37 @@ function PlayLobbyContent() {
           </div>
 
           {/* ══════════════════════════════════════════════════════════
-              RIGHT COLUMN: Wallet card (balance + deposit / withdraw),
-              then the live challenge board (open duels above the entry)
+              RIGHT DOCK: open challenges first, then the wallet, then the
+              friends panel — a game-style rail that stays at the edge
           ══════════════════════════════════════════════════════════ */}
-          <div className="lg:col-span-3 space-y-3.5">
+          {/* A dock, not a column: on wide screens the rail sticks under the
+              top bar and scrolls on its own, the way a game keeps its friends
+              and open duels at the right edge while the center scrolls. The
+              challenge board itself graduates to a fixed right-edge panel at
+              1480px, where the layout leaves a free gutter for it. */}
+          <aside className="order-3 w-full shrink-0 space-y-3 md:grid md:grid-cols-2 md:gap-3 md:space-y-0 lg:block lg:w-[300px] lg:space-y-3 xl:sticky xl:top-[72px] xl:max-h-[calc(100vh-88px)] xl:overflow-y-auto xl:pr-1">
 
-            {/* Wallet — the balance and its two buttons; the flow itself opens
-                in the center column, the same place the Match Ticket renders */}
-            <WalletCard
-              coins={balanceSyncing && mounted ? 0 : userCoins}
-              onOpen={openWallet}
-            />
-
-            {/* Challenges — a stake above the fixed Live entry, published to
-                every online trader; accept one to duel at that stake at once.
-                Warm colour carries the size of the ask: amber at the entry,
-                orange from 2×, ember red from 5×, deep red from the 10k
-                table — and the meter under each stake shows how far it sits
-                up the ladder. */}
-            <div className="rounded-xl border border-[var(--term-border)] bg-[var(--term-surface)]/70 backdrop-blur-md overflow-hidden">
+            {/* Challenges — first in the dock: a stake above the fixed Live
+                entry, published to every online trader; accept one to duel at
+                that stake at once. Warm colour carries the size of the ask:
+                amber at the entry, orange from 2×, ember red from 5×, deep red
+                from the 10k table — and the meter under each stake shows how
+                far it sits up the ladder. */}
+            {/* On a wide monitor the board tears out of the rail and pins to
+                the window's right edge, in the empty gutter beside the 1180px
+                column — the way a game parks its friend list. 256px is the
+                widest it can be and still clear a centred column, so the
+                panel only detaches once the window reaches 1670px; below that
+                it stays the rail's first card and nothing is covered. */}
+            <div data-challenge-dock className="min-[1670px]:fixed min-[1670px]:right-0 min-[1670px]:top-14 min-[1670px]:bottom-0 min-[1670px]:z-20 min-[1670px]:w-[256px] min-[1670px]:overflow-y-auto min-[1670px]:border-l min-[1670px]:border-[var(--term-border-hi)] min-[1670px]:bg-[var(--term-panel)]/95 min-[1670px]:p-2.5 min-[1670px]:shadow-[-16px_0_32px_-16px_rgba(0,0,0,0.9)] min-[1670px]:backdrop-blur-xl">
+              <div className="rounded-lg border border-[var(--term-border)] bg-[var(--term-panel)]/90 backdrop-blur-md overflow-hidden min-[1670px]:rounded-none min-[1670px]:border-0 min-[1670px]:bg-transparent">
               {/* Header — the rail colours speak for the tiers; hover a ticket
                   for the full pot maths */}
-              <div className="flex items-center justify-between gap-2 px-4 py-3">
+              <div className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-[var(--term-border)] min-[1670px]:sticky min-[1670px]:top-0 min-[1670px]:z-10 min-[1670px]:bg-[var(--term-panel)]/95 min-[1670px]:backdrop-blur-md">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Swords size={16} className="text-[var(--term-accent)] shrink-0" />
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--term-strong)] font-mono truncate">Challenges</h3>
+                  <Swords size={15} className="text-[var(--term-accent)] shrink-0" />
+                  <h3 className="text-[13px] font-bold uppercase tracking-wider text-[var(--term-strong)] font-mono truncate">Challenges</h3>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--term-buy)] shrink-0" aria-hidden="true" />
                 </div>
                 <span className="text-[10px] font-mono text-[var(--term-dim)] shrink-0">
                   {challenges.length} open
@@ -3042,8 +3097,9 @@ function PlayLobbyContent() {
               </div>
 
               {/* Board — the latest 8 challenges as compact duel tickets,
-                  newest on top; a new post slides up into view */}
-              <div className="max-h-[420px] overflow-y-auto space-y-1.5 px-2 pt-2 pb-2 border-t border-[var(--term-border)]">
+                  newest on top; the dock itself scrolls, so the board is not
+                  given a scrollbar of its own */}
+              <div className="space-y-1.5 px-2 pt-2 pb-2 border-t border-[var(--term-border)]">
                 {challenges.length === 0 ? (
                   <p className="px-3 py-6 text-center text-[11px] font-mono text-[var(--term-muted)]">
                     No open challenges. Post one to invite a bigger duel.
@@ -3082,7 +3138,7 @@ function PlayLobbyContent() {
                           />
                         )}
 
-                        <span className={`grid place-items-center w-6 h-6 shrink-0 rounded font-mono text-[10px] font-bold bg-[var(--term-raised)] ring-1 ${
+                        <span className={`grid place-items-center w-6 h-6 min-[1670px]:w-5 min-[1670px]:h-5 shrink-0 rounded font-mono text-[10px] font-bold bg-[var(--term-raised)] ring-1 ${
                           mine ? 'text-[var(--term-sell)] ring-[var(--term-sell)]/40' : tier.chip
                         }`}>
                           {(c.username.charAt(0) || '?').toUpperCase()}
@@ -3098,14 +3154,14 @@ function PlayLobbyContent() {
                             )}
                           </div>
                           {/* Under the name: just the wait, no meter */}
-                          <p className="text-[9px] font-mono text-[var(--term-dim)] leading-[14px]">
+                          <p className="text-[9px] font-mono text-[var(--term-dim)] leading-[14px] truncate">
                             {elapsedStamp(c.createdAt, boardNow)}
                             {c.duration ? ` · ${c.duration}` : ''}
                             {demo ? ' · demo' : ''}
                           </p>
                         </div>
 
-                        <span className="shrink-0 w-[88px] text-right">
+                        <span className="shrink-0 w-[88px] min-[1670px]:w-[72px] text-right">
                           {mine ? (
                             <>
                               {/* Resting state: an accent status chip. Hover turns
@@ -3155,8 +3211,23 @@ function PlayLobbyContent() {
                 )}
               </div>
             </div>
+            </div>
 
-          </div>
+            {/* Wallet — under the board now: the balance and its two buttons;
+                the flow itself opens in the center column, the same place the
+                Match Ticket renders */}
+            <WalletCard
+              coins={balanceSyncing && mounted ? 0 : userCoins}
+              onOpen={openWallet}
+            />
+
+            {/* Friends — the messaging panel closes the rail: masthead, search,
+                the All/Online strip, then the conversation list */}
+            <div className="md:col-span-2 lg:col-span-1">
+              <FriendsPanel user={currentUser} inviteCode={friendsInviteCode} />
+            </div>
+
+          </aside>
 
         </div>
       </main>

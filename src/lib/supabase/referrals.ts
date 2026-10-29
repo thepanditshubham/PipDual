@@ -1,20 +1,20 @@
 /**
  * referrals.ts
- * The IB (introducing broker) affiliate desk. A player's referral code is
- * their callsign and an invite link is `/register?ref=<callsign>`; nothing
- * here mints a code, which is why there is no code column to keep in sync
- * with the profile.
+ * The affiliate rebate desk. A player's referral code is their callsign and an
+ * invite link is `/register?ref=<callsign>`; nothing here mints a code, which
+ * is why there is no code column to keep in sync with the profile.
  *
  * The money model lives in Postgres (supabase/setup.sql §13): attribution is
- * written by the signup trigger, funding is stamped by the deposit trigger,
- * and every commission is computed by award_ib_commission() from the tier
- * ladder and the duel's stake. Commissions accrue in a separate IB balance
- * and only reach the game wallet when the player moves them with
- * transfer_ib_balance() — from there the ordinary reviewed crypto-withdrawal
- * flow cashes them out like any other coin. The numbers an admin controls
- * (switch, fee split, tier rates, promotion thresholds) are read from the
- * same rows the payouts use, so this screen can never promise what the
- * database will not pay.
+ * written by the signup trigger, and every rebate is computed by
+ * award_ib_commission() from the volume ladder and the duel's stake. The
+ * ladder is driven by attributed volume — the coins a player's downline has
+ * actually staked in settled duels — never by sign-ups. Rebates accrue in a
+ * separate desk balance and only reach the game wallet when the player moves
+ * them with transfer_ib_balance() — from there the ordinary reviewed
+ * crypto-withdrawal flow cashes them out like any other coin. The numbers an
+ * admin controls (switch, fee split, tier rates, volume thresholds) are read
+ * from the same rows the payouts use, so this screen can never promise what
+ * the database will not pay.
  */
 import { getSupabase } from './client';
 import { fetchPlayerNames } from './wallet';
@@ -43,8 +43,8 @@ export interface IbTier {
   name: string;
   /** Coins paid per 100 coins an attributed trader stakes, pre-house-floor. */
   ratePer100: number;
-  /** Funded downline needed to sit at this level. */
-  minFunded: number;
+  /** Attributed stake volume needed to sit at this level. */
+  minVolume: number;
   active: boolean;
 }
 
@@ -53,10 +53,11 @@ export interface IbTierLine {
   level: number;
   name: string;
   ratePer100: number;
-  funded: number;
+  /** Coins the downline has staked in settled duels — the promotion metric. */
+  lifetimeVolume: number;
   /** The next rung up, when there is one to climb to. */
   nextLevel: number | null;
-  nextMinFunded: number | null;
+  nextMinVolume: number | null;
   needForNext: number;
 }
 
@@ -94,6 +95,8 @@ export interface IbBoardRow {
   invites: number;
   funded: number;
   coins: number;
+  /** Total stake volume the downline has traded. */
+  volume: number;
 }
 
 /** Everything the affiliate screen paints about one player's desk. */
@@ -243,7 +246,7 @@ export async function fetchIbDesk(playerId: string, recentLimit = 20): Promise<I
       .order('created_at', { ascending: false })
       .limit(recentLimit),
     sb.from('ib_config').select('enabled, house_fee_pct, min_house_pct_of_fee').eq('singleton', 1).maybeSingle(),
-    sb.from('ib_tiers').select('level, name, rate_per_100, min_funded, active').order('level'),
+    sb.from('ib_tiers').select('level, name, rate_per_100, min_volume, active').order('level'),
   ]);
 
   // The pairing read is the spine: RLS covers it with the player's own id,
@@ -267,9 +270,9 @@ export async function fetchIbDesk(playerId: string, recentLimit = 20): Promise<I
         level: Number(tierRow.level),
         name: String(tierRow.tier_name ?? ''),
         ratePer100: Number(tierRow.rate_per_100),
-        funded: Number(tierRow.funded_referrals),
+        lifetimeVolume: Number(tierRow.lifetime_volume),
         nextLevel: tierRow.next_level === null || tierRow.next_level === undefined ? null : Number(tierRow.next_level),
-        nextMinFunded: tierRow.next_min_funded === null || tierRow.next_min_funded === undefined ? null : Number(tierRow.next_min_funded),
+        nextMinVolume: tierRow.next_min_volume === null || tierRow.next_min_volume === undefined ? null : Number(tierRow.next_min_volume),
         needForNext: Number(tierRow.need_for_next ?? 0),
       }
     : null;
@@ -288,7 +291,7 @@ export async function fetchIbDesk(playerId: string, recentLimit = 20): Promise<I
       level: Number(t.level),
       name: String(t.name ?? ''),
       ratePer100: Number(t.rate_per_100),
-      minFunded: Number(t.min_funded),
+      minVolume: Number(t.min_volume),
       active: Boolean(t.active),
     })),
     tier,
@@ -314,11 +317,12 @@ export async function fetchIbLeaderboard(limit = 10): Promise<IbBoardRow[] | nul
     return null;
   }
 
-  return ((data ?? []) as { callsign: string; invites: number; funded: number; coins: number }[]).map((row) => ({
+  return ((data ?? []) as { callsign: string; invites: number; funded: number; coins: number; volume: number }[]).map((row) => ({
     callsign: row.callsign,
     invites: Number(row.invites),
     funded: Number(row.funded),
     coins: Number(row.coins),
+    volume: Number(row.volume ?? 0),
   }));
 }
 
@@ -393,7 +397,7 @@ export async function fetchIbTiers(): Promise<IbTier[] | null> {
 
   const { data, error } = await sb
     .from('ib_tiers')
-    .select('level, name, rate_per_100, min_funded, active')
+    .select('level, name, rate_per_100, min_volume, active')
     .order('level');
 
   if (error) return null;
@@ -401,7 +405,7 @@ export async function fetchIbTiers(): Promise<IbTier[] | null> {
     level: Number(t.level),
     name: String(t.name ?? ''),
     ratePer100: Number(t.rate_per_100),
-    minFunded: Number(t.min_funded),
+    minVolume: Number(t.min_volume),
     active: Boolean(t.active),
   }));
 }
@@ -428,7 +432,7 @@ export async function saveIbTier(tier: IbTier): Promise<boolean> {
     p_level: tier.level,
     p_name: tier.name,
     p_rate: Math.round(tier.ratePer100),
-    p_min_funded: Math.round(tier.minFunded),
+    p_min_volume: Math.round(tier.minVolume),
     p_active: tier.active,
   });
   return !error;

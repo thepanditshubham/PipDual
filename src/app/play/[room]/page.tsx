@@ -354,7 +354,7 @@ function PlayRoomContent() {
       potSettledRef.current = true;
       const payout = payoutFor(outcome, liveStake);
       if (payout > 0) addCoins(payout);
-      /* IB rebate: this seat's entry paid its platform fee, so the upline
+      /* Affiliate rebate: this seat's entry paid its platform fee, so the upline
          who brought this trader in earns their tier's slice. Postgres owns
          every number — this only names the duel and this player's own stake,
          and the (match, seat) key inside makes a repeat call pay nothing.

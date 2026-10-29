@@ -271,7 +271,7 @@ export function DepositForm() {
         className={`w-full h-9 rounded text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
           submitting || hashError || txid.trim().length === 0
             ? 'bg-[var(--term-raised)] text-[var(--term-dim)] cursor-not-allowed'
-            : 'bg-[var(--term-primary)] hover:bg-[var(--term-primary-hi)] text-white cursor-pointer'
+            : 'border border-[var(--term-primary)]/55 bg-[var(--term-primary)]/10 hover:bg-[var(--term-primary)]/18 text-[var(--term-strong)] cursor-pointer'
         }`}
       >
         {submitting ? (

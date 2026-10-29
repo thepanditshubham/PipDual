@@ -2048,27 +2048,48 @@ values (1)
 on conflict (singleton) do nothing;
 
 -- The rebate ladder. One row per level; the active row with the highest
--- min_funded a player clears is the rate they earn.
+-- min_volume a player clears is the rate they earn. Volume is what the
+-- downline has actually staked in settled duels — sign-ups buy nothing, and
+-- the ladder only moves when referred traders trade.
 create table if not exists public.ib_tiers (
   level integer primary key check (level between 1 and 9),
   name text not null check (char_length(btrim(name)) between 1 and 40),
   -- Coins paid per 100 coins an attributed trader stakes, before the house
   -- floor trims it. Zero is a legal rate: a level that exists but pays flat.
   rate_per_100 integer not null default 0 check (rate_per_100 between 0 and 100),
-  -- Funded downline needed to sit at this level. Counted from the referral
-  -- rows, never from any money figure a client could shape.
+  -- Attributed stake volume (coins) needed to sit at this level.
+  min_volume bigint not null default 0 check (min_volume between 0 and 100000000000),
+  -- Retired metric, kept so an older database keeps its rows; promotion no
+  -- longer reads it.
   min_funded integer not null default 0 check (min_funded between 0 and 100000),
   active boolean not null default true,
   updated_at timestamptz not null default now()
 );
 
--- The launch ladder: 5 coins per 100 staked, 7 from five funded invites,
--- 10 from twenty. do-nothing on conflict so an operator's edits survive a
+-- Databases that ran the funded-invite version need the volume column and a
+-- ladder rebuilt on it. Guarded on the column so an operator's later edits to
+-- min_volume are never overwritten by a re-run of this file.
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'ib_tiers'
+       and column_name = 'min_volume'
+  ) then
+    alter table public.ib_tiers add column min_volume bigint not null default 0;
+    update public.ib_tiers
+       set min_volume = case level when 2 then 100000 when 3 then 500000 else 0 end,
+           name = replace(name, ' IB', '');
+  end if;
+end $$;
+
+-- The launch ladder: 5 coins per 100 staked, 7 from 100k of team volume,
+-- 10 from 500k. do-nothing on conflict so an operator's edits survive a
 -- re-run of this file; the rows are only ever created, never re-typed.
-insert into public.ib_tiers (level, name, rate_per_100, min_funded) values
-  (1, 'Bronze IB', 5, 0),
-  (2, 'Silver IB', 7, 5),
-  (3, 'Gold IB', 10, 20)
+insert into public.ib_tiers (level, name, rate_per_100, min_volume) values
+  (1, 'Bronze', 5, 0),
+  (2, 'Silver', 7, 100000),
+  (3, 'Gold', 10, 500000)
 on conflict (level) do nothing;
 
 -- Who invited whom. invitee_id is unique: an account can only ever be
@@ -2326,6 +2347,7 @@ declare
   v_trader text := auth.uid()::text;
   v_cfg public.ib_config%rowtype;
   v_upline text;
+  v_volume bigint;
   v_level integer;
   v_rate integer;
   v_fee integer;
@@ -2359,17 +2381,17 @@ begin
   end if;
 
   -- The ladder is read here, not trusted from the client: highest active
-  -- tier whose funded-downline threshold the upline clears.
+  -- tier whose volume threshold the upline clears. Volume counts every coin
+  -- the downline has staked in a settled duel, this entry included.
+  select coalesce(sum(e.stake), 0) + p_stake into v_volume
+    from public.ib_earnings e
+   where e.ib_id = v_upline;
+
   select t.level, t.rate_per_100 into v_level, v_rate
     from public.ib_tiers t
    where t.active
-     and t.min_funded <= (
-       select count(*)
-         from public.referrals
-        where inviter_id = v_upline
-          and funded_at is not null
-     )
-   order by t.min_funded desc, t.level desc
+     and t.min_volume <= v_volume
+   order by t.min_volume desc, t.level desc
    limit 1;
   if not found then
     return 0;
@@ -2451,7 +2473,7 @@ begin
 
   perform public.record_ledger(
     v_player, 'referral', v_amt,
-    'IB commission transfer to wallet',
+    'Affiliate commission transfer to wallet',
     'ib_transfer', 'transfer:' || extract(epoch from now())::bigint::text
   );
 
@@ -2463,16 +2485,19 @@ revoke all on function public.transfer_ib_balance() from public;
 grant execute on function public.transfer_ib_balance() to authenticated;
 
 -- What the desk looks like to the one player who owns it — the tier line,
--- the funded count it was measured from, and the next rung. Reads through the
--- definer so the pairings behind the count stay invisible to everyone else.
+-- the attributed volume it was measured from, and the next rung. Reads
+-- through the definer so the pairings behind the volume stay invisible to
+-- everyone else. The shape changed with the volume ladder, so the old
+-- signature goes first: Postgres refuses to alter a return type in place.
+drop function if exists public.ib_tier_for(text);
 create or replace function public.ib_tier_for(p_player text)
 returns table (
   level integer,
   tier_name text,
   rate_per_100 integer,
-  funded_referrals bigint,
+  lifetime_volume bigint,
   next_level integer,
-  next_min_funded integer,
+  next_min_volume bigint,
   need_for_next bigint
 )
 language plpgsql
@@ -2481,39 +2506,40 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_funded bigint;
+  v_volume bigint;
 begin
   if p_player is null
      or (auth.uid()::text <> p_player and not public.is_admin()) then
     return;
   end if;
 
-  select count(*) into v_funded
-    from public.referrals
-   where inviter_id = p_player
-     and funded_at is not null;
+  -- Volume is the promotion metric: every coin this player's downline has
+  -- staked in a settled Live duel. Sign-ups alone move nothing.
+  select coalesce(sum(e.stake), 0) into v_volume
+    from public.ib_earnings e
+   where e.ib_id = p_player;
 
   return query
   with here_tier as (
     select t.level, t.name, t.rate_per_100
       from public.ib_tiers t
-     where t.active and t.min_funded <= v_funded
-     order by t.min_funded desc, t.level desc
+     where t.active and t.min_volume <= v_volume
+     order by t.min_volume desc, t.level desc
      limit 1
   ), next_tier as (
-    select t.level, t.min_funded
+    select t.level, t.min_volume
       from public.ib_tiers t
-     where t.active and t.min_funded > v_funded
-     order by t.min_funded asc, t.level asc
+     where t.active and t.min_volume > v_volume
+     order by t.min_volume asc, t.level asc
      limit 1
   )
   select c.level,
          c.name,
          c.rate_per_100,
-         v_funded,
+         v_volume,
          n.level,
-         n.min_funded,
-         greatest(0, coalesce(n.min_funded, 0)::bigint - v_funded)
+         n.min_volume,
+         greatest(0, coalesce(n.min_volume, 0)::bigint - v_volume)
     from here_tier c
     left join next_tier n on true;
 end;
@@ -2523,13 +2549,12 @@ revoke all on function public.ib_tier_for(text) from public;
 grant execute on function public.ib_tier_for(text) to authenticated;
 
 -- The rebate ladder, counted by the database instead of handed out as raw
--- rows: a player sees the league table — team size, funded heads, commission
--- ever paid — without being able to read anybody else's pairings or desks.
--- The shape changed with the IB rebuild, so the old signature goes first:
--- Postgres refuses to alter a return type in place.
+-- rows: a player sees the league table — team size, funded heads, volume
+-- staked, commission ever paid — without being able to read anybody else's
+-- pairings or desks. Ordering follows the volume ladder.
 drop function if exists public.referral_leaderboard(integer);
 create or replace function public.referral_leaderboard(p_limit integer default 10)
-returns table (callsign text, invites bigint, funded bigint, coins bigint)
+returns table (callsign text, invites bigint, funded bigint, coins bigint, volume bigint)
 language plpgsql
 stable
 security definer
@@ -2540,7 +2565,8 @@ begin
   select p.username,
          s.invites,
          s.funded,
-         coalesce(e.coins, 0)::bigint
+         coalesce(e.coins, 0)::bigint,
+         coalesce(v.volume, 0)::bigint
     from (
       select r.inviter_id,
              count(*)::bigint as invites,
@@ -2554,7 +2580,12 @@ begin
         from public.ib_earnings e
        group by e.ib_id
     ) e on e.ib_id = s.inviter_id
-   order by coalesce(e.coins, 0) desc, s.funded desc, s.invites desc
+    left join (
+      select e.ib_id, sum(e.stake) as volume
+        from public.ib_earnings e
+       group by e.ib_id
+    ) v on v.ib_id = s.inviter_id
+   order by coalesce(v.volume, 0) desc, s.invites desc
    limit greatest(1, least(coalesce(p_limit, 10), 50));
 end;
 $$;
@@ -2606,11 +2637,14 @@ $$;
 -- One row of the ladder at a time. Levels are 1..9 and the checks on the
 -- table do the clamping, so a fat-fingered rate cannot silently out-earn the
 -- house: award_ib_commission() still trims every payment against the floor.
+-- The promoted threshold is volume, and the old funded threshold signature is
+-- dropped first so PostgREST never has two candidates for the same call.
+drop function if exists public.admin_save_ib_tier(integer, text, integer, integer, boolean);
 create or replace function public.admin_save_ib_tier(
   p_level integer,
   p_name text,
   p_rate integer,
-  p_min_funded integer,
+  p_min_volume bigint,
   p_active boolean
 )
 returns boolean
@@ -2636,13 +2670,13 @@ begin
       using errcode = '22023';
   end if;
 
-  insert into public.ib_tiers (level, name, rate_per_100, min_funded, active, updated_at)
-  values (p_level, v_name, coalesce(p_rate, 0), coalesce(p_min_funded, 0),
+  insert into public.ib_tiers (level, name, rate_per_100, min_volume, active, updated_at)
+  values (p_level, v_name, coalesce(p_rate, 0), coalesce(p_min_volume, 0),
           coalesce(p_active, true), now())
   on conflict (level) do update
     set name         = excluded.name,
         rate_per_100 = excluded.rate_per_100,
-        min_funded   = excluded.min_funded,
+        min_volume   = excluded.min_volume,
         active       = excluded.active,
         updated_at   = now();
 

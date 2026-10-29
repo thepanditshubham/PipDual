@@ -319,7 +319,7 @@ export function WithdrawForm({ coins }: { coins: number }) {
           addressError ||
           address.trim().length === 0
             ? 'bg-[var(--term-raised)] text-[var(--term-dim)] cursor-not-allowed'
-            : 'bg-[var(--term-primary)] hover:bg-[var(--term-primary-hi)] text-white cursor-pointer'
+            : 'border border-[var(--term-primary)]/55 bg-[var(--term-primary)]/10 hover:bg-[var(--term-primary)]/18 text-[var(--term-strong)] cursor-pointer'
         }`}
       >
         {submitting ? (

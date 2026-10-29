@@ -184,7 +184,7 @@ export default function AdminIbProgramPage() {
     return (
       <Gate
         title="Sign in required"
-        body="The IB program console is only readable from a signed-in admin account."
+        body="The affiliate program console is only readable from a signed-in admin account."
       />
     );
   }
@@ -206,9 +206,9 @@ export default function AdminIbProgramPage() {
             <Users size={12} className="text-[var(--purple)]" /> Players
           </>
         }
-        title="IB Affiliate Program"
+        title="Affiliate Program"
         accent="referrals"
-        body="A slice of every platform fee flows to the upline of the trader who paid it, at their tier's rate. Switch it, retune it, or correct a desk here — the payments themselves run inside Postgres."
+        body="A slice of every platform fee flows to the upline of the trader who paid it, at the rate their team's traded volume has unlocked. Switch it, retune it, or correct a desk here — the payments themselves run inside Postgres."
         actions={
           <button
             onClick={() => void reload()}
@@ -324,7 +324,7 @@ export default function AdminIbProgramPage() {
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--surface-muted)] uppercase text-[var(--text-muted)] font-semibold tracking-wider">
-                <th className="p-3">IB</th>
+                <th className="p-3">Affiliate</th>
                 <th className="p-3">On desk</th>
                 <th className="p-3">Lifetime earned</th>
               </tr>
@@ -416,7 +416,7 @@ export default function AdminIbProgramPage() {
                 <tr>
                   <td colSpan={5} className="p-8 text-center text-[var(--text-muted)]">
                     {unavailable
-                      ? 'Nothing to list until the IB tables exist.'
+                      ? 'Nothing to list until the affiliate tables exist.'
                       : needle
                         ? `No pairing matches “${query.trim()}”.`
                         : 'No trader has arrived on an invite link yet.'}
@@ -484,7 +484,7 @@ export default function AdminIbProgramPage() {
       {board.length > 0 && (
         <div className="card p-0 overflow-hidden">
           <p className="border-b border-[var(--border)] bg-[var(--surface-muted)]/50 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
-            IB leaderboard — counted by referral_leaderboard()
+            Affiliate ladder — counted by referral_leaderboard()
           </p>
           <div className="divide-y divide-[var(--border)]">
             {board.map((row, index) => (
@@ -492,7 +492,7 @@ export default function AdminIbProgramPage() {
                 <span className="w-5 shrink-0 text-right font-mono text-[var(--text-muted)]">{index + 1}</span>
                 <span className="min-w-0 flex-1 truncate font-semibold text-[var(--text)]">@{row.callsign}</span>
                 <span className="shrink-0 font-mono text-[var(--text-secondary)]">
-                  {row.funded}/{row.invites} funded
+                  {row.volume.toLocaleString()} vol
                 </span>
                 <span className="w-24 shrink-0 text-right font-mono text-[var(--up)]">
                   {row.coins.toLocaleString()}
@@ -544,12 +544,12 @@ function TierRow({
       <input
         type="number"
         min={0}
-        value={draft.minFunded}
-        onChange={(e) => setDraft({ ...draft, minFunded: Number(e.target.value) })}
-        className={`${inputClass} w-20`}
+        value={draft.minVolume}
+        onChange={(e) => setDraft({ ...draft, minVolume: Number(e.target.value) })}
+        className={`${inputClass} w-24`}
         aria-label={`Level ${tier.level} threshold`}
       />
-      <span className="text-[var(--text-muted)]">funded</span>
+      <span className="text-[var(--text-muted)]">volume</span>
       <label className="flex items-center gap-1.5 text-[var(--text-secondary)] cursor-pointer">
         <input
           type="checkbox"
@@ -594,7 +594,7 @@ function NewTierRow({ usedLevels, onCreated }: { usedLevels: number[]; onCreated
   const nextLevel = [1, 2, 3, 4, 5, 6, 7, 8, 9].find((l) => !usedLevels.includes(l)) ?? null;
   const [name, setName] = useState('');
   const [rate, setRate] = useState('5');
-  const [minFunded, setMinFunded] = useState('0');
+  const [minVolume, setMinVolume] = useState('0');
   const [busy, setBusy] = useState(false);
 
   const create = async () => {
@@ -604,7 +604,7 @@ function NewTierRow({ usedLevels, onCreated }: { usedLevels: number[]; onCreated
       level: nextLevel,
       name: name.trim() || `Level ${nextLevel}`,
       ratePer100: Math.round(Number(rate) || 0),
-      minFunded: Math.round(Number(minFunded) || 0),
+      minVolume: Math.round(Number(minVolume) || 0),
       active: true,
     });
     setBusy(false);
@@ -637,12 +637,12 @@ function NewTierRow({ usedLevels, onCreated }: { usedLevels: number[]; onCreated
       <input
         type="number"
         min={0}
-        value={minFunded}
-        onChange={(e) => setMinFunded(e.target.value)}
-        className={`${inputClass} w-20`}
+        value={minVolume}
+        onChange={(e) => setMinVolume(e.target.value)}
+        className={`${inputClass} w-24`}
         aria-label="New tier threshold"
       />
-      <span className="text-[var(--text-muted)]">funded</span>
+      <span className="text-[var(--text-muted)]">volume</span>
       <button
         onClick={() => void create()}
         disabled={busy || nextLevel === null}
