@@ -2067,8 +2067,7 @@ create table if not exists public.ib_tiers (
 );
 
 -- Databases that ran the funded-invite version need the volume column and a
--- ladder rebuilt on it. Guarded on the column so an operator's later edits to
--- min_volume are never overwritten by a re-run of this file.
+-- ladder rebuilt on it. Guarded on the column so a re-run never re-adds it.
 do $$
 begin
   if not exists (
@@ -2077,11 +2076,17 @@ begin
        and column_name = 'min_volume'
   ) then
     alter table public.ib_tiers add column min_volume bigint not null default 0;
-    update public.ib_tiers
-       set min_volume = case level when 2 then 100000 when 3 then 500000 else 0 end,
-           name = replace(name, ' IB', '');
   end if;
 end $$;
+
+-- Convert a ladder that was seeded on funded invites. Guarded by min_funded,
+-- which is retired to 0 here, so this runs once per database and never
+-- rewrites a volume an operator typed later.
+update public.ib_tiers
+   set min_volume = case level when 2 then 100000 when 3 then 500000 else min_volume end,
+       name = replace(name, ' IB', ''),
+       min_funded = 0
+ where min_funded > 0;
 
 -- The launch ladder: 5 coins per 100 staked, 7 from 100k of team volume,
 -- 10 from 500k. do-nothing on conflict so an operator's edits survive a
@@ -2765,12 +2770,17 @@ $$;
 
 revoke all on function public.admin_save_ib_config(boolean, integer, integer) from public;
 grant execute on function public.admin_save_ib_config(boolean, integer, integer) to authenticated;
-revoke all on function public.admin_save_ib_tier(integer, text, integer, integer, boolean) from public;
-grant execute on function public.admin_save_ib_tier(integer, text, integer, integer, boolean) to authenticated;
+revoke all on function public.admin_save_ib_tier(integer, text, integer, bigint, boolean) from public;
+grant execute on function public.admin_save_ib_tier(integer, text, integer, bigint, boolean) to authenticated;
 revoke all on function public.admin_delete_ib_tier(integer) from public;
 grant execute on function public.admin_delete_ib_tier(integer) to authenticated;
 revoke all on function public.admin_adjust_ib_balance(text, integer, text) from public;
 grant execute on function public.admin_adjust_ib_balance(text, integer, text) to authenticated;
+
+-- The RPC signatures changed above (ib_tier_for, referral_leaderboard,
+-- admin_save_ib_tier). PostgREST caches them, so tell it to re-read the schema
+-- before a client calls one and gets "function not found".
+notify pgrst, 'reload schema';
 
 -- =====================================================================
 -- 14. LEGACY CLEANUP
