@@ -256,10 +256,6 @@ html:has(.term-theme[data-theme='paper']) ::-webkit-scrollbar-thumb:hover {
     linear-gradient(180deg, rgba(243, 244, 247, 0.42) 0%, rgba(243, 244, 247, 0) 18%, rgba(243, 244, 247, 0) 78%, rgba(243, 244, 247, 0.42) 100%);
 }
 
-.term-theme[data-theme='paper'] .lobby-glow-veil::after {
-  opacity: 0.14;
-}
-
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--text);
@@ -628,29 +624,15 @@ html[data-theme='paper'] .bg-grid {
 /* ═══════════════════════════════════════
    LOBBY GLOW BACKDROP
    The arena floor is black: no photograph, no colour wash, no grid. This
-   layer adds only the vignette and faint CRT scanlines that seat the chrome
-   on top of the canvas.
+   layer adds only the vignette that seats the chrome on top of the canvas.
+   The CRT texture is not part of it: the lobby mounts the same fixed
+   `.site-scanlines` overlay the landing page carries, so the texture sits
+   over the whole viewport instead of tinting the floor behind the panels.
 ═══════════════════════════════════════ */
 .lobby-glow-veil {
   background:
     radial-gradient(120% 90% at 50% 38%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.16) 55%, rgba(0, 0, 0, 0.7) 100%),
     linear-gradient(180deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.32) 18%, rgba(0, 0, 0, 0) 46%, rgba(0, 0, 0, 0.4) 76%, rgba(0, 0, 0, 0.9) 100%);
-}
-
-/* Faint CRT scanlines keep the arena feeling like terminal output */
-.lobby-glow-veil::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: repeating-linear-gradient(
-    180deg,
-    rgba(209, 212, 220, 0.028) 0px,
-    rgba(209, 212, 220, 0.028) 1px,
-    transparent 1px,
-    transparent 4px
-  );
-  opacity: 0.6;
-  pointer-events: none;
 }
 
 /* ═══════════════════════════════════════
@@ -1913,42 +1895,19 @@ html[data-theme='paper'] .bg-grid {
 }
 
 /* Hero -------------------------------------------------------------
-   The reference's desktop composition, not a centred variant of it: text
-   locked to the left, headline up to 80px and capped at ~12 characters per
-   line, one sub paragraph, two buttons, then a hairline bar of proof points.
-   The chart takes the right half, where their page puts its visual. Below
-   1024px the stack centres and the chart drops under the copy — the same
-   order their mobile hero uses. */
+   Copy locked to the left gutter on a plain black field. */
 .lp-hero {
   position: relative;
   display: grid;
-  /* One text column, anchored to the left gutter — the reference leaves the
-     right half empty for its visual, and without one the copy keeps the same
-     measure instead of stretching across the page. */
-  grid-template-columns: minmax(0, 780px);
+  grid-template-columns: minmax(0, 760px);
   justify-content: start;
   align-items: center;
   width: 100%;
   max-width: var(--w-hero);
-  /* Shorter than the reference's 820px: they fill the height with a visual and
-     a pinned stat bar, and without one that height reads as a hole. */
-  min-height: min(calc(100svh - 48px), 680px);
+  min-height: min(calc(100svh - 48px), 780px);
   margin: 0 auto;
   padding: clamp(48px, 8vh, 116px) var(--gutter) clamp(32px, 5vh, 64px);
   overflow: hidden;
-}
-
-.lp-hero-grid-bg {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(var(--fin-border-1) 1px, transparent 1px),
-    linear-gradient(90deg, var(--fin-border-1) 1px, transparent 1px);
-  background-size: 60px 60px;
-  opacity: 0.4;
-  mask-image: radial-gradient(#000 35%, transparent 78%);
-  -webkit-mask-image: radial-gradient(#000 35%, transparent 78%);
 }
 
 .lp-hero-center {

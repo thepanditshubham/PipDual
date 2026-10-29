@@ -122,8 +122,6 @@ export default function LandingPage() {
 
       {/* ── Hero ────────────────────────────────────────────── */}
       <section className="lp-hero">
-        <div className="lp-hero-grid-bg" aria-hidden="true" />
-
         <div className="lp-hero-center">
           <span className="lp-eyebrow">
             <i className="lp-pulse" />
