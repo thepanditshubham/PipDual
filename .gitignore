@@ -50,3 +50,8 @@ next-env.d.ts
 
 # supabase cli
 /supabase/.temp/
+
+# reverse-engineering evidence and scratch captures
+/.rea-cathode/
+.tmp-*.png
+*.bak
