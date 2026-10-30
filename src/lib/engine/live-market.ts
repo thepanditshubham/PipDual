@@ -1,7 +1,12 @@
 import type { Candle } from './types';
-import type { Timeframe } from './market-feed';
+import { TIMEFRAME_SECONDS, type Timeframe } from './market-feed';
 import { MINUTES_PER_DAY, TICKS_PER_BAR } from './constants';
-import { aggregateCandlesStrict, formingBarFromTicks, mergeFormingCandle } from './candles';
+import {
+  aggregateCandlesStrict,
+  formingBarFromTicks,
+  mergeFormingCandle,
+  subMinuteCandles,
+} from './candles';
 import { dayIndexForTime, dayStartTime, getGeneratedDay, hashInt } from './synthetic-market';
 import type { SyntheticPair } from './synthetic-market';
 import { SYNTH_PAIR } from './synthetic-market';
@@ -9,10 +14,10 @@ import { SYNTH_PAIR } from './synthetic-market';
 /**
  * ── A market that is always moving ─────────────────────────────
  *
- * A duel has to stay short, so it replays a window of the series at speed. A terminal
- * that is only *watching* has no such need, and this is the same generator at 1×: one
- * minute of the market is one minute of the wall clock, a tick prints every
- * LIVE_TICK_SECONDS, and the candles keep arriving for as long as the tab is open.
+ * A duel trades its own minutes live. A terminal that is only *watching* runs the same
+ * generator at 1×: one minute of the market is one minute of the wall clock, a tick
+ * prints every LIVE_TICK_SECONDS, and the candles keep arriving for as long as the tab
+ * is open.
  *
  * Each visit carries its own seed, so the chart on screen has never existed before and
  * will never exist again. That is not decoration. The window a duel trades is picked by
@@ -188,14 +193,54 @@ export function getLiveMarket(
 }
 
 /**
- * The series to draw for one timeframe: sealed history aggregated into buckets, with the
- * forming minute folded into whichever bucket owns it. On 1m this is the raw feed, so the
- * candle on the right edge is always the one that is printing.
+ * The series to draw for one timeframe: history aggregated into buckets, with the
+ * forming minute folded into whichever bucket owns it. On 1m this is the raw feed, so
+ * the candle on the right edge is always the one that is printing; on 15s / 30s the
+ * same prices are sliced finer than a minute.
  */
 export function getLiveCandles(market: LiveMarket, timeframe: Timeframe): Candle[] {
-  if (timeframe === '1m') return [...market.sealed1m, market.forming];
+  const intervalSeconds = TIMEFRAME_SECONDS[timeframe] ?? 60;
+  if (intervalSeconds === 60) return [...market.sealed1m, market.forming];
+  if (intervalSeconds < 60) return subMinuteLive(market, intervalSeconds);
 
-  const intervalSeconds = timeframe === '5m' ? 300 : timeframe === '15m' ? 900 : 3600;
   const buckets = aggregateCandlesStrict(market.sealed1m, intervalSeconds);
   return mergeFormingCandle(buckets, market.forming, intervalSeconds);
+}
+
+/**
+ * The 15s / 30s view: every sealed minute sliced at the frame's own resolution from the
+ * tick path that sealed it, then the minute in hand sliced as far as it has printed.
+ */
+function subMinuteLive(market: LiveMarket, intervalSeconds: number): Candle[] {
+  const ticksPerCandle = (TICKS_PER_BAR * intervalSeconds) / 60;
+  const out: Candle[] = [];
+  let ticks: number[] = [];
+  let ticksDay = -1;
+
+  for (const bar of market.sealed1m) {
+    const barDay = dayIndexForTime(bar.time * 1000, market.pair);
+    if (barDay !== ticksDay) {
+      ticksDay = barDay;
+      ticks = getGeneratedDay(barDay, market.pair).ticks;
+    }
+    const minuteOfDay = Math.floor((bar.time - dayStartTime(barDay, market.pair)) / 60);
+    const base = minuteOfDay * TICKS_PER_BAR;
+    out.push(
+      ...subMinuteCandles([bar], ticks.slice(base, base + TICKS_PER_BAR), 0, TICKS_PER_BAR - 1, ticksPerCandle),
+    );
+  }
+
+  const liveDay = getGeneratedDay(market.dayIndex, market.pair);
+  const liveBase = market.minuteOfDay * TICKS_PER_BAR;
+  out.push(
+    ...subMinuteCandles(
+      [liveDay.bars[market.minuteOfDay]],
+      liveDay.ticks.slice(liveBase, liveBase + market.subTick + 1),
+      0,
+      market.subTick,
+      ticksPerCandle,
+    ),
+  );
+
+  return out;
 }

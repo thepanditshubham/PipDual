@@ -2991,7 +2991,7 @@ function PlayLobbyContent() {
                   <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">Match Flow</p>
                   {[
                     { n: '01', title: 'Configure Your Ticket', desc: 'Choose a game duration (5 / 10 / 15 min) and a mode — Live charges a coin entry and pays the pot to the winner, Demo is free and stakes nothing.' },
-                    { n: '02', title: 'Enter the Queue', desc: 'Hit Find Match. The engine pairs you with a rival of similar ELO rating within seconds. Both traders see an identical price feed — one global market series, and the duel replays the window that opens on the hour it fires.' },
+                    { n: '02', title: 'Enter the Queue', desc: 'Hit Find Match. The engine pairs you with a rival of similar ELO rating within seconds. Both traders see an identical price feed — one global market series, and the duel trades the window that opens on the minute it fires, live on the clock.' },
                     { n: '03', title: '1-Minute Lobby Prep', desc: 'Once matched, a 60-second prep window starts. Study the chart, plan your bias — long or short — and set your first order before the clock hits zero.' },
                     { n: '04', title: 'Trade to Win More Pips', desc: 'Use Market, Limit, or Stop orders. Open and close positions freely. The trader with the highest net pip P&L when the timer expires wins the duel.' },
                     { n: '05', title: 'Claim Your ELO & Rewards', desc: 'Win → gain ELO and the Live pot. Lose → lose ELO and your entry. Draw → no change, entry returned. Coins come from reviewed crypto deposits and from pots you win, and any balance can be paid back out as USDT from the wallet.' },

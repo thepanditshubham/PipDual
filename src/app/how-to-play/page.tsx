@@ -3,7 +3,6 @@ import {
   Keyboard, ShieldCheck, Target, Zap, Clock, Trophy,
   Sliders, CheckCircle2, ArrowRight
 } from 'lucide-react';
-import { PLAY_BARS } from '@/lib/engine/constants';
 
 export const metadata = {
   title: 'How to Play | Pip Duel',
@@ -30,7 +29,7 @@ export default function HowToPlayPage() {
     {
       num: '04',
       title: 'Forced Close & Settlement',
-      desc: `At the end of the replay (${PLAY_BARS} one-minute bars), an open position is settled at the final price. Because the window is picked by the match's start time, any result can be re-run and verified independently.`,
+      desc: 'At the final whistle, an open position is settled at the last print. Because the window is picked by the match\'s start time, any result can be re-run and verified independently.',
     },
   ];
 

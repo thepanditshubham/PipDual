@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { MINUTES_PER_DAY, TICKS_PER_BAR } from '../constants';
 import type { Candle } from '../types';
 import { SYNTH_PAIR, SYNTH_PAIRS, dayStartTime, getGeneratedDay } from '../synthetic-market';
+import { TIMEFRAME_SECONDS, TIMEFRAMES } from '../market-feed';
 import {
   LIVE_HISTORY_MINUTES,
   LIVE_TICK_SECONDS,
@@ -72,13 +73,13 @@ describe('Live market at one times', () => {
   it('maps the wall clock onto the minute and tick that contain it', () => {
     const clock = liveClockAt(AT(37, 5));
     expect(clock.minuteOfDay).toBe(14 * 60 + 37);
-    expect(clock.subTick).toBe(1); // 5 seconds into a 5-second slot
+    expect(clock.subTick).toBe(5); // one tick per second, so five seconds in
     expect(clock.dayIndex).toBe(300);
 
-    // A tick lasts LIVE_TICK_SECONDS, so the slot does not move inside itself.
-    expect(liveClockAt(AT(37, 5) + 4999).subTick).toBe(1);
-    expect(liveClockAt(AT(37, 10)).subTick).toBe(2);
-    expect(tickOf(liveClockAt(AT(37, 10)))).toBe(tickOf(clock) + 1);
+    // A tick lasts one second, so the slot holds until the next second begins.
+    expect(liveClockAt(AT(37, 5) + 999).subTick).toBe(5);
+    expect(liveClockAt(AT(37, 5) + 1000).subTick).toBe(6);
+    expect(tickOf(liveClockAt(AT(37, 6)))).toBe(tickOf(clock) + 1);
 
     const market = getLiveMarket(SYNTH_PAIR, AT(37, 5));
     expect(market.forming.time).toBe(dayStartTime(300) + (14 * 3600 + 37 * 60));
@@ -100,7 +101,7 @@ describe('Live market at one times', () => {
     // The forming price really is the newest tick of the forming minute.
     const day = getGeneratedDay(300);
     const first = (14 * 60 + 37) * TICKS_PER_BAR;
-    expect(market.lastPrice).toBe(day.ticks[first + 4]);
+    expect(market.lastPrice).toBe(day.ticks[first + 20]);
   });
 
   it('is pure: the same instant twice gives the same market', () => {
@@ -163,11 +164,15 @@ describe('Live chart series', () => {
   const market = getLiveMarket(SYNTH_PAIR, AT(37, 5));
 
   it('shows the printing candle at the right edge on every timeframe', () => {
-    for (const tf of ['1m', '5m', '15m', '1h'] as const) {
+    for (const tf of TIMEFRAMES) {
       const bars = getLiveCandles(market, tf);
       const last = bars[bars.length - 1];
       expect(last.close).toBe(market.lastPrice);
-      expect(last.time).toBeLessThanOrEqual(market.forming.time);
+      // The last candle is the one still printing: its bucket opens no later than the
+      // forming minute (on 15s / 30s it opens inside it) and has not closed yet.
+      const interval = TIMEFRAME_SECONDS[tf];
+      expect(last.time).toBeLessThanOrEqual(market.forming.time + Math.max(0, 60 - interval));
+      expect(last.time + interval).toBeGreaterThan(market.forming.time);
       expect(last.high).toBeGreaterThanOrEqual(last.low);
     }
     // 1m is the raw feed; the rest are coarser views of the same prints.
@@ -180,7 +185,7 @@ describe('Live chart series', () => {
 
     for (const ms of instants) {
       const snap = getLiveMarket(SYNTH_PAIR, ms);
-      for (const tf of ['1m', '5m', '15m', '1h'] as const) {
+      for (const tf of TIMEFRAMES) {
         const bars = getLiveCandles(snap, tf);
         for (let i = 1; i < bars.length; i++) {
           if (bars[i].time <= bars[i - 1].time) violations.push(`${tf}@${ms}: ${bars[i - 1].time} then ${bars[i].time}`);

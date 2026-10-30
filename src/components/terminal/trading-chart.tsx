@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { Candle, Position, Trade } from '@/lib/engine/types';
-import type { Timeframe } from '@/lib/engine/market-feed';
+import { TIMEFRAME_SECONDS, TIMEFRAMES, type Timeframe } from '@/lib/engine/market-feed';
 import {
   createChart,
   CandlestickSeries,
@@ -21,6 +21,7 @@ import {
   Settings,
   Maximize2,
   Camera,
+  Clock,
   Undo2,
   Redo2,
   CandlestickChart,
@@ -43,8 +44,15 @@ import { useTerminalMode } from '@/components/terminal/theme-mode';
 
 type DragTarget = 'sl' | 'tp' | null;
 
-/** The four timeframes the toolbar offers, in order. */
-const TIMEFRAMES = ['1m', '5m', '15m', '1h'] as const;
+/** "00:42" / "1:03:20" — the time left on the candle, printed like a chart clock. */
+function formatCountdown(seconds: number): string {
+  const total = Math.max(0, Math.ceil(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const rest = total % 60;
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(rest)}` : `${pad(minutes)}:${pad(rest)}`;
+}
 
 /** The drawing rail: one entry per tool the palette shows. */
 type DrawTool = { id: string; title: string; Icon: typeof Crosshair; iconClass?: string };
@@ -126,6 +134,8 @@ interface TradingChartProps {
   trades: Trade[];
   timeframe: Timeframe;
   onTimeframeChange: (tf: Timeframe) => void;
+  /** Seconds until the bar on screen seals; null hides the clock (pre-battle). */
+  barCloseInSeconds?: number | null;
   instrument?: string;
   /** Instrument decimals from the pair config; falls back to sniffing the ticker. */
   digits?: number;
@@ -142,6 +152,7 @@ export function TradingChart({
   trades,
   timeframe,
   onTimeframeChange,
+  barCloseInSeconds = null,
   instrument = 'XAU/USD',
   digits,
   readOnly = false,
@@ -446,6 +457,15 @@ export function TradingChart({
     });
     lineSeriesRef.current?.applyOptions({ color: palette.line });
   }, [mode]);
+
+  // ── 1c. Seconds on the axis only where a bar moves in seconds ──
+  // A 15s candle is unreadable without them; a 4h chart that printed :07 seconds
+  // would only crowd the labels.
+  useEffect(() => {
+    chartRef.current?.timeScale().applyOptions({
+      secondsVisible: TIMEFRAME_SECONDS[timeframe] < 180,
+    });
+  }, [timeframe]);
 
   // ── 2. Populate / Update Series Data ──
   // A full load happens once per market and once per timeframe. After that the newest
@@ -807,6 +827,19 @@ export function TradingChart({
     scrollToLatestBar(Math.round(plotWidth / 9 / 2));
   }, [scrollToLatestBar]);
 
+  // A frame switch changes how many bars the series holds and how many fit on the
+  // axis, so the view is re-anchored on the newest candle instead of inheriting the
+  // previous frame's scroll position (a 4h chart opening deep in a 1m chart's history
+  // would otherwise land nowhere near the live edge).
+  const frameMountedRef = useRef(false);
+  useEffect(() => {
+    if (!frameMountedRef.current) {
+      frameMountedRef.current = true;
+      return;
+    }
+    handleResetChartView();
+  }, [timeframe, handleResetChartView]);
+
   const chartCtrlBtn =
     'flex items-center justify-center w-[24px] h-[24px] rounded-[3px] bg-[var(--term-surface)]/90 border border-[var(--term-border-hi)] text-[var(--term-label)] hover:text-[var(--term-strong)] hover:bg-[var(--term-border)] hover:border-[var(--term-border-hover)] transition-colors cursor-pointer shadow-sm';
 
@@ -841,13 +874,13 @@ export function TradingChart({
             <ChevronDown size={11} className={`transition-transform ${tfMenuOpen ? 'rotate-180' : ''}`} />
           </button>
 
-          {/* Laptop: all four timeframes inline */}
+          {/* Laptop: the full ladder inline */}
           <div className="hidden md:flex items-center gap-0.5">
             {TIMEFRAMES.map((tf) => (
               <button
                 key={tf}
                 onClick={() => onTimeframeChange(tf)}
-                className={`px-2 py-1 rounded text-xs font-semibold uppercase transition-colors ${
+                className={`px-1.5 py-1 rounded text-xs font-semibold uppercase transition-colors ${
                   timeframe === tf
                     ? 'text-[var(--term-primary)] bg-[var(--term-primary)]/10'
                     : 'text-[var(--term-label)] hover:text-[var(--term-text)] hover:bg-[var(--term-raised)]'
@@ -939,7 +972,7 @@ export function TradingChart({
             <div
               role="listbox"
               aria-label="Timeframe"
-              className="absolute left-2 top-full z-40 mt-1 w-24 overflow-hidden rounded border border-[var(--term-border-hi)] bg-[var(--term-surface)] shadow-xl"
+              className="absolute left-2 top-full z-40 mt-1 grid w-[132px] grid-cols-3 overflow-hidden rounded border border-[var(--term-border-hi)] bg-[var(--term-surface)] shadow-xl"
             >
               {TIMEFRAMES.map((tf) => (
                 <button
@@ -951,7 +984,7 @@ export function TradingChart({
                     onTimeframeChange(tf);
                     setTfMenuOpen(false);
                   }}
-                  className={`block w-full px-3 py-1.5 text-left text-xs font-semibold uppercase transition-colors ${
+                  className={`px-1 py-1.5 text-center text-xs font-semibold uppercase transition-colors ${
                     tf === timeframe
                       ? 'bg-[var(--term-primary)]/12 text-[var(--term-primary)]'
                       : 'text-[var(--term-label)] hover:bg-[var(--term-raised)] hover:text-[var(--term-text)]'
@@ -989,6 +1022,19 @@ export function TradingChart({
         {/* Right Action Icons — hidden while the timeframe list owns the dock */}
         {!tfMenuOpen && (
         <div className="flex items-center gap-1 shrink-0 text-[var(--term-muted)]">
+          {barCloseInSeconds != null && (
+            <span
+              className={`flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums transition-colors ${
+                barCloseInSeconds <= 5
+                  ? 'border-[var(--term-primary)]/50 bg-[var(--term-primary)]/10 text-[var(--term-primary)]'
+                  : 'border-[var(--term-border)] bg-[var(--term-raised)] text-[var(--term-text)]'
+              }`}
+              title={`Time left on this ${timeframe.toUpperCase()} bar`}
+            >
+              <Clock size={11} />
+              {formatCountdown(barCloseInSeconds)}
+            </span>
+          )}
           <div className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-[var(--term-label)] border border-[var(--term-border)] bg-[var(--term-raised)]">
             <span>Dark</span>
             <ChevronDown size={11} />

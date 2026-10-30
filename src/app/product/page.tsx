@@ -101,7 +101,7 @@ export default function ProductPage() {
                 </tr>
                 <tr>
                   <td>Timeframes</td>
-                  <td>1m · 5m · 15m · 1h, aggregated from the same one-minute source</td>
+                  <td>15s · 30s · 1m · 3m · 5m · 10m · 30m · 1h · 4h, aggregated from the same one-minute source</td>
                 </tr>
                 <tr>
                   <td>Table lengths</td>

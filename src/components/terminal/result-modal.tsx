@@ -119,7 +119,7 @@ export function ResultModal({
     ? won
       ? `${rivalName} exited the duel. Victory awarded to you!`
       : 'You exited the duel early. Defeat conceded.'
-    : `Verified By Server Engine • ${battleSeconds}s Replay Day`;
+    : `Verified By Server Engine • ${battleSeconds}s Live Window`;
 
   // Live pot bookkeeping for the panel: entry is spent, collected is what landed.
   const potOutcome: DuelOutcome = won ? 'win' : isDraw ? 'draw' : 'loss';

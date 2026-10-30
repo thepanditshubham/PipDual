@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { MAX_ACTION_TICK, ALLOWED_SIZES, MAX_ACTIONS, battleStartFor } from '@/lib/engine/constants';
+import { ALLOWED_SIZES, MAX_ACTIONS, battleSecondsFor, battleStartFor, battleTicksFor, maxActionTickFor } from '@/lib/engine/constants';
 import { generateBattleMarket } from '@/lib/engine/market-feed';
 import { simulate, score } from '@/lib/engine/simulate';
 import { ActionSchema } from '@/lib/engine/types';
@@ -15,6 +15,8 @@ const SubmitMatchSchema = z.object({
   startAt: z.number().int().positive(),
   seed: z.number().int().optional(),
   mode: z.enum(['standard', 'risk']),
+  /** Ticket length. The market window is exactly this long — the duel runs at 1×. */
+  duration: z.enum(['5m', '10m', '15m']).optional(),
   actions: z.array(ActionSchema).max(MAX_ACTIONS),
 });
 
@@ -65,7 +67,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const { room, startAt, seed, mode, actions } = parsed.data;
+    const { room, startAt, seed, mode, duration, actions } = parsed.data;
+    const durationSeconds = battleSecondsFor(duration);
+    const finalTick = battleTicksFor(durationSeconds);
 
     // A match may only be anchored near the present; the window itself is public.
     if (Math.abs(Date.now() - startAt) > MAX_ANCHOR_SKEW_MS) {
@@ -78,9 +82,9 @@ export async function POST(request: Request) {
     // Additional strict validation per engine spec:
     // Reject actions with t outside the battle, non-integer sizes, or sizes not in allowed set
     for (const act of actions) {
-      if (act.t < 0 || act.t > MAX_ACTION_TICK) {
+      if (act.t < 0 || act.t > maxActionTickFor(durationSeconds)) {
         return NextResponse.json(
-          { error: `Action tick ${act.t} out of range [0, ${MAX_ACTION_TICK}]` },
+          { error: `Action tick ${act.t} out of range [0, ${maxActionTickFor(durationSeconds)}]` },
           { status: 400 }
         );
       }
@@ -108,10 +112,10 @@ export async function POST(request: Request) {
     // series, the same window, derived from the same start time. It used to call
     // makeTicks(), which is a different price series from the one on the player's
     // screen — so this route was verifying a chart nobody had played.
-    const market = generateBattleMarket(battleStartFor(startAt));
+    const market = generateBattleMarket(battleStartFor(startAt), durationSeconds);
 
     // Server re-runs the simulation independently – NEVER TRUST CLIENT SCORE
-    const simResult = simulate(market.liveTicks, actions, MAX_ACTION_TICK);
+    const simResult = simulate(market.tickPath, actions, finalTick);
     const scoreResult = score(simResult, mode);
 
     return NextResponse.json({

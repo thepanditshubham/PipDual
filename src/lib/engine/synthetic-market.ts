@@ -170,6 +170,24 @@ interface GeneratedDay {
 }
 
 const DAY_CACHE = new Map<string, GeneratedDay>();
+/** The same days' bars alone, for views that never touch the tick path. */
+const BARS_CACHE = new Map<string, Candle[]>();
+
+/**
+ * The 1,440 one-minute bars of one generated day, without reconstructing its ticks.
+ * A coarse history view reaches back two weeks and needs only candles, so it reads
+ * these instead of paying for 86,400 prices a day.
+ */
+export function getGeneratedDayBars(dayIndex: number, pair: SyntheticPair = SYNTH_PAIR): Candle[] {
+  const key = `${pair.salt}:${dayIndex}`;
+  const cached = BARS_CACHE.get(key);
+  if (cached) return cached;
+
+  const bars = buildDayBars(dayIndex, pair);
+  if (BARS_CACHE.size > 64) BARS_CACHE.clear();
+  BARS_CACHE.set(key, bars);
+  return bars;
+}
 
 /**
  * The 1,440 one-minute bars of one generated day, plus their tick paths.
@@ -181,6 +199,18 @@ export function getGeneratedDay(dayIndex: number, pair: SyntheticPair = SYNTH_PA
   const cached = DAY_CACHE.get(key);
   if (cached) return cached;
 
+  const bars = getGeneratedDayBars(dayIndex, pair);
+  const day: GeneratedDay = { bars, ticks: buildTickPath(bars, dayIndex, pair) };
+  // Room for a few days of every listed pair, so browsing the roster never thrashes
+  // the generator. Above that the map is dropped whole: days are cheap to rebuild and
+  // a bounded cache is what keeps a tab left open overnight from growing.
+  if (DAY_CACHE.size > 24) DAY_CACHE.clear();
+  DAY_CACHE.set(key, day);
+  return day;
+}
+
+/** The bridge walk itself: bars only, so both caches above share one implementation. */
+function buildDayBars(dayIndex: number, pair: SyntheticPair): Candle[] {
   const dayStart = dayStartTime(dayIndex, pair);
   const target = dayOpenPrice(dayIndex + 1, pair);
   const rand = rng(hashInt(dayIndex, pair.salt));
@@ -217,15 +247,7 @@ export function getGeneratedDay(dayIndex: number, pair: SyntheticPair = SYNTH_PA
     price = close;
   }
 
-  const ticks = buildTickPath(bars, dayIndex, pair);
-
-  const day: GeneratedDay = { bars, ticks };
-  // Room for a few days of every listed pair, so browsing the roster never thrashes
-  // the generator. Above that the map is dropped whole: days are cheap to rebuild and
-  // a bounded cache is what keeps a tab left open overnight from growing.
-  if (DAY_CACHE.size > 24) DAY_CACHE.clear();
-  DAY_CACHE.set(key, day);
-  return day;
+  return bars;
 }
 
 /**
@@ -286,17 +308,18 @@ export function dayIndexForTime(timeMs: number, pair: SyntheticPair = SYNTH_PAIR
 }
 
 /**
- * Minute of that day where a battle window opens, snapped down to the hour.
+ * Minute of that day where a battle window opens, snapped down to the minute.
  *
- * The snap does two jobs. It keeps the 5m / 15m / 1h views sharing their buckets with
- * the context days instead of splitting one, and it is what makes the market the same
- * for everyone: every duel that fires between 14:00 and 14:59 UTC trades the one
- * 14:00 window, whatever room code it was played under.
+ * A duel trades the market at 1×, so its window is only as long as the match — five,
+ * ten or fifteen minutes. Snapping to the hour would hand every duel fired in that hour
+ * the same short window, which is easy to study in advance; a per-minute anchor opens a
+ * fresh window for each match, and both terminals still derive the same one from the
+ * ticket's shared start time.
  */
 export function battleStartMinuteForTime(timeMs: number, pair: SyntheticPair = SYNTH_PAIR): number {
   const dayStart = dayStartTime(dayIndexForTime(timeMs, pair), pair);
   const secondOfDay = Math.max(0, Math.floor(timeMs / 1000) - dayStart);
-  return Math.floor(secondOfDay / 3600) * 60;
+  return Math.floor(secondOfDay / 60);
 }
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

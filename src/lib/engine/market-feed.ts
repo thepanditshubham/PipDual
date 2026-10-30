@@ -1,17 +1,51 @@
 import type { Candle } from './types';
-import { MINUTES_PER_DAY, PLAY_BARS, TICKS_PER_BAR } from './constants';
-import { aggregateCandlesStrict, formingBarFromTicks, mergeFormingCandle } from './candles';
+import {
+  DEFAULT_MATCH_DURATION,
+  MINUTES_PER_DAY,
+  TICKS_PER_BAR,
+  battleBarsFor,
+  battleSecondsFor,
+} from './constants';
+import {
+  aggregateCandlesStrict,
+  formingBarFromTicks,
+  mergeFormingCandle,
+  subMinuteCandles,
+} from './candles';
 import {
   SYNTH_PAIR,
   battleStartMinuteForTime,
   dayIndexForTime,
   dayLabel,
   getGeneratedDay,
+  getGeneratedDayBars,
   sessionLabel,
 } from './synthetic-market';
 import type { SyntheticPair } from './synthetic-market';
 
-export type Timeframe = '1m' | '5m' | '15m' | '1h';
+/**
+ * The frames the terminal offers, in the order its toolbar prints them — the MT5
+ * ladder, from a tick-level 15-second view up to four hours. The engine still settles
+ * on one-minute bars; every frame here is a view of those same prices.
+ */
+export type Timeframe = '15s' | '30s' | '1m' | '3m' | '5m' | '10m' | '30m' | '1h' | '4h';
+
+export const TIMEFRAMES: readonly Timeframe[] = [
+  '15s', '30s', '1m', '3m', '5m', '10m', '30m', '1h', '4h',
+];
+
+/** Seconds per bar. One place the market feed and the live terminal both read. */
+export const TIMEFRAME_SECONDS: Record<Timeframe, number> = {
+  '15s': 15,
+  '30s': 30,
+  '1m': 60,
+  '3m': 180,
+  '5m': 300,
+  '10m': 600,
+  '30m': 1800,
+  '1h': 3600,
+  '4h': 14400,
+};
 
 export interface MarketDataset {
   /** Instant the battle's first bar prints — the only thing that picks the market. */
@@ -26,31 +60,41 @@ export interface MarketDataset {
   segmentName: string;
   source: string;
 
+  /**
+   * The roster entry the window was generated from. The coarse frames reach back
+   * further than the two-day context, and they need the pair to do it.
+   */
+  pair: SyntheticPair;
+
   /** Generated day this duel opens on, and the minute of it where the window starts. */
   battleDayIndex: number;
   battleStartMinute: number;
 
+  /** Wall-clock seconds the duel runs — the ticket's length, and its market window. */
+  battleSeconds: number;
+
   // ── Context history: 2 full days plus the current day up to the battle window ──
   historicalCandles1m: Candle[];
-  historicalCandles5m: Candle[];
-  historicalCandles15m: Candle[];
-  historicalCandles1h: Candle[];
 
   /**
-   * The battle window, one bar per displayed candle. PLAY_BARS are played; the extra
-   * bar exists so the engine's final read (`liveTicks[PLAY_BARS]`) lands on the same
-   * price it always has — the chart never draws it.
+   * Every other frame's history, built the first time that frame is opened and kept
+   * for the life of this market — so a sub-tick re-render re-reads an array instead
+   * of re-aggregating days of bars twelve times a minute.
+   */
+  historyByInterval: Map<number, Candle[]>;
+
+  /**
+   * The battle window, one bar per minute traded. The extra bar is the print the match
+   * ends on: the engine reads its open (the previous bar's close) at the final whistle,
+   * so the chart never has to draw a bar that has not traded yet.
    */
   battleCandles1m: Candle[];
 
   /**
-   * One price per battle bar (its close) — the array the simulation settles on.
-   * Deliberately unchanged by the tick work: a result depends on bar closes, never on
-   * how finely a candle is animated.
+   * Every price the market prints, one per TICK_SECONDS — the chart draws this path and
+   * the engine settles on it. At 1× these are the prints a duelist actually sees, so a
+   * fill is the next print rather than a bar that has not closed yet.
    */
-  liveTicks: number[];
-
-  /** ticksPerBar prices per battle bar: the chart's live resolution. */
   tickPath: number[];
 
   startPrice: number;
@@ -96,14 +140,20 @@ function getBarSpan(dayIndex: number, startMinute: number, count: number, pair: 
 /**
  * Builds the market for one duel from the one global series.
  *
- * Nothing is downloaded and nothing is scheduled: the window is found from the battle's
- * start instant, so every duel fired in the same UTC hour trades identical candles and
- * every client derives them on the spot. Same anchor → same market, on any device, at
- * any later date — which is also all a verifier needs to re-run a result.
+ * Nothing is downloaded and nothing is scheduled: the window opens on the minute the
+ * battle starts and runs for exactly the ticket's length, so every client derives the
+ * same ticks on the spot and the chart clock is the match clock. Same anchor → same
+ * market, on any device, at any later date — which is also all a verifier needs to
+ * re-run a result.
  */
-export function generateBattleMarket(anchorTimeMs: number, pair: SyntheticPair = SYNTH_PAIR): MarketDataset {
+export function generateBattleMarket(
+  anchorTimeMs: number,
+  durationSeconds: number = battleSecondsFor(DEFAULT_MATCH_DURATION),
+  pair: SyntheticPair = SYNTH_PAIR,
+): MarketDataset {
   const dayIndex = dayIndexForTime(anchorTimeMs, pair);
   const startMinute = battleStartMinuteForTime(anchorTimeMs, pair);
+  const minutes = battleBarsFor(durationSeconds);
 
   const today = getGeneratedDay(dayIndex, pair);
   const previous = getGeneratedDay(dayIndex - 1, pair);
@@ -112,8 +162,8 @@ export function generateBattleMarket(anchorTimeMs: number, pair: SyntheticPair =
   // Context: two full days, then today's bars up to the battle window.
   const contextCandles1m = [...twoBack.bars, ...previous.bars, ...today.bars.slice(0, startMinute)];
 
-  // Battle: PLAY_BARS played, plus one bar so the engine's last read is unchanged.
-  const span = getBarSpan(dayIndex, startMinute, PLAY_BARS + 1, pair);
+  // Battle: the match's own minutes, plus the bar its final read lands on.
+  const span = getBarSpan(dayIndex, startMinute, minutes + 1, pair);
   const battleCandles1m = span.bars;
   const tickPath = span.ticks;
 
@@ -128,17 +178,16 @@ export function generateBattleMarket(anchorTimeMs: number, pair: SyntheticPair =
     instrument: pair.symbol,
     instrumentLabel: pair.label,
     digits: pair.digits,
+    pair,
     ticksPerBar: TICKS_PER_BAR,
     segmentName: battleSessionLabel,
     source: `${pair.symbol} synthetic series (${contextDayLabel} context → ${battleSessionLabel} live)`,
     battleDayIndex: dayIndex,
     battleStartMinute: startMinute,
+    battleSeconds: minutes * 60,
     historicalCandles1m: contextCandles1m,
-    historicalCandles5m: aggregateCandlesStrict(contextCandles1m, 300),
-    historicalCandles15m: aggregateCandlesStrict(contextCandles1m, 900),
-    historicalCandles1h: aggregateCandlesStrict(contextCandles1m, 3600),
+    historyByInterval: new Map(),
     battleCandles1m,
-    liveTicks: battleCandles1m.map((c) => c.close),
     tickPath,
     startPrice,
     battleDayLabel,
@@ -150,21 +199,118 @@ export function generateBattleMarket(anchorTimeMs: number, pair: SyntheticPair =
 /**
  * The still-forming candle at the live cursor, built from the tick path: open is the
  * bar's first tick, high/low are only the extremes printed so far, close is the newest
- * tick. Returns null before the battle starts (subTick 0), so the analysis phase never
- * shows a bar the players have not traded yet.
+ * tick. Returns null before the battle starts and for the extra bar past the window —
+ * the chart never draws a bar the duel has not traded. At every later minute boundary
+ * `subTick` is 0 again and the new bar really has its opening print.
  */
 function formingBar(market: MarketDataset, barIndex: number, subTick: number): Candle | null {
-  if (subTick <= 0) return null;
-
   const bars = market.battleCandles1m;
-  if (barIndex < 0 || barIndex >= bars.length) return null;
+  if (barIndex < 0 || barIndex >= bars.length - 1) return null;
+  if (barIndex === 0 && subTick <= 0) return null;
 
   const perBar = market.ticksPerBar;
   const first = barIndex * perBar;
-  const last = Math.min(first + subTick, market.tickPath.length - 1);
+  const last = Math.min(first + Math.max(0, subTick), market.tickPath.length - 1);
   if (last < first) return null;
 
   return formingBarFromTicks(market.tickPath, bars[barIndex], first, last, perBar);
+}
+
+/** Bars a sub-minute frame opens with: eight hours of tick-level context. */
+const SUB_MINUTE_CONTEXT_MINUTES = 480;
+
+/**
+ * Days a four-hour frame reaches back through. The duel context is two days, which is
+ * only a dozen candles at four hours a bar; the coarsest frame wants a chart, not a
+ * stub hanging off the right edge.
+ */
+const COARSE_CONTEXT_DAYS = 14;
+
+/**
+ * History for one frame, assembled once and then kept on the market. The 15s / 30s
+ * frames are sliced from the tick path (a minute cannot be split after the fact), the
+ * 4h frame reaches back further than the displayed context, and everything between is
+ * the usual two days aggregated into the frame's buckets.
+ */
+export function getHistoryCandles(market: MarketDataset, intervalSeconds: number): Candle[] {
+  const cached = market.historyByInterval.get(intervalSeconds);
+  if (cached) return cached;
+
+  let history: Candle[];
+
+  if (intervalSeconds < 60) {
+    history = subMinuteHistory(market, intervalSeconds);
+  } else if (intervalSeconds >= 14400) {
+    history = aggregateCandlesStrict(coarseContext(market), intervalSeconds);
+  } else if (intervalSeconds === 60) {
+    history = market.historicalCandles1m;
+  } else {
+    history = aggregateCandlesStrict(market.historicalCandles1m, intervalSeconds);
+  }
+
+  market.historyByInterval.set(intervalSeconds, history);
+  return history;
+}
+
+/**
+ * Tick-level context for the 15s / 30s frames: the last eight hours before the battle
+ * window, sliced from the same prices the one-minute bars were built from. Only those
+ * hours — two full days at 15 seconds would be eleven thousand candles to scroll past.
+ */
+function subMinuteHistory(market: MarketDataset, intervalSeconds: number): Candle[] {
+  const ticksPerCandle = (TICKS_PER_BAR * intervalSeconds) / 60;
+  const end = market.battleDayIndex * MINUTES_PER_DAY + market.battleStartMinute;
+  const start = Math.max(0, end - SUB_MINUTE_CONTEXT_MINUTES);
+  const span = getBarSpan(
+    Math.floor(start / MINUTES_PER_DAY),
+    start % MINUTES_PER_DAY,
+    end - start,
+    market.pair,
+  );
+
+  return subMinuteCandles(span.bars, span.ticks, 0, span.ticks.length - 1, ticksPerCandle);
+}
+
+/**
+ * One-minute bars for the coarse frames: every day back to the coarse window, then the
+ * battle day up to the moment the window opens. Days already cached by the generator
+ * are read straight out of it, so only the first open of a coarse frame pays for them.
+ */
+function coarseContext(market: MarketDataset): Candle[] {
+  const firstDay = Math.max(0, market.battleDayIndex - (COARSE_CONTEXT_DAYS - 1));
+  const bars: Candle[] = [];
+
+  for (let day = firstDay; day < market.battleDayIndex; day++) {
+    for (const bar of getGeneratedDayBars(day, market.pair)) bars.push(bar);
+  }
+
+  const today = getGeneratedDayBars(market.battleDayIndex, market.pair);
+  for (let minute = 0; minute < market.battleStartMinute; minute++) bars.push(today[minute]);
+
+  return bars;
+}
+
+/**
+ * Stitches live buckets onto the context. A frame coarser than an hour can find its
+ * first live bucket already open in the history — a battle opens on the hour, but not
+ * always on a four-hour boundary — so the two are folded into one candle instead of
+ * printing the same timestamp twice.
+ */
+function joinWithHistory(history: Candle[], live: Candle[]): Candle[] {
+  const last = history[history.length - 1];
+  if (live.length === 0) return history;
+  if (!last || live[0].time !== last.time) return [...history, ...live];
+
+  const merged: Candle = {
+    time: last.time,
+    open: last.open,
+    high: Math.max(last.high, live[0].high),
+    low: Math.min(last.low, live[0].low),
+    close: live[0].close,
+    volume: (last.volume || 0) + (live[0].volume || 0),
+  };
+
+  return [...history.slice(0, -1), merged, ...live.slice(1)];
 }
 
 /**
@@ -175,8 +321,10 @@ function formingBar(market: MarketDataset, barIndex: number, subTick: number): C
  *
  * DURING BATTLE:
  *   Completed battle bars, plus the forming bar while its candle is still printing.
- *   Higher timeframes aggregate the same source, and the forming bar is folded into
- *   whichever bucket it belongs to.
+ *   Frames of a minute and coarser aggregate the same source, and the forming bar is
+ *   folded into whichever bucket it belongs to. The 15s / 30s frames slice the tick
+ *   path instead, so their candles are built from the prices actually printed rather
+ *   than from a bar that does not exist yet.
  */
 export function getCandlesForTimeframe(
   market: MarketDataset,
@@ -185,37 +333,31 @@ export function getCandlesForTimeframe(
   _battleStartTime: number, // kept for API compat; bar times come from battleCandles1m
   subTick = 0,
 ): Candle[] {
-  let baseHistorical: Candle[];
-  let intervalSeconds = 60;
-
-  switch (timeframe) {
-    case '5m':
-      baseHistorical = market.historicalCandles5m;
-      intervalSeconds = 300;
-      break;
-    case '15m':
-      baseHistorical = market.historicalCandles15m;
-      intervalSeconds = 900;
-      break;
-    case '1h':
-      baseHistorical = market.historicalCandles1h;
-      intervalSeconds = 3600;
-      break;
-    case '1m':
-    default:
-      baseHistorical = market.historicalCandles1m;
-      break;
-  }
+  const intervalSeconds = TIMEFRAME_SECONDS[timeframe] ?? 60;
+  const history = getHistoryCandles(market, intervalSeconds);
 
   const bars = market.battleCandles1m;
   const completed = Math.max(0, Math.min(currentTick, bars.length));
+
+  if (intervalSeconds < 60) {
+    // Nothing has printed before the window opens.
+    if (completed === 0 && subTick <= 0) return history;
+
+    const ticksPerCandle = (TICKS_PER_BAR * intervalSeconds) / 60;
+    // The newest print on screen — never the extra bar's opening tick past the window.
+    const lastTradedTick = (bars.length - 1) * TICKS_PER_BAR - 1;
+    const printedTick = completed * TICKS_PER_BAR + Math.max(0, Math.min(subTick, TICKS_PER_BAR - 1));
+    const lastTick = Math.min(printedTick, lastTradedTick);
+    return [...history, ...subMinuteCandles(bars, market.tickPath, 0, lastTick, ticksPerCandle)];
+  }
+
   const activeBattleBars = completed > 0 ? bars.slice(0, completed) : [];
   const partial = formingBar(market, completed, subTick);
 
   if (intervalSeconds === 60) {
     return partial
-      ? [...baseHistorical, ...activeBattleBars, partial]
-      : [...baseHistorical, ...activeBattleBars];
+      ? [...history, ...activeBattleBars, partial]
+      : [...history, ...activeBattleBars];
   }
 
   const aggregatedLiveBars = aggregateCandlesStrict(activeBattleBars, intervalSeconds);
@@ -223,5 +365,5 @@ export function getCandlesForTimeframe(
     ? mergeFormingCandle(aggregatedLiveBars, partial, intervalSeconds)
     : aggregatedLiveBars;
 
-  return [...baseHistorical, ...withForming];
+  return joinWithHistory(history, withForming);
 }

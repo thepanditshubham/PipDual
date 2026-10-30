@@ -1,4 +1,5 @@
 import type { Candle } from './types';
+import { TICKS_PER_BAR } from './constants';
 
 /**
  * Candle maths shared by the market generator and the chart.
@@ -57,6 +58,58 @@ export function formingBarFromTicks(
     close: ticks[last],
     volume: Math.round(((bar.volume || 0) * seenTicks) / ticksPerBar),
   };
+}
+
+/**
+ * Slices tick prices into sub-minute candles — the 15s and 30s frames, which a
+ * one-minute bar cannot be divided into after the fact.
+ *
+ * `bars` are the one-minute bars the ticks belong to, in order, and `ticks[0]` is the
+ * first tick of `bars[0]`. Each output candle owns `ticksPerCandle` consecutive prices:
+ * it opens on the first, closes on the last, and carries the timestamp of the slot it
+ * occupies inside its parent minute — so 15s candles print at :00, :15, :30 and :45, and
+ * a slice still forming already carries the time it will seal at. `toTick` is inclusive,
+ * which is what lets the caller stop on the newest tick the market has printed.
+ */
+export function subMinuteCandles(
+  bars: Candle[],
+  ticks: number[],
+  fromTick: number,
+  toTick: number,
+  ticksPerCandle: number,
+  ticksPerBar: number = TICKS_PER_BAR,
+): Candle[] {
+  if (toTick < fromTick || ticksPerCandle <= 0) return [];
+
+  const out: Candle[] = [];
+
+  for (let first = fromTick; first <= toTick; first += ticksPerCandle) {
+    const last = Math.min(first + ticksPerCandle - 1, toTick);
+    const barIndex = Math.floor(first / ticksPerBar);
+    const bar = bars[barIndex];
+    if (!bar) break;
+
+    let high = ticks[first];
+    let low = ticks[first];
+    for (let i = first + 1; i <= last; i++) {
+      const price = ticks[i];
+      if (price > high) high = price;
+      if (price < low) low = price;
+    }
+
+    const slot = first - barIndex * ticksPerBar;
+    const seen = last - first + 1;
+    out.push({
+      time: bar.time + Math.floor((slot * 60) / ticksPerBar),
+      open: ticks[first],
+      high,
+      low,
+      close: ticks[last],
+      volume: Math.round(((bar.volume || 0) * seen) / ticksPerBar),
+    });
+  }
+
+  return out;
 }
 
 /**

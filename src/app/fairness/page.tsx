@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { CtaBand, PageHero, SitePage } from '@/components/site/site-chrome';
 import { HOUSE_CUT, LIVE_FEES } from '@/lib/economy/config';
-import { MAX_ORDERS_PER_MATCH, PLAY_BARS, TICKS_PER_BAR } from '@/lib/engine/constants';
+import { MAX_ORDERS_PER_MATCH, TICKS_PER_BAR } from '@/lib/engine/constants';
 
 export const metadata = {
   title: 'Fairness — How a winner is decided',
@@ -14,7 +14,7 @@ const STEPS = [
   {
     n: '01',
     title: 'The ticket fixes the window',
-    body: `Both players hold the same ticket, and the ticket carries the start time. The window opens on that instant and runs the same ${PLAY_BARS} one-minute bars for both players. Nobody chooses the market after seeing it.`,
+    body: 'Both players hold the same ticket, and the ticket carries the start time. The window opens on that instant and runs the match\'s own minutes — five, ten or fifteen — on the wall clock for both players. Nobody chooses the market after seeing it.',
   },
   {
     n: '02',
@@ -72,7 +72,7 @@ export default function FairnessPage() {
         }
         lead="Most trading games ask you to trust the house. This one only asks you to trust arithmetic: the window is set before you arrive, both charts are computed from the same inputs, and the score is replayed by the server rather than reported by you."
         meta={[
-          `${PLAY_BARS} bars per duel`,
+          '5–15 live bars per duel',
           `${MAX_ORDERS_PER_MATCH} entries each`,
           `${Math.round((1 - HOUSE_CUT) * 100)}% of the pot paid out`,
         ]}

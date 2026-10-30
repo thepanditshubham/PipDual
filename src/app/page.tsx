@@ -67,9 +67,9 @@ const TERMS = [
     text: `${SYNTH_PAIRS.map((pair) => pair.symbol).join(' · ')}. Generated from a seeded rule, so a settled duel can be re-derived years later.`,
   },
   {
-    num: '4',
+    num: '9',
     title: 'Timeframes',
-    text: 'One-minute through one-hour, aggregated from the same source. The duel settles on bar closes, never on how the candle animated.',
+    text: 'Fifteen seconds through four hours, all cut from the same source. A duel runs on the clock, and the engine fills on the same prints the chart draws.',
   },
   {
     num: 'USDT',

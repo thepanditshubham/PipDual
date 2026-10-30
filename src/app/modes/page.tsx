@@ -3,7 +3,6 @@ import { ArrowRight, Bot, Check, Coins, Flame, Play, Shield, Swords, Trophy } fr
 import { CtaBand, PageHero, SitePage } from '@/components/site/site-chrome';
 import { COINS_PER_USD, HOUSE_CUT, LIVE_FEES } from '@/lib/economy/config';
 import { potFor } from '@/lib/economy/stakes';
-import { PLAY_BARS } from '@/lib/engine/constants';
 
 export const metadata = {
   title: 'Game modes | Pip Duel',
@@ -57,7 +56,7 @@ const RULE_SETS = [
     icon: <Swords size={18} />,
     badge: 'Most played',
     rules: [
-      `Selectable 5 / 10 / 15 minute length (${PLAY_BARS}-bar replay)`,
+      'Selectable 5 / 10 / 15 minute length, traded live on the clock',
       'Equal starting equity for both players',
       'Winner decided strictly by final P&L',
       'Tiebreak: lower max drawdown, then fewer entries',

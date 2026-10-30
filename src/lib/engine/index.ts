@@ -1,5 +1,5 @@
-export { TICK_MS, TICKS, START_BALANCE, NOTIONAL_PER_SIZE, ALLOWED_SIZES, MAX_ACTIONS, ROOM_CODE_CHARS, ROOM_CODE_LENGTH } from './constants';
-export { MINUTES_PER_DAY, CHART_SLOWDOWN, PLAY_BARS, TICKS_PER_BAR, DISPLAY_TICKS, MAX_ACTION_TICK, battleStartFor, MATCH_DURATIONS, DEFAULT_MATCH_DURATION } from './constants';
+export { TICKS, START_BALANCE, NOTIONAL_PER_SIZE, ALLOWED_SIZES, MAX_ACTIONS, ROOM_CODE_CHARS, ROOM_CODE_LENGTH } from './constants';
+export { MINUTES_PER_DAY, TICKS_PER_BAR, TICK_SECONDS, battleBarsFor, battleTicksFor, maxActionTickFor, battleStartFor, MATCH_DURATIONS, DEFAULT_MATCH_DURATION } from './constants';
 export type { AllowedSize } from './constants';
 export { rng } from './rng';
 export { makeTicks, toCandles, blindTransform } from './market';

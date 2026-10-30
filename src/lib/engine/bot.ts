@@ -1,12 +1,12 @@
 import { rng } from './rng';
 import type { Action } from './types';
 
-/** Bars used to measure directional momentum. */
-const LOOKBACK = 5;
-/** Bars of history used to scale the trigger to the day's own volatility. */
-const VOL_WINDOW = 60;
-/** Momentum must beat this many typical single-bar moves to count as a signal. */
-const VOL_MULTIPLE = 3.5;
+/** Prints used to measure directional momentum — twenty seconds of the match. */
+const LOOKBACK = 20;
+/** Prints of history used to scale the trigger to the market's own recent volatility. */
+const VOL_WINDOW = 120;
+/** Momentum must beat this many typical single-print moves to count as a signal. */
+const VOL_MULTIPLE = 2.5;
 
 /**
  * Deterministic bot that only sees past prices.
@@ -25,9 +25,9 @@ export function botActions(prices: number[], seed: number): Action[] {
   for (let t = LOOKBACK + 1; t < maxTick; t++) {
     // Only see past prices
     if (inPosition) {
-      // Random hold: close after 8-25 ticks
+      // Random hold: close after 20-75 seconds
       const holdTime = t - lastEntryTick;
-      const targetHold = 8 + Math.floor(rand() * 18);
+      const targetHold = 20 + Math.floor(rand() * 56);
 
       if (holdTime >= targetHold) {
         actions.push({

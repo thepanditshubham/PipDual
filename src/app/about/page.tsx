@@ -38,7 +38,7 @@ export default function AboutPage() {
               ],
               list: [
                 `${SYNTH_PAIRS.length} instruments, from gold and euro to crude, bitcoin and an index`,
-                'One-minute through one-hour timeframes on the public terminal',
+                'Fifteen-second through four-hour timeframes on the public terminal',
                 'Live, Demo and versus-bot tables with identical rules',
               ],
             },

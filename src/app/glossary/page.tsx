@@ -1,5 +1,5 @@
 import { CtaBand, PageHero, SitePage } from '@/components/site/site-chrome';
-import { MAX_ORDERS_PER_MATCH, PLAY_BARS, TICKS_PER_BAR } from '@/lib/engine/constants';
+import { MAX_ORDERS_PER_MATCH, TICKS_PER_BAR } from '@/lib/engine/constants';
 import { COINS_PER_USD, HOUSE_CUT } from '@/lib/economy/config';
 
 export const metadata = {
@@ -9,7 +9,7 @@ export const metadata = {
 };
 
 const TERMS: { term: string; def: string }[] = [
-  { term: 'Bar', def: `One minute of market time, drawn as a candle: open, high, low, close. A duel plays ${PLAY_BARS} of them.` },
+  { term: 'Bar', def: 'One minute of market time, drawn as a candle: open, high, low, close. A duel plays the match\'s own minutes — five, ten or fifteen of them, live on the clock.' },
   { term: 'Tick', def: `A price print inside a bar. ${TICKS_PER_BAR} ticks build one candle, so a candle grows instead of appearing whole.` },
   { term: 'Window', def: 'The stretch of the series a duel trades. Fixed by the ticket start time before either player sees it.' },
   { term: 'Ticket', def: 'The row that pairs two players, carries the stake and the start time, and is what the server settles against.' },
