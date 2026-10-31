@@ -1,195 +1,203 @@
-# ⚔️ Pip Duel – 1v1 Multiplayer Virtual Trading Battles
+# Pip Duel
 
-> **Same chart. Sixty seconds. One winner.**  
-> A competitive, educational web game by the **Forexwala** brand (forex trading education community, Pune, India).
+**Same chart. Two traders. One winner.**
 
----
+Pip Duel is a free-to-play, 1v1 virtual trading duel: two players read the same
+synthetic market for 5, 10 or 15 minutes, place long and short entries from a
+$10,000 practice balance, and the server re-scores the winner from the trade log.
+It is a game about reading price and managing risk — not a broker, not an
+investment product, and not connected to any live order book.
 
-## ⚠️ Core Rule & Disclaimer
-
-> **VIRTUAL MARKETS. REAL MONEY AT THE EDGE. NOT FINANCIAL ADVICE.**  
-> Every duel trades a fixed **$10,000 virtual balance** on a simulated market — no real order book is ever touched. Coins, though, move in both directions: they are bought with crypto and can be paid back out in crypto.
->
-> The arena has one currency — **coins**. Demo duels are free and never touch the wallet. **Live** duels charge a coin entry fee and pay the pooled pot to the winner, so coins come from a **crypto deposit at $1 = 100 coins**: the player picks a pack and a rail (USDT-TRC20 / **USDT-BEP20** / USDT-ERC20 / BTC / ETH / SOL / XRP), sends to the house address, and pastes the transaction hash. Nothing is credited on submission — the entry is stored as `pending` and stays that way until a reviewer verifies the transfer at `/admin/deposits`.
->
-> Coins also leave. Any balance can be requested back as **USDT** on BEP20 or TRC20 from the wallet screen — $5 minimum, $1 network fee taken off the payout. Requesting one **escrows the coins immediately** inside `request_crypto_withdraw()`, so they cannot be spent on a Live entry while the payout waits; an admin sends the transfer by hand and marks it paid, or rejects it and the coins go back.
->
-> ⚠️ Money in, money out. Paid entry + winner-takes-pot + cash-out is real-money gambling in most jurisdictions (in India that means state-level licensing, GST and promotion rules), and the wallet is still client-authoritative — each browser settles its own pot. Get legal review and move settlement and the balance server-side before taking a deposit or sending a payout to anyone you do not know.
-
----
-
-## 🏛️ System Architecture
-
-```mermaid
-graph TD
-    Client1["Trader 1 (Browser)"] <--> |Supabase Realtime / Broadcast| Client2["Trader 2 / Bot (Browser)"]
-    Client1 --> |Local Engine Re-Simulation| Terminal1["Trading Terminal (Tick Loop)"]
-    Client2 --> |Local Engine Re-Simulation| Terminal2["Trading Terminal (Tick Loop)"]
-    
-    Terminal1 --> |Submit Actions JSON| API["/api/matches/submit (Next.js Edge/Node)"]
-    Terminal2 --> |Submit Actions JSON| API
-    
-    subgraph "Server-Side Anti-Cheat & Settlement"
-        API --> |Independent Price Walk| PRNG["Mulberry32 PRNG (Match Seed)"]
-        PRNG --> Engine["Pure Deterministic Engine (simulate.ts)"]
-        API --> Engine
-        Engine --> Scorer["Scoring & Drawdown Verification"]
-        Scorer --> DB[("Supabase Postgres + RLS")]
-    end
-```
+> **Project status: pre-public-release.**
+> This snapshot is being prepared for an open-source release. It is
+> **free-to-play and virtual-currency only by design**; the paid crypto wallet
+> modules that still exist in this tree are scheduled for removal and are **not**
+> part of the public scope. Do not deploy this snapshot as a money service.
+> See [docs/OSS_RELEASE_REPORT.md](docs/OSS_RELEASE_REPORT.md) for the release
+> blockers and [docs/OSS_AUDIT.md](docs/OSS_AUDIT.md) for the audit.
 
 ---
 
-## 🚀 Key Features
+## Screenshots
 
-1. **Deterministic Market Engine (`src/lib/engine`)**:
-   - Zero DOM or network dependencies.
-   - Seeded price walks with ~4% regime transitions (drift & volatility re-rolls).
-   - **Next-Tick Fill Rule**: Order placed at tick $t$ executes at price of tick $t+1$.
-   - **Stop Loss & Take Profit**: Real-time evaluation on every tick.
-   - **Forced Close**: Open positions automatically liquidated at tick 120 (second 60).
-   - **Risk Duel Scoring**: $\text{Score} = \text{P\&L} - \text{Max Drawdown}$.
+Screenshots are added at release time. Placeholders to fill:
 
-2. **Full Tactical Trading Terminal (`/play/[room]`)**:
-   - TradingView Lightweight Charts™ integration (candlestick & line toggles, timeframes, EMA 9/21, SMA 50, RSI 14 sub-pane, trade markers, required attribution link).
-   - Hotkeys: `B` Buy, `S` Sell, `C` Close, `R` Reverse (close & flip in same tick), `1-4` Lot sizes, `I` Indicators, `M` Audio toggle.
-   - Web Audio API synthesizer for order fills, alerts, and victory chimes.
-   - Dual equity curves overlaid on post-match settlement screen with Web Share API.
-
-3. **19 Complete Pages & Routes**:
-   - **Marketing**: `/` (Landing with animated duel SVG), `/modes`, `/how-to-play`, `/leaderboard`, `/legal/terms`, `/legal/privacy`, `/legal/disclaimer`, `not-found.tsx`, `error.tsx`
-   - **Authentication**: `/login`, `/register` (with live username availability & password strength meter), `/forgot-password`, `/reset-password`, `/verify-email` (60s resend cooldown)
-   - **App**: `/dashboard`, `/play` (12s matchmaking queue with bot fallback), `/play/[room]`, `/terminal` (solo practice library), `/history` (with replay scrubber), `/u/[username]`, `/settings` (theme, language, audio, full account purge)
-   - **Admin**: five rail sections — Money (`/admin` console, `/admin/deposits` review queue, `/admin/withdrawals` payout queue, `/admin/ledger` wallet ledger with manual adjustments), Players (`/admin/players` directory and `/admin/players/[id]` with suspend/ban), Operations (`/admin/reports`, `/admin/segments`), plus Economy and System as listed-but-unbuilt sections.
-
-4. **Coins-Only Economy (`src/lib/economy`)**:
-   - One currency. No store, no cosmetics, no gems, no season pass, no marketplace.
-   - **Live** entry fees scale with the ticket: 100 / 250 / 500 coins for 5 / 10 / 15 minutes. **Demo** is free and never touches the wallet.
-   - The entry is charged the moment a rival is matched — searching the queue costs nothing, and leaving it costs nothing.
-   - **Winner takes the pot**: both entries pool, the arena burns 10%, the winner collects the rest, a draw refunds each player their own entry, a loss collects nothing (`potFor` / `payoutFor` in `stakes.ts`).
-   - Live and Demo pair on separate Realtime channels, so a paid table can never meet a free one.
-   - **Deposits are crypto, verified by hand**: submit pack + rail + TxID → row lands in `crypto_deposits` as `pending` → an admin approves it at `/admin/deposits`, and only the `approve_crypto_deposit()` Postgres function credits the wallet. Opening the approval row reads the transfer off the chain first (plain JSON-RPC via `/api/chain/tx`, no API key): does the hash exist, is it confirmed, did the USDT reach the house address, and how much — the reviewer then credits that amount. Guests are blocked; a hash can hold only one open claim at a time (pending or paid — a rejected claim may be resubmitted) and can only ever fund one credit. House addresses come from `NEXT_PUBLIC_DEPOSIT_*` env vars — a rail with no address is hidden rather than shown blank. Covers USDT-BEP20/ERC20; TRC20, BTC, SOL and XRP keep the manual explorer step.
-   - **Withdrawals escrow first**: pick an amount, a USDT rail and your own address → `request_crypto_withdraw()` derives gross/fee/net from the coin count, deducts the coins from `player_balances` and queues the row in one transaction. A client cannot invent a rate, dodge the fee or double-spend an escrow. `reject_crypto_withdraw()` is the only way the coins come back.
-   - The right column shows the **Wallet** card — balance, its dollar value, and Deposit / Withdraw buttons. Clicking one reveals the flow in the center column where the Match Ticket renders, with Deposit and Withdraw as tabs of that screen (`src/components/wallet`). Money stays one click away rather than standing in the arena column.
-
-5. **Design System & Contrast**:
-   - Tactical Trading-Floor Dark Palette (`#0e100e`, `#171a17`, `#2a2f2a`, `#eef1ec`, `#9aa39b`, `#ff7a2f`, `#3ddc97`, `#ff5c68`) and Daylight Theme.
-   - Barlow Condensed & Barlow typography with tabular numerals.
-   - Angled clip-path action buttons and cards with 4px signal tops.
-   - Respects `prefers-reduced-motion` and WCAG AA contrast standards.
-   - Multilingual structure seeded for English (`en`), Hindi (`hi`), and Marathi (`mr`).
+| Screen | File |
+|---|---|
+| Lobby and match ticket | `docs/assets/TODO_REPLACE_ME_lobby.png` |
+| Trading terminal | `docs/assets/TODO_REPLACE_ME_terminal.png` |
+| Result and equity curves | `docs/assets/TODO_REPLACE_ME_result.png` |
 
 ---
 
-## 🛠️ Tech Stack
+## Features
 
-- **Framework**: Next.js 14+ (App Router) + React 19 + TypeScript (Strict)
-- **Styling**: Tailwind CSS + Lucide Icons + Custom CSS Design Tokens
-- **Charts**: `lightweight-charts` (TradingView Open Source)
-- **Database & Auth**: Supabase Postgres + Row Level Security (RLS) + Supabase Auth
-- **State Management**: Zustand (persisted state with guest session support)
-- **Validation**: Zod + React Hook Form
-- **Testing**: Vitest (engine & API integration) + Playwright (end-to-end flows)
+- **Deterministic market engine** — seeded price walks, regime shifts, next-tick
+  fills, stop-loss / take-profit, forced close at the end of the window.
+- **Two ways to play** — a real 1v1 table over Supabase Realtime, or Practice vs
+  Bot with no account required.
+- **Full terminal** — candlesticks, EMA/RSI, trade markers, hotkeys, position
+  sizing, SL/TP drag handles.
+- **Lobby** — match ticket, posted challenges, private tables with invite codes,
+  friends list, mailbox, announcements.
+- **Progression** — XP, ranks, seasons, daily/weekly missions, achievements,
+  in-app leaderboard and profile pages.
+- **Result screen** — settled P&L, score, dual equity curves, shareable result.
+- **Free-to-play economy** — coins are virtual score-keeping units, Demo is
+  always free, and Live tickets use virtual coins only.
+- **Themed UI** — indigo surfaces with an amber accent, dark by default.
 
 ---
 
-## 📦 Getting Started
+## Tech stack
 
-### 1. Prerequisites
-- Node.js 18+ and npm installed.
+| Layer | Choice |
+|---|---|
+| Framework | Next.js 16 (App Router), React 19, TypeScript |
+| Styling | Tailwind CSS 4, CSS variables in `src/app/globals.css` |
+| Client state | Zustand with `persist` |
+| Charts | `lightweight-charts` (Apache-2.0) |
+| Backend | Next.js route handlers |
+| Database / auth / realtime | Supabase (Postgres, RLS, GoTrue, Realtime) |
+| Tests | Vitest (unit), Playwright (e2e, configured) |
+| Package manager | npm |
 
-### 2. Installation
+The market itself is generated in `src/lib/engine/`; no vendor price feed is
+required or bundled.
+
+---
+
+## Quick start
+
+Requirements: **Node.js 20.9+** (22 LTS recommended) and npm.
+
 ```bash
-git clone <repo-url> pip-duel
+# 1. Clone
+git clone TODO_REPLACE_ME_GITHUB_REPO_URL pip-duel
 cd pip-duel
-npm install --legacy-peer-deps
-```
 
-### 3. Environment Setup
-Copy `.env.example` to `.env.local`:
-```bash
+# 2. Install dependencies
+npm install
+
+# 3. Create your local env file
 cp .env.example .env.local
-```
-Fill in your Supabase project credentials:
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
-```
-> *Note: If Supabase credentials are not provided, Pip Duel automatically runs in resilient offline simulation mode with local persistence.*
 
-### 4. Database Migrations
-Run the SQL schema located in `supabase/migrations/20240101000000_init_schema.sql` inside your Supabase SQL Editor. This initializes:
-- `profiles` table with signup trigger
-- `segments` fixture catalog
-- `matches`, `match_actions`, `ratings_history`, and `match_flags` tables
-- `leaderboard_daily`, `leaderboard_weekly`, `leaderboard_all` views
-- Complete Row Level Security policies
-
-Apply the later migrations in filename order. The ones that matter day to day:
-- `20261028090000_progress_system.sql` — XP, rank, missions, achievements, leaderboards
-- `20261031090000_coins_only_economy.sql` — drops the entire store schema (`store_items`, `wallet_ledger`, `inventory`, `season_pass_state`, `orders`, the market and creator tables, `profiles.avatar_frame` / `owned_frames`, `player_balances.virtual_gems`) and makes coins the single currency.
-- `20261031120000_crypto_deposits.sql` — replaces the simulated `coin_orders` table with `crypto_deposits`, plus `is_admin()` and the `approve_crypto_deposit()` / `reject_crypto_deposit()` review functions that are the only way coins get credited.
-- `20261101090000_admin_operations.sql` — `wallet_ledger` (one row per coin movement, written only by `record_ledger()`), `admin_adjust_coins()` / `admin_set_player_status()`, the duplicate-TxID trigger on deposits, `profiles.status`, and dual approval on payouts of 5,000 coins or more.
-
-Deposit addresses are configuration, not schema — set them in `.env.local` (`NEXT_PUBLIC_DEPOSIT_USDT_BEP20` and friends) and restart the dev server.
-
-### 5. Running the Dev Server
-```bash
+# 4. Start the dev server
 npm run dev
+
+# 5. Open the game
+# http://localhost:3000
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
 
----
+Without real Supabase credentials the app runs in local guest mode: Practice vs
+Bot, the terminal, the engine and the marketing pages all work. Auth, friends and
+real 1v1 matchmaking need a Supabase project (next section).
 
-## 🧪 Testing Suite
+### Tests and checks
 
-### Unit & API Verification Tests (Vitest)
-Covers engine determinism, next-tick fill, SL/TP execution, no-future-leak guarantees, scoring tie-breaks, bot determinism, Elo math, the progress pipeline, and the economy ($→coin conversion, pack and TxID validation, rail/address configuration, Live fees per ticket length, pot maths):
 ```bash
-npm test
+npm run lint          # ESLint
+npm run typecheck     # tsc --noEmit
+npm test              # Vitest
+npm run build         # production build
 ```
 
-### End-to-End Tests (Playwright)
-Validates registration navigation, guest matchmaking, trading terminal execution, and match settlement:
+Playwright is configured but the suite is empty in this snapshot; the first
+smoke test is a listed starter issue.
+
+---
+
+## How multiplayer works locally
+
+1. Start the dev server.
+2. Open `http://localhost:3000/play` in two browser windows.
+3. Sign in as a guest in each window (or use two registered accounts).
+4. Pick the same duration and press **Find Match** in both.
+
+Realtime matchmaking uses Supabase Broadcast/Presence channels. To run it end to
+end, create a Supabase project, run the SQL in `supabase/setup.sql`, and set
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env.local`.
+No service-role key is needed by the application.
+
+### Synthetic sample data
+
+The game never needs a downloaded price file. If you want a frozen sample for a
+demo, a notebook or a test fixture:
+
 ```bash
-npm run test:e2e
+npm run seed            # writes data/sample-candles.json
+node scripts/seed-sample-data.mjs --bars 200 --out /tmp/sample.json
+```
+
+The generated file is deterministic, marked as synthetic, and is **not** real
+market data.
+
+---
+
+## Project structure
+
+```text
+src/
+  app/                 Next.js routes (marketing, auth, play, admin, legal)
+  components/          UI: terminal, lobby, wallet, progress, site chrome
+  lib/
+    engine/            Deterministic market, candles, simulation, scoring, bot
+    matchmaking/       Realtime queue
+    challenges/        Posted-challenge board
+    tables/            Private tables and invite codes
+    rooms/             Match session handoff
+    progress/          XP, ranks, missions, achievements, stats
+    economy/           Coin/ticket rules (real-money paths are being removed)
+    supabase/          Client, wallet, friends, mail, announcements, admin reads
+    auth/              Guest and profile store
+supabase/
+  setup.sql            Full local schema
+  migrations/          Incremental changes
+scripts/               Developer utilities
+docs/                  Architecture, roadmap, audit, release report
+public/                Static assets
 ```
 
 ---
 
-## 📊 How to Add Market Segments
+## Roadmap
 
-1. Navigate to `/admin/segments` when logged in with an `admin` role.
-2. Enter the scenario title, difficulty level, and regime tag (`trend_up`, `trend_down`, `range`, `spike`, `whipsaw`, `gap`).
-3. You can also seed synthetic segments directly in code using `generateFixtures()` in `src/lib/engine/fixtures.ts`.
-4. *Data Licensing Warning*: Ensure any imported external market data complies with redistribution licenses.
+See [ROADMAP.md](ROADMAP.md). The short version: finish the free-to-play
+hardening, add a Practice/Chart Replay mode, then a Battle Royale format.
 
 ---
 
-## 📝 Documented Assumptions
+## Contributing
 
-1. **Offline & Guest Resilience**: When Supabase credentials are empty or inaccessible, the application gracefully operates in demo mode using client-side Zustand persistence so testing and gameplay never break.
-2. **Deterministic Bot Opponent**: When queueing for 12 seconds without an active peer, matchmaking automatically pairs the player with the momentum bot (`botActions`). Matches against the bot do not alter Elo ratings to prevent rating inflation.
-3. **Lot Sizing & Notional**: Fixed at $50,000 notional per lot size across allowed sizes `[1, 2, 3, 5]`.
-4. **Time & Tick Scale**: Match duration is 60 seconds (120 ticks at 500ms intervals). Orders placed at tick $t$ fill at tick $t+1$.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and
+[docs/GOOD_FIRST_ISSUES.md](docs/GOOD_FIRST_ISSUES.md). This project uses the
+Developer Certificate of Origin — sign every commit with `git commit -s`.
 
----
-
-## 🗺️ Roadmap
-
-- [ ] **Best of 3 Series**: Match format with 3 consecutive 60s rounds across different market regimes.
-- [ ] **Tournament Brackets**: Single-elimination weekend community brackets for up to 64 traders.
-- [ ] **Live Market Feed Adapter**: Server-side WebSocket ingest for live FX ticks (Twelve Data / Finnhub).
-- [ ] **Limit & Stop Orders**: Advanced pending order types on the terminal chart.
-- [ ] **Expanded Regional Languages**: Extended Marathi (`mr`) and Hindi (`hi`) voice prompts and glossaries.
+- Code of Conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- Security reports: [SECURITY.md](SECURITY.md) — never in a public issue
+- Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ---
 
-## 📄 License
-Virtual simulation platform built for the **Forexwala** trading community. Charts powered by [TradingView Lightweight Charts™](https://www.tradingview.com/lightweight-charts/).
-#   P i p D u a l  
- #   P i p D u a l  
- #   P i p D u a l  
- 
+## License
+
+The source is licensed under the **GNU Affero General Public License v3.0 only**
+(`AGPL-3.0-only`). See [LICENSE](LICENSE). If you run a modified version as a
+network service, section 13 requires you to offer its source to users.
+
+Third-party packages keep their own licences; see `THIRD_PARTY_NOTICES.md` for the
+attribution notices (Apache-2.0, LGPL-3.0, CC-BY-4.0, OFL).
+
+## Trademark
+
+The **Pip Duel** name and logo are reserved. The licence grants rights to the code,
+not to the brand. Forks must use a different name and must not imply endorsement.
+See [TRADEMARK.md](TRADEMARK.md).
+
+## Community
+
+- Discussions: TODO_REPLACE_ME_DISCUSSIONS_URL
+- Telegram: TODO_REPLACE_ME_TELEGRAM_URL
+- Contact: TODO_REPLACE_ME_MAINTAINER_EMAIL
+
+Originally built by the Forexwala community (Pune, India).
