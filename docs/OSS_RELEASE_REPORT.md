@@ -1,9 +1,9 @@
 # Pip Duel — Open-source release report
 
 **Date:** 2026-10-31
-**Branch:** `chore/open-source-prep`
+**Branch:** `chore/open-source-prep`, pushed to `origin` (no force, `main` untouched)
 **Scope:** free-to-play remediation, docs, CI and onboarding.
-**Mode:** working tree only — no force-push, `main` untouched, history not rewritten.
+**Mode:** working tree and feature branch only — no force-push, `main` untouched, history not rewritten.
 
 Companion: [OSS_AUDIT.md](OSS_AUDIT.md) (findings and evidence),
 [ARCHITECTURE.md](ARCHITECTURE.md), [GOOD_FIRST_ISSUES.md](GOOD_FIRST_ISSUES.md).
@@ -182,7 +182,7 @@ Screenshot placeholders remain in the README table.
 4. **Confirm the local cleanup:** `.rea-cathode/` is gone and
    `git for-each-ref refs/cline` is empty. Re-run `git gc --prune=now` if you
    want to compact the object store.
-5. **Push the branch** and open a PR. Confirm CI (`quality`, `DCO sign-off`,
+5. **Open the PR** from the pushed branch and confirm CI (`quality`, `DCO sign-off`,
    `gitleaks`) is green.
 6. **Run the GitHub setup:** edit `OWNER`/`REPO` in `scripts/setup-github.sh`,
    review it, run it, then run its printed branch-protection command.
