@@ -274,7 +274,7 @@ export default function AdminWithdrawalsPage() {
           onClick={() => setShowAll(false)}
           className={` px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
             !showAll
-              ? 'bg-[var(--purple)] text-white'
+              ? 'bg-[var(--purple)] text-[var(--term-canvas)]'
               : 'bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:text-[var(--text)]'
           }`}
         >
@@ -284,7 +284,7 @@ export default function AdminWithdrawalsPage() {
           onClick={() => setShowAll(true)}
           className={` px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
             showAll
-              ? 'bg-[var(--purple)] text-white'
+              ? 'bg-[var(--purple)] text-[var(--term-canvas)]'
               : 'bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:text-[var(--text)]'
           }`}
         >
@@ -437,7 +437,7 @@ export default function AdminWithdrawalsPage() {
                                     ? 'Two signatures: this records the first'
                                     : undefined
                               }
-                              className={`px-3 py-1 text-[10px] font-bold uppercase text-white flex items-center gap-1.5 ${
+                              className={`px-3 py-1 text-[10px] font-bold uppercase text-[var(--term-canvas)] flex items-center gap-1.5 ${
                                 signedByMe
                                   ? 'bg-[var(--surface-muted)] text-[var(--text-muted)] cursor-not-allowed'
                                   : 'bg-[var(--up)] cursor-pointer'
@@ -535,7 +535,7 @@ export default function AdminWithdrawalsPage() {
                               <button
                                 onClick={() => void handleApprove(withdrawal)}
                                 disabled={payRef.trim().length < 12 || busyId === withdrawal.id}
-                                className="flex items-center gap-2 bg-[var(--up)] px-4 py-2 text-xs font-bold text-white disabled:opacity-50 cursor-pointer"
+                                className="flex items-center gap-2 bg-[var(--up)] px-4 py-2 text-xs font-bold text-[var(--term-canvas)] disabled:opacity-50 cursor-pointer"
                               >
                                 {busyId === withdrawal.id && (
                                   <Loader2 size={12} className="animate-spin" />
@@ -606,7 +606,7 @@ export default function AdminWithdrawalsPage() {
                               <button
                                 onClick={() => void handleReject(withdrawal)}
                                 disabled={!rejectNote.trim() || busyId === withdrawal.id}
-                                className="flex items-center gap-2 bg-[var(--down)] px-4 py-2 text-xs font-bold text-white disabled:opacity-50 cursor-pointer"
+                                className="flex items-center gap-2 bg-[var(--down)] px-4 py-2 text-xs font-bold text-[var(--term-canvas)] disabled:opacity-50 cursor-pointer"
                               >
                                 {busyId === withdrawal.id && (
                                   <Loader2 size={12} className="animate-spin" />

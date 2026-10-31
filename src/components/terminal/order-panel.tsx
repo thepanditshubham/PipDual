@@ -229,7 +229,7 @@ export function OrderPanel({
               key={size}
               onClick={() => setSelectedSize(size)}
               className={`flex-1 h-7 rounded font-mono font-bold text-xs transition-all ${selectedSize === size
-                  ? 'bg-[var(--term-primary)] text-white shadow-sm'
+                  ? 'bg-[var(--term-primary)] text-[var(--term-canvas)] shadow-sm'
                   : 'bg-[var(--term-raised)] border border-[var(--term-border)] text-[var(--term-label)] hover:text-[var(--term-text)] hover:border-[var(--term-border-hi)]'
                 }`}
             >

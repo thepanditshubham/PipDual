@@ -156,7 +156,7 @@ export default function AdminPlayersPage() {
               onClick={() => setStatusFilter(status)}
               className={` px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
                 statusFilter === status
-                  ? 'bg-[var(--purple)] text-white'
+                  ? 'bg-[var(--purple)] text-[var(--term-canvas)]'
                   : 'bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:text-[var(--text)]'
               }`}
             >

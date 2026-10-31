@@ -13,7 +13,7 @@ export function Navbar() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group" aria-label="Pip Duel home">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center gradient-brand">
-            <Swords size={16} className="text-white" />
+            <Swords size={16} className="text-[#241c10]" />
           </div>
           <span className="font-bold text-base tracking-tight text-[var(--text)] group-hover:opacity-90 transition-opacity">
             Pip Duel

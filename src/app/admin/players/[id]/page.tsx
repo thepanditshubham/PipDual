@@ -342,7 +342,7 @@ export default function AdminPlayerPage() {
             <button
               onClick={() => void submitStatus()}
               disabled={statusBusy}
-              className={` px-4 py-2 text-xs font-bold text-white disabled:opacity-50 cursor-pointer ${
+              className={` px-4 py-2 text-xs font-bold text-[var(--term-canvas)] disabled:opacity-50 cursor-pointer ${
                 statusPrompt === 'active' ? 'bg-[var(--up)]' : 'bg-[var(--down)]'
               }`}
             >
@@ -410,7 +410,7 @@ export default function AdminPlayerPage() {
                 <button
                   onClick={() => void submitAdjust()}
                   disabled={!amountValid || !reasonValid || adjustBusy}
-                  className="flex items-center gap-1.5 bg-[var(--purple)] px-3.5 py-2 text-xs font-bold text-white disabled:opacity-50 cursor-pointer"
+                  className="flex items-center gap-1.5 bg-[var(--purple)] px-3.5 py-2 text-xs font-bold text-[var(--term-canvas)] disabled:opacity-50 cursor-pointer"
                 >
                   <ArrowLeftRight size={13} />
                   {adjustBusy ? 'Writing…' : 'Adjust coins'}

@@ -616,6 +616,8 @@ function PlayLobbyContent() {
 
   // Mount-only: reset stale match/queue state + fetch live leaderboard (runs once)
   useEffect(() => {
+    // Mount flag: the ticket must render its client-only state after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     setMatchFoundData(null);
     setMatchedRival(null);
@@ -810,6 +812,8 @@ function PlayLobbyContent() {
   // Matchmaking Queue listener — only re-runs when queueing toggles
   useEffect(() => {
     if (!queueing) {
+      // Queue teardown: clear the sealed match and its clock.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMatchedRival(null);
       setQueueTimer(0);
       return;
@@ -1430,14 +1434,8 @@ function PlayLobbyContent() {
       data-lobby
       className="term-theme relative isolate min-h-screen w-full text-[var(--term-text)] flex flex-col select-none text-sm overflow-x-clip font-sans"
     >
-      {/* ── Blurred ambient background layers ── */}
-      {/* NOTE: `isolate` on the page root keeps these -z-10 layers above the opaque bg-bg of <main>. */}
+      {/* ── Flat field — one navy canvas, no texture, no colour wash ── */}
       <div className="fixed inset-0 bg-[var(--term-canvas)] -z-10" />
-      {/* Neutral veil only: vignette, no colour wash and no scanlines */}
-      <div className="lobby-glow-veil fixed inset-0 -z-10 pointer-events-none" aria-hidden="true" />
-      {/* CRT texture — the same fixed full-viewport scanline the landing page
-          carries, so it reads over the whole screen instead of only the floor */}
-      <div className="site-scanlines" aria-hidden="true" />
 
       {/* ── Announcement strip — the first thing on the page, above the header ── */}
       <AnnouncementBar />
@@ -1530,6 +1528,26 @@ function PlayLobbyContent() {
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--term-buy)]" />
               <span className="text-[var(--term-label)]">{onlineCount.toLocaleString()} online</span>
             </div>
+
+            {/* Balance + Deposit — the one money door, always in the header,
+                the way Quotex keeps the account and its top-up side by side */}
+            {currentUser && !currentUser.isGuest && (
+              <div className="flex items-center gap-1.5">
+                <span className="hidden sm:flex h-8 items-center gap-1.5 rounded-lg border border-[var(--term-border)] bg-[var(--term-raised)] px-2.5 text-[11px] font-mono font-bold text-[var(--term-strong)]">
+                  <img src="/coin.png" alt="" className="h-3.5 w-3.5 shrink-0 object-contain" />
+                  {(balanceSyncing && mounted ? 0 : userCoins).toLocaleString()}
+                </span>
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    openWallet('deposit');
+                  }}
+                  className="h-8 rounded-lg bg-[var(--term-accent)] px-3.5 text-[11px] font-bold tracking-wide text-[var(--term-canvas)] transition-colors hover:bg-[var(--term-accent-hi)] cursor-pointer"
+                >
+                  Deposit
+                </button>
+              </div>
+            )}
 
             {/* Light / dark switch — shared with the battle terminal */}
             <TerminalModeToggle
@@ -1729,7 +1747,7 @@ function PlayLobbyContent() {
               return (
                 <div id="match-ticket-card" className="relative p-[2px] rounded-xl overflow-hidden animate-in fade-in duration-200">
                   {/* Spinning conic border — the same halo as the Find Match button */}
-                  <div className="absolute inset-[-100%] animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_0deg,#089981,#f23645,#089981)] pointer-events-none" />
+                  <div className="absolute inset-[-100%] animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_0deg,#3ddc84,#ff5f75,#3ddc84)] pointer-events-none" />
 
                   <div className="relative bg-[var(--term-surface)]/95 backdrop-blur-md rounded-[10px] overflow-hidden">
                     <div className="grid grid-cols-1 md:grid-cols-12 relative">
@@ -1819,7 +1837,7 @@ function PlayLobbyContent() {
                                 <circle
                                   cx="28" cy="28" r="26"
                                   fill="none"
-                                  stroke="#089981"
+                                  stroke="var(--term-buy)"
                                   strokeWidth="3"
                                   strokeLinecap="round"
                                   strokeDasharray="42 121"
@@ -1839,7 +1857,7 @@ function PlayLobbyContent() {
                                 <circle
                                   cx="28" cy="28" r="26"
                                   fill="none"
-                                  stroke={matchFoundCountdown <= 2 ? '#f23645' : '#089981'}
+                                  stroke={matchFoundCountdown <= 2 ? 'var(--term-sell)' : 'var(--term-buy)'}
                                   strokeWidth="3"
                                   strokeLinecap="round"
                                   strokeDasharray="163"
@@ -1875,7 +1893,7 @@ function PlayLobbyContent() {
             })()}
 
             {centerTab === 'ticket' && !matchFoundData && (
-              <div id="match-ticket-card" className="bg-[var(--term-surface)]/70 backdrop-blur-md border border-[var(--term-border)] rounded-xl overflow-hidden relative animate-in fade-in duration-200">
+              <div id="match-ticket-card" className="bg-[var(--term-panel)] border border-[var(--term-border)] rounded-lg overflow-hidden relative animate-in fade-in duration-200">
                 <div className="grid grid-cols-1 md:grid-cols-12 relative">
 
                   {/* Left Ticket Section (col-span-8) - Clean & Simplified */}
@@ -1926,13 +1944,13 @@ function PlayLobbyContent() {
                                 soon
                                   ? 'cursor-not-allowed bg-[var(--term-bg)] text-[var(--term-dim)] border border-dashed border-[var(--term-border)]'
                                   : active
-                                    ? 'bg-[var(--term-primary)]/10 text-[var(--term-strong)] border border-[var(--term-primary)]/70 cursor-pointer'
-                                    : 'bg-[var(--term-bg)] text-[var(--term-muted)] border border-[var(--term-border)] hover:border-[var(--term-primary)]/40 hover:text-[var(--term-primary)] cursor-pointer'
+                                    ? 'bg-[var(--term-accent)]/12 text-[var(--term-strong)] border border-[var(--term-accent)] cursor-pointer'
+                                    : 'bg-[var(--term-bg)] text-[var(--term-muted)] border border-[var(--term-border)] hover:border-[var(--term-accent)]/50 hover:text-[var(--term-accent-text)] cursor-pointer'
                               }`}
                             >
                               <span className={soon ? 'opacity-60' : undefined}>{d.label}</span>
                               {soon && (
-                                <span className="absolute top-1 right-1.5 text-[8px] font-mono uppercase tracking-wider text-[var(--term-amber)]">
+                                <span className="absolute top-1 right-1.5 text-[8px] font-mono uppercase tracking-wider text-[var(--term-dim)]">
                                   Soon
                                 </span>
                               )}
@@ -2041,25 +2059,15 @@ function PlayLobbyContent() {
                     </div>
                   </div>
 
-                  {/* Actions stub — dashed perforation line. No artwork behind the
-                      actions: the Find Match button owns this half on its own.
-                      No space-y here: its margin offsets absolutely positioned
-                      children inside a flex column, which pulled the bottom notch
-                      up off the edge. */}
-                  <div className="md:col-span-4 p-4 bg-[var(--term-panel-deep)] md:border-l md:border-dashed md:border-[var(--term-border-hi)] flex flex-col justify-between relative">
+                  {/* Actions half — a plain divider and the one blue button.
+                      No perforation, no artwork: the Find Match button owns
+                      this half on its own. */}
+                  <div className="md:col-span-4 p-4 bg-[var(--term-panel-deep)] md:border-l md:border-[var(--term-border)] flex flex-col justify-center relative">
 
-                    {/* Semicircle cutouts centred on the dashed perforation line */}
-                    <div className="hidden md:block absolute -top-3 -left-3 w-6 h-6 rounded-full bg-[var(--term-bg)] border border-[var(--term-border)] shadow-inner pointer-events-none" />
-                    <div className="hidden md:block absolute -bottom-3 -left-3 w-6 h-6 rounded-full bg-[var(--term-bg)] border border-[var(--term-border)] shadow-inner pointer-events-none" />
-
-                    <div className="relative z-10 space-y-3 my-auto">
-                      {/* Primary Button: [ Find Match ] / [ Matching... 00:08 ] with spinning border.
-                          Always wears the arena purple — posted challenges read apart from a plain
-                          search through the board row, not a colour change on this button. */}
-                      <div className="relative p-[2px] rounded-xl overflow-hidden group">
-                        {/* Spinning border background */}
-                        <div className="absolute inset-[-100%] animate-[spin_3s_linear_infinite] pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity bg-[conic-gradient(from_0deg,var(--term-primary-deep),var(--term-primary),var(--term-primary-hi))]" />
-                        
+                    <div className="relative z-10 space-y-3">
+                      {/* Primary action — one flat blue button, the way Quotex
+                          wears its trade controls: no halo, no spin, no gradient. */}
+                      <div>
                         <button
                           id="find-match-btn"
                           disabled={!myChallenge && !queueing && isChallengeMode && (!challengeValid || !challengeAffordable)}
@@ -2096,7 +2104,7 @@ function PlayLobbyContent() {
                             }
                             handleFindMatch();
                           }}
-                          className="relative z-10 w-full h-12 font-bold text-base rounded-[10px] flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent cursor-pointer text-white bg-[linear-gradient(135deg,var(--term-primary)_0%,var(--term-primary-deep)_100%)] hover:bg-[linear-gradient(135deg,var(--term-primary-hi)_0%,var(--term-primary)_100%)]"
+                          className="w-full h-12 rounded-lg bg-[var(--term-accent)] hover:bg-[var(--term-accent-hi)] text-sm font-bold text-[var(--term-canvas)] flex items-center justify-center gap-2 transition-colors active:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         >
                           {myChallenge || queueing ? (
                             <div className="flex flex-col items-center gap-0.5">
@@ -2106,7 +2114,7 @@ function PlayLobbyContent() {
                               </div>
                               {/* Only the wait, never the stake or the cancel hint:
                                   cancelling lives on the row below the button. */}
-                              <span className="text-[10px] font-mono tracking-widest text-white/60">
+                              <span className="text-[10px] font-mono tracking-widest text-[var(--term-canvas)]/70">
                                 {formatWait(myChallenge ? challengeTimer : queueTimer)}
                               </span>
                             </div>
@@ -2157,11 +2165,6 @@ function PlayLobbyContent() {
                       </div>
                     </div>
 
-                    <div className="relative z-10 pt-2 text-center">
-                      <span className="text-xs font-mono text-[var(--term-muted)]">
-                        PIP DUEL ENGINE v2.4
-                      </span>
-                    </div>
                   </div>
 
                 </div>
@@ -2174,7 +2177,7 @@ function PlayLobbyContent() {
                 both tabs are on the channel, and the seat is charged only when
                 the rival actually sits down. */}
             {centerTab === 'ticket' && !matchFoundData && (
-              <div className="bg-[var(--term-surface)]/70 backdrop-blur-md border border-[var(--term-border)] rounded-xl overflow-hidden animate-in fade-in duration-200">
+              <div className="bg-[var(--term-panel)] border border-[var(--term-border)] rounded-lg overflow-hidden animate-in fade-in duration-200">
                 <div className="flex items-center justify-between border-b border-[var(--term-border)] px-4 py-2.5">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--term-strong)] font-mono">
                     Private table
@@ -2494,7 +2497,7 @@ function PlayLobbyContent() {
                         if (next) sound.playClick();
                       }}
                       className={`shrink-0 px-3 py-1.5 rounded font-bold text-xs cursor-pointer transition-colors ${
-                        soundEnabled ? 'bg-[var(--term-buy)] text-white' : 'bg-[var(--term-raised)] text-[var(--term-muted)] border border-[var(--term-border)]'
+                        soundEnabled ? 'bg-[var(--term-buy)] text-[var(--term-canvas)]' : 'bg-[var(--term-raised)] text-[var(--term-muted)] border border-[var(--term-border)]'
                       }`}
                     >
                       {soundEnabled ? 'ENABLED' : 'MUTED'}
@@ -2610,7 +2613,7 @@ function PlayLobbyContent() {
                           <span
                             className="w-6 h-6 rounded-full border border-[var(--term-border-hi)] shrink-0 flex items-center justify-center text-[10px] font-bold uppercase"
                             style={{
-                              background: item.read ? 'var(--term-bg)' : 'rgba(41,98,255,0.16)',
+                              background: item.read ? 'var(--term-bg)' : 'rgba(240,165,58,0.16)',
                               color: item.read ? 'var(--term-label)' : 'var(--term-accent-text)',
                             }}
                           >
@@ -2802,7 +2805,7 @@ function PlayLobbyContent() {
                           type="button"
                           onClick={() => void transferDeskToWallet()}
                           disabled={!desk || desk.balance <= 0 || affiliateTransferring}
-                          className="flex-1 md:flex-none px-4 h-10 rounded-lg text-xs font-bold cursor-pointer transition-all border border-[var(--term-primary)]/50 bg-[linear-gradient(135deg,var(--term-primary)_0%,var(--term-primary-deep)_100%)] text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex-1 md:flex-none px-4 h-10 rounded-lg text-xs font-bold cursor-pointer transition-all border border-[var(--term-primary)]/50 bg-[linear-gradient(135deg,var(--term-primary)_0%,var(--term-primary-deep)_100%)] text-[var(--term-canvas)] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {affiliateTransferring
                             ? 'Moving…'
@@ -3117,29 +3120,21 @@ function PlayLobbyContent() {
                         title={`pot ${potFor(c.stake).toLocaleString()} · −${houseBurnFor(c.stake).toLocaleString()} burn${c.duration ? ` · ${c.duration}` : ''}`}
                         className={`group relative overflow-hidden rounded-md border pl-3 pr-1.5 py-1.5 flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-300 transition-all cursor-default ${mine ? '' : tier.glow} ${
                           mine
-                            ? 'border-[var(--term-sell)]/45 bg-[var(--term-sell)]/10 hover:bg-[var(--term-sell)]/15 hover:border-[var(--term-sell)]/60'
+                            ? 'border-[var(--term-accent)]/45 bg-[var(--term-accent)]/10 hover:bg-[var(--term-accent)]/15 hover:border-[var(--term-accent)]/60'
                             : 'border-[var(--term-border)] bg-[var(--term-raised)]/40 hover:bg-[var(--term-raised)]/70 hover:border-[var(--term-border-hi)]'
                         } ${demo ? 'opacity-80' : ''}`}
                       >
-                        {/* Full-height rail — red hot on your own card, tier
+                        {/* Full-height rail — blue on your own card, tier
                             gradient on everyone else's */}
                         <span
                           aria-hidden
                           className={`absolute left-0 top-0 bottom-0 w-1 ${
-                            mine ? 'bg-[linear-gradient(180deg,var(--term-sell),var(--term-sell-2))]' : tier.rail
+                            mine ? 'bg-[var(--term-accent)]' : tier.rail
                           }`}
                         />
 
-                        {/* Light shine — a soft sheen drifting across your own card */}
-                        {mine && (
-                          <span
-                            aria-hidden
-                            className="pointer-events-none absolute inset-y-0 left-0 w-1/4 bg-[linear-gradient(105deg,transparent,rgba(255,255,255,0.22),transparent)] animate-[card-shine_4s_ease-in-out_infinite]"
-                          />
-                        )}
-
                         <span className={`grid place-items-center w-6 h-6 min-[1670px]:w-5 min-[1670px]:h-5 shrink-0 rounded font-mono text-[10px] font-bold bg-[var(--term-raised)] ring-1 ${
-                          mine ? 'text-[var(--term-sell)] ring-[var(--term-sell)]/40' : tier.chip
+                          mine ? 'text-[var(--term-accent-text)] ring-[var(--term-accent)]/40' : tier.chip
                         }`}>
                           {(c.username.charAt(0) || '?').toUpperCase()}
                         </span>
@@ -3166,8 +3161,8 @@ function PlayLobbyContent() {
                             <>
                               {/* Resting state: an accent status chip. Hover turns
                                   the same slot into the retract action. */}
-                              <span className="group-hover:hidden inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[var(--term-sell)]">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[var(--term-sell)] animate-pulse" />
+                              <span className="group-hover:hidden inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[var(--term-accent-text)]">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[var(--term-accent)] animate-pulse" />
                                 Awaiting
                               </span>
                               <button
@@ -3179,8 +3174,8 @@ function PlayLobbyContent() {
                               </button>
                             </>
                           ) : waiting ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[var(--term-amber)]">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[var(--term-amber)] animate-ping" />
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[var(--term-accent-text)]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[var(--term-accent)] animate-ping" />
                               Waiting
                             </span>
                           ) : (

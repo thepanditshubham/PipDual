@@ -13,6 +13,11 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "_to_delete/**",
+    // Local reverse-engineering evidence; never committed.
+    ".rea-cathode/**",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
   ]),
 ]);
 

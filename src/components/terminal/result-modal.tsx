@@ -137,7 +137,7 @@ export function ResultModal({
             won
               ? 'bg-gradient-to-b from-[var(--term-buy-3)]/20 to-transparent border-[var(--term-buy-3)]/40 text-[var(--term-buy)]'
               : isDraw
-                ? 'bg-gradient-to-b from-[var(--term-amber)]/20 to-transparent border-[var(--term-amber)]/40 text-[var(--term-amber)]'
+                ? 'bg-gradient-to-b from-[var(--term-border-hi)]/40 to-transparent border-[var(--term-border-hi)] text-[var(--term-strong)]'
                 : 'bg-gradient-to-b from-[var(--term-sell)]/20 to-transparent border-[var(--term-sell)]/40 text-[var(--term-sell)]'
           }`}
         >
@@ -146,7 +146,7 @@ export function ResultModal({
               won
                 ? 'bg-[var(--term-panel)] border-[var(--term-buy)]/50 text-[var(--term-buy)]'
                 : isDraw
-                  ? 'bg-[var(--term-panel)] border-[var(--term-amber)]/50 text-[var(--term-amber)]'
+                  ? 'bg-[var(--term-panel)] border-[var(--term-border-hi)] text-[var(--term-strong)]'
                   : 'bg-[var(--term-panel)] border-[var(--term-sell)]/50 text-[var(--term-sell)]'
             }`}
           >
@@ -163,10 +163,10 @@ export function ResultModal({
         <div className="p-6 md:p-8 space-y-6">
           {/* Live pot: what the entry cost and what the arena paid out */}
           {showPot && (
-            <div className="bg-[var(--term-panel-deep)] border border-[var(--term-amber)]/30 rounded-xl p-4 space-y-3">
+            <div className="bg-[var(--term-panel-deep)] border border-[var(--term-border-hi)] rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--term-soft)] flex items-center gap-1.5">
-                  <Coins size={12} className="text-[var(--term-amber)]" /> Live Pot
+                  <Coins size={12} className="text-[var(--term-soft)]" /> Live Pot
                 </span>
                 <span className="text-[10px] font-mono text-[var(--term-muted)]">
                   {isDraw ? 'Draw — entries refunded' : won ? 'Winner takes the pot' : 'Pot collected by rival'}
@@ -180,7 +180,7 @@ export function ResultModal({
                 </div>
                 <div className="rounded-lg bg-[var(--term-raised)] border border-[var(--term-border)] py-2">
                   <p className="text-[10px] uppercase tracking-wider text-[var(--term-muted)]">Collected</p>
-                  <p className="text-sm font-bold font-mono text-[var(--term-amber)]">+{potPayout.toLocaleString()}</p>
+                  <p className="text-sm font-bold font-mono text-[var(--term-strong)]">+{potPayout.toLocaleString()}</p>
                 </div>
                 <div className="rounded-lg bg-[var(--term-raised)] border border-[var(--term-border)] py-2">
                   <p className="text-[10px] uppercase tracking-wider text-[var(--term-muted)]">Net</p>
@@ -231,7 +231,7 @@ export function ResultModal({
                 </div>
                 <div className="rounded-lg bg-[var(--term-raised)] border border-[var(--term-border)] py-2">
                   <p className="text-[10px] uppercase tracking-wider text-[var(--term-muted)]">Coins</p>
-                  <p className="text-sm font-bold font-mono text-[var(--term-amber)]">+{rewards.coins}</p>
+                  <p className="text-sm font-bold font-mono text-[var(--term-strong)]">+{rewards.coins}</p>
                 </div>
               </div>
 
@@ -257,12 +257,12 @@ export function ResultModal({
                     </span>
                   )}
                   {rewards.placementDone && (
-                    <span className="px-2 py-0.5 rounded-full bg-[var(--term-amber)]/15 border border-[var(--term-amber)]/40 text-[10px] font-bold uppercase tracking-wider text-[var(--term-amber)]">
+                    <span className="px-2 py-0.5 rounded-full bg-[var(--term-raised)] border border-[var(--term-border-hi)] text-[10px] font-bold uppercase tracking-wider text-[var(--term-soft)]">
                       Placements complete
                     </span>
                   )}
                   {rewards.levelAfter > rewards.levelBefore && (
-                    <span className="px-2 py-0.5 rounded-full bg-[var(--term-amber)]/15 border border-[var(--term-amber)]/40 text-[10px] font-bold uppercase tracking-wider text-[var(--term-amber)]">
+                    <span className="px-2 py-0.5 rounded-full bg-[var(--term-raised)] border border-[var(--term-border-hi)] text-[10px] font-bold uppercase tracking-wider text-[var(--term-strong)]">
                       Level {rewards.levelAfter}
                     </span>
                   )}
@@ -276,7 +276,7 @@ export function ResultModal({
                 </p>
               )}
 
-              <Link href="/play" className="text-[10px] font-mono text-[var(--term-primary-hi)] hover:text-[var(--term-strong)] transition-colors">
+              <Link href="/play" className="text-[10px] font-mono text-[var(--term-soft)] hover:text-[var(--term-strong)] transition-colors">
                 View full progress in the lobby ›
               </Link>
             </div>
@@ -310,8 +310,8 @@ export function ResultModal({
 
             {/* Rival */}
             <div className="bg-[var(--term-panel-deep)] border border-[var(--term-border)] rounded-xl p-4 text-center space-y-1 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[var(--term-accent)] to-[var(--term-amber)]" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--term-accent)]">{rivalName}</span>
+              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[var(--term-gem)] to-[var(--term-border-hi)]" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--term-gem)]">{rivalName}</span>
               <div
                 className={`text-3xl font-extrabold font-mono tabular-nums ${
                   rivalScore.pnl >= 0 ? 'text-[var(--term-buy)]' : 'text-[var(--term-sell)]'
@@ -341,8 +341,8 @@ export function ResultModal({
                 <span className="flex items-center gap-1.5 text-[var(--term-buy)] font-bold">
                   <span className="w-2.5 h-1 rounded-full bg-[var(--term-buy)]" /> You
                 </span>
-                <span className="flex items-center gap-1.5 text-[var(--term-accent)] font-bold">
-                  <span className="w-2.5 h-1 rounded-full bg-[var(--term-accent)]" /> {rivalName}
+                <span className="flex items-center gap-1.5 text-[var(--term-gem)] font-bold">
+                  <span className="w-2.5 h-1 rounded-full bg-[var(--term-gem)]" /> {rivalName}
                 </span>
               </div>
             </div>
@@ -356,7 +356,7 @@ export function ResultModal({
                 {rivalPath && (
                   <polyline
                     fill="none"
-                    stroke="var(--term-accent)"
+                    stroke="var(--term-gem)"
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -391,7 +391,7 @@ export function ResultModal({
             </div>
             <div className="flex items-center gap-2">
               {revealedMarket.tags.map((tg) => (
-                <span key={tg} className="px-2.5 py-0.5 rounded-full bg-[var(--term-panel)] text-[var(--term-accent)] border border-[var(--term-border)] text-[10px] uppercase font-semibold">
+                <span key={tg} className="px-2.5 py-0.5 rounded-full bg-[var(--term-panel)] text-[var(--term-soft)] border border-[var(--term-border-hi)] text-[10px] uppercase font-semibold">
                   {tg}
                 </span>
               ))}
@@ -440,7 +440,7 @@ export function ResultModal({
 
             <button
               onClick={handleShare}
-              className="py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-[var(--term-strong)] bg-[var(--term-raised)] border border-[var(--term-border)] hover:border-[var(--term-amber)] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              className="py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-[var(--term-strong)] bg-[var(--term-raised)] border border-[var(--term-border)] hover:border-[var(--term-border-hi)] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
               {copied ? <Check size={14} className="text-[var(--term-buy)]" /> : <Share2 size={14} />}
               {copied ? 'Link Copied!' : 'Share Result'}

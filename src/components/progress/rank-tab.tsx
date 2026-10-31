@@ -107,7 +107,7 @@ export function RankTab() {
 
       {/* Season + decay */}
       <div className="space-y-2">
-        <SectionTitle icon={<Sparkles size={13} className="text-[var(--term-accent)]" />} right={<Chip color="#2962ff">{seasonCountdownLabel(season)}</Chip>}>
+        <SectionTitle icon={<Sparkles size={13} className="text-[var(--term-accent)]" />} right={<Chip color="#f0a53a">{seasonCountdownLabel(season)}</Chip>}>
           Season {season.number} · Soft reset 60%
         </SectionTitle>
         <div className="p-3 rounded bg-[var(--term-bg)]/80 border border-[var(--term-border)] text-[11px] text-[var(--term-label)] space-y-1">

@@ -169,7 +169,7 @@ export default function AdminSegmentsPage() {
                       className={`px-3 py-1 text-[10px] font-bold uppercase transition-all cursor-pointer ${
                         seg.enabled
                           ? 'bg-[var(--surface-muted)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--down)] hover:border-[var(--down)]/40'
-                          : 'bg-[var(--up)] text-white font-extrabold'
+                          : 'bg-[var(--up)] text-[var(--term-canvas)] font-extrabold'
                       }`}
                     >
                       {seg.enabled ? 'Disable' : 'Enable'}

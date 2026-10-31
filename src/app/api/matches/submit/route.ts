@@ -88,7 +88,7 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
-      if (!ALLOWED_SIZES.includes(act.size as any)) {
+      if (!(ALLOWED_SIZES as readonly number[]).includes(act.size)) {
         return NextResponse.json(
           { error: `Disallowed lot size: ${act.size}` },
           { status: 400 }

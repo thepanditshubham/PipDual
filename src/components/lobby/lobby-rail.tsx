@@ -71,11 +71,11 @@ export function LobbyLeftRail({
           Cover, square avatar hanging over it, name and headline, then the
           dashed action row that a social profile puts under the headline. */}
       <div className="overflow-hidden rounded-lg border border-[var(--term-border)] bg-[var(--term-panel)]/90 backdrop-blur-md">
-        <div className="relative h-14 w-full overflow-hidden bg-gradient-to-r from-[var(--term-sell-2)] via-[var(--term-sell)] to-[var(--term-buy-bright)]">
-          {/* The arena artwork is multiplied into the gradient so it reads as
+        <div className="relative h-14 w-full overflow-hidden bg-[linear-gradient(120deg,var(--term-accent-deep),var(--term-accent))]">
+          {/* The arena artwork is multiplied into the cover so it reads as
               the banner's own surface rather than a pasted rectangle. */}
           <div
-            className="absolute inset-0 bg-cover bg-center mix-blend-multiply opacity-40"
+            className="absolute inset-0 bg-cover bg-center mix-blend-multiply opacity-25"
             style={{
               backgroundImage: "url('/lobby-arena-bg.jpg')",
               WebkitMaskImage:
@@ -129,7 +129,7 @@ export function LobbyLeftRail({
               {pinned.map((id) => (
                 <span
                   key={id}
-                  className="rounded border border-[var(--term-amber)]/40 bg-[var(--term-amber)]/10 px-1.5 py-0.5 text-[9px] font-mono font-bold text-[var(--term-amber)]"
+                  className="rounded border border-[var(--term-accent)]/40 bg-[var(--term-accent)]/10 px-1.5 py-0.5 text-[9px] font-mono font-bold text-[var(--term-accent-text)]"
                 >
                   {ACHIEVEMENTS.find((entry) => entry.id === id)?.name ?? id}
                 </span>
@@ -187,7 +187,7 @@ export function LobbyLeftRail({
         className="w-full rounded-lg border border-[var(--term-border)] bg-[var(--term-panel)]/90 p-3 text-left backdrop-blur-md transition-colors hover:border-[var(--term-border-hi)] cursor-pointer"
       >
         <div className="flex items-start gap-2.5">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded border border-[var(--term-amber)]/30 bg-[var(--term-amber)]/15 text-[var(--term-amber)]">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded border border-[var(--term-accent)]/30 bg-[var(--term-accent)]/15 text-[var(--term-accent-text)]">
             <Share2 size={14} />
           </span>
           <div className="min-w-0">
@@ -225,7 +225,7 @@ export function LobbyLeftRail({
               />
               <span className="flex-1 text-[12px] font-semibold">{label}</span>
               {badge ? (
-                <span className="rounded-full bg-[var(--term-primary)] px-1.5 py-0.5 text-[10px] font-mono font-bold leading-none text-white">
+                <span className="rounded-full bg-[var(--term-primary)] px-1.5 py-0.5 text-[10px] font-mono font-bold leading-none text-[var(--term-canvas)]">
                   {badge}
                 </span>
               ) : null}

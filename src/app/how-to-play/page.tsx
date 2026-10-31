@@ -201,7 +201,7 @@ export default function HowToPlayPage() {
         <div
           className="absolute inset-0 pointer-events-none opacity-40"
           style={{
-            background: 'radial-gradient(circle at 50% 50%, rgba(231,70,148,0.12) 0%, transparent 70%)',
+            background: 'radial-gradient(circle at 50% 50%, rgba(240,165,58,0.12) 0%, transparent 70%)',
           }}
         />
         <h2 className="text-3xl md:text-4xl font-extrabold text-[var(--text)] tracking-tight relative z-10">

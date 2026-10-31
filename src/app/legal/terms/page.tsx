@@ -58,7 +58,7 @@ export default function TermsPage() {
 
           {/* Quick Legal Nav */}
           <div className="flex flex-wrap gap-2 pt-2">
-            <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-[var(--accent)] text-white">
+            <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-[var(--accent)] text-[var(--term-canvas)]">
               Terms of Service
             </span>
             <Link
@@ -116,7 +116,7 @@ export default function TermsPage() {
                 <strong className="text-[var(--text)]">Simulation, Not Advice:</strong> Virtual dollars, points, win-streaks, ranking scores and generated candles have no monetary value, cannot be redeemed for fiat or crypto, and cannot be transferred outside the game.
               </li>
               <li>
-                <strong className="text-[var(--text)]">Coins Carry Real Value:</strong> Coins are bought by sending crypto to the arena's deposit address ($1 = 100 coins) and are credited only after a reviewer confirms the transfer on-chain. A Live entry burns coins to stake a duel; the winner collects the pooled pot, and those winnings can be withdrawn as crypto. Treat every Live entry as money you can lose.
+                <strong className="text-[var(--text)]">Coins Carry Real Value:</strong> Coins are bought by sending crypto to the arena&apos;s deposit address ($1 = 100 coins) and are credited only after a reviewer confirms the transfer on-chain. A Live entry burns coins to stake a duel; the winner collects the pooled pot, and those winnings can be withdrawn as crypto. Treat every Live entry as money you can lose.
               </li>
               <li>
                 <strong className="text-[var(--text)]">Deposits Are Final:</strong> A coin purchase is settled by a crypto transfer you send yourself. On-chain transfers cannot be reversed by Pip Duel, so a mistyped address, a wrong network, a memo/tag left out, or an amount below the pack price can end with nothing credited. Reviewers approve, reject, or ask for a corrected claim; a rejected deposit is not refundable, and sending the same transaction hash twice credits once.
@@ -223,7 +223,7 @@ export default function TermsPage() {
         <div className="pt-6 border-t border-[var(--border)] flex flex-col sm:flex-row items-center justify-between gap-4">
           <Link
             href="/register"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hi)] text-white font-bold text-xs uppercase tracking-wider transition-colors"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hi)] text-[var(--term-canvas)] font-bold text-xs uppercase tracking-wider transition-colors"
           >
             Accept &amp; Register Account
           </Link>

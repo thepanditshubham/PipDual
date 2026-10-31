@@ -64,7 +64,7 @@ export default function PrivacyPage() {
             >
               Terms of Service
             </Link>
-            <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-[var(--accent)] text-white">
+            <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-[var(--accent)] text-[var(--term-canvas)]">
               Privacy Policy
             </span>
             <Link
@@ -169,7 +169,7 @@ export default function PrivacyPage() {
         <div className="pt-6 border-t border-[var(--border)] flex flex-col sm:flex-row items-center justify-between gap-4">
           <Link
             href="/register"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hi)] text-white font-bold text-xs uppercase tracking-wider transition-colors"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hi)] text-[var(--term-canvas)] font-bold text-xs uppercase tracking-wider transition-colors"
           >
             Create Free Account
           </Link>

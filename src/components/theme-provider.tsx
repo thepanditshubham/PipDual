@@ -28,6 +28,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const stored = localStorage.getItem('pip-duel-theme') as Theme | null;
     if (stored) {
+      // The saved preference is an external store; reading it after mount keeps
+      // the server and client markup identical.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setThemeState(stored);
     }
   }, []);
@@ -42,6 +45,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     };
 
     const resolved = resolve();
+    // Mirror the resolved theme into React and onto the document. This is the
+    // sync point with the browser (localStorage + media query), not derived state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setResolvedTheme(resolved);
     document.documentElement.setAttribute('data-theme', resolved);
 

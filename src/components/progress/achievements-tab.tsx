@@ -150,7 +150,7 @@ export function AchievementsTab() {
               </div>
 
               <div className="space-y-1">
-                <ProgressBar percent={achievementProgressRatio(def.id, progress)} color={fullyUnlocked ? '#f59e0b' : '#2962ff'} height={4} />
+                <ProgressBar percent={achievementProgressRatio(def.id, progress)} color={fullyUnlocked ? '#f59e0b' : '#f0a53a'} height={4} />
                 <div className="flex items-center justify-between text-[10px] font-mono">
                   <span className="text-[var(--term-soft)]">
                     {hiddenLocked ? '—' : `${value}${next ? ` / ${next.target}` : ' max'}`}

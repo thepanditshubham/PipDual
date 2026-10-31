@@ -39,10 +39,10 @@ function PublicProfileContent() {
       <div className="card p-8 flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6">
         <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
           <div
-            className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-extrabold text-white shadow-lg border"
+            className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-extrabold text-[#241c10] shadow-lg border"
             style={{
               background: 'linear-gradient(315deg, var(--pink) 0%, var(--purple) 100%)',
-              borderColor: 'rgba(231, 70, 148, 0.4)',
+              borderColor: 'rgba(240, 165, 58, 0.45)',
             }}
           >
             {username.slice(0, 2).toUpperCase()}

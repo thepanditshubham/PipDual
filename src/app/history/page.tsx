@@ -55,7 +55,7 @@ export default function HistoryPage() {
             onClick={() => setFilterMode('all')}
             className={`px-4 py-1.5 rounded-full font-bold transition-all cursor-pointer ${
               filterMode === 'all'
-                ? 'bg-gradient-to-r from-[var(--pink)] to-[var(--purple)] text-white shadow-sm'
+                ? 'bg-gradient-to-r from-[var(--pink)] to-[var(--purple)] text-[var(--term-canvas)] shadow-sm'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
             }`}
           >
@@ -65,7 +65,7 @@ export default function HistoryPage() {
             onClick={() => setFilterMode('standard')}
             className={`px-4 py-1.5 rounded-full font-bold transition-all cursor-pointer ${
               filterMode === 'standard'
-                ? 'bg-gradient-to-r from-[var(--pink)] to-[var(--purple)] text-white shadow-sm'
+                ? 'bg-gradient-to-r from-[var(--pink)] to-[var(--purple)] text-[var(--term-canvas)] shadow-sm'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
             }`}
           >
@@ -75,7 +75,7 @@ export default function HistoryPage() {
             onClick={() => setFilterMode('risk')}
             className={`px-4 py-1.5 rounded-full font-bold transition-all cursor-pointer ${
               filterMode === 'risk'
-                ? 'bg-gradient-to-r from-[var(--pink)] to-[var(--purple)] text-white shadow-sm'
+                ? 'bg-gradient-to-r from-[var(--pink)] to-[var(--purple)] text-[var(--term-canvas)] shadow-sm'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
             }`}
           >

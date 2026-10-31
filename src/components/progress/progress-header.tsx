@@ -59,7 +59,7 @@ export function ProgressHeader({ onTab }: { onTab: (tab: ProgressTab) => void })
             </span>
           </div>
           <div className="mt-1.5">
-            <ProgressBar percent={level.percent} color="#2962ff" />
+            <ProgressBar percent={level.percent} color="#f0a53a" />
           </div>
           <div className="flex items-center justify-between mt-1.5 text-[10px] font-mono text-[var(--term-soft)]">
             <span className="truncate">

@@ -265,6 +265,8 @@ function PlayRoomContent() {
     // on the minute the ticket fires, and it trades it at 1×. Both terminals hold the
     // same startAt, so they derive the same ticks, the same candles and the same fills.
     const data = generateBattleMarket(targetBattleStart, BATTLE_SECONDS);
+    // The market is derived once from the ticket, then owned by the tick loop.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMarket(data);
 
     if (isBotOpponent) setUserActions([]);
@@ -320,6 +322,8 @@ function PlayRoomContent() {
     if (!market || phase === 'analysis' || phase === 'countdown') return;
 
     const uSim = simulate(market.tickPath, userActions, engineTick);
+    // Sync the per-tick simulation into React state; this is the game clock.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUserSim(uSim);
 
     // Rival is re-simulated every tick so its P&L and equity curve stay live.
@@ -427,6 +431,8 @@ function PlayRoomContent() {
     if (winnerCode === 1) sound.playWin();
     else if (winnerCode === 2) sound.playLose();
 
+    // Settlement is a one-way latch driven by the clock, not derived state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettled(true);
 
     if (recordMatch && user) {

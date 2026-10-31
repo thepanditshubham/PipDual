@@ -17,7 +17,7 @@ export function Footer() {
           <div className="space-y-4">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl flex items-center justify-center gradient-brand">
-                <Swords size={16} className="text-white" />
+                <Swords size={16} className="text-[#241c10]" />
               </div>
               <span className="font-bold text-base tracking-tight text-[var(--text)]">Pip Duel</span>
             </div>

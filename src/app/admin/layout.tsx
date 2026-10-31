@@ -362,7 +362,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex h-14 shrink-0 items-center justify-center border-b border-[var(--border)]">
         <span
           title="Pip Duel — admin console"
-          className="gradient-brand flex h-9 w-9 items-center justify-center text-white"
+          className="gradient-brand flex h-9 w-9 items-center justify-center text-[#241c10]"
         >
           <Swords size={17} />
         </span>

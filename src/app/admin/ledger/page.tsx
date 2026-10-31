@@ -214,7 +214,7 @@ export default function AdminLedgerPage() {
             </button>
             <button
               onClick={() => void openAdjust()}
-              className="flex items-center gap-2 bg-[var(--purple)] px-3.5 py-2 text-xs font-bold text-white transition-opacity hover:opacity-90 cursor-pointer"
+              className="flex items-center gap-2 bg-[var(--purple)] px-3.5 py-2 text-xs font-bold text-[var(--term-canvas)] transition-opacity hover:opacity-90 cursor-pointer"
             >
               <ArrowLeftRight size={13} /> Adjust coins
             </button>
@@ -353,7 +353,7 @@ export default function AdminLedgerPage() {
               type="button"
               onClick={() => void submitAdjust()}
               disabled={!target || !amountValid || !reasonValid || busy}
-              className=" bg-[var(--purple)] px-4 py-2 text-xs font-bold text-white disabled:opacity-50 cursor-pointer"
+              className=" bg-[var(--purple)] px-4 py-2 text-xs font-bold text-[var(--term-canvas)] disabled:opacity-50 cursor-pointer"
             >
               {busy ? 'Writing…' : 'Post adjustment'}
             </button>
@@ -375,7 +375,7 @@ export default function AdminLedgerPage() {
               onClick={() => setKind(item.id)}
               className={` px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
                 kind === item.id
-                  ? 'bg-[var(--purple)] text-white'
+                  ? 'bg-[var(--purple)] text-[var(--term-canvas)]'
                   : 'bg-[var(--surface-muted)] text-[var(--text-secondary)] hover:text-[var(--text)]'
               }`}
             >

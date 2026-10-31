@@ -439,7 +439,7 @@ export function FriendsPanel({ user, inviteCode }: FriendsPanelProps) {
           </div>
           <button
             onClick={joinInvite}
-            className="w-full h-7 rounded bg-[var(--term-accent)] hover:bg-[var(--term-accent-hi)] text-white text-[11px] font-bold cursor-pointer transition-colors"
+            className="w-full h-7 rounded bg-[var(--term-accent)] hover:bg-[var(--term-accent-hi)] text-[var(--term-canvas)] text-[11px] font-bold cursor-pointer transition-colors"
           >
             Join duel
           </button>
@@ -468,7 +468,7 @@ export function FriendsPanel({ user, inviteCode }: FriendsPanelProps) {
                       <button
                         onClick={() => void addFriend(player)}
                         disabled={busyId === player.id}
-                        className="h-6 px-2 rounded bg-[var(--term-accent)] hover:bg-[var(--term-accent-hi)] disabled:opacity-50 text-white text-[10px] font-bold cursor-pointer transition-colors shrink-0"
+                        className="h-6 px-2 rounded bg-[var(--term-accent)] hover:bg-[var(--term-accent-hi)] disabled:opacity-50 text-[var(--term-canvas)] text-[10px] font-bold cursor-pointer transition-colors shrink-0"
                       >
                         {busyId === player.id ? '…' : 'Add'}
                       </button>

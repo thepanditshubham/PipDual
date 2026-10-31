@@ -18,16 +18,16 @@ const FACTS = [
 ];
 
 const PALETTE = [
-  ['#000000', 'Field'],
-  ['#0D0B0A', 'Panel'],
-  ['#1A1714', 'Surface'],
-  ['#302A22', 'Border'],
-  ['#FF7722', 'Accent'],
-  ['#FFC844', 'Gold'],
-  ['#EDE8C8', 'Text'],
-  ['#AAA080', 'Secondary'],
-  ['#00DD66', 'Up'],
-  ['#FF4444', 'Down'],
+  ['#23233A', 'Field'],
+  ['#292944', 'Panel'],
+  ['#343452', 'Surface'],
+  ['#3E3E60', 'Border'],
+  ['#F0A53A', 'Accent'],
+  ['#FFC25C', 'Gold'],
+  ['#EBE6F7', 'Text'],
+  ['#B3ADC9', 'Secondary'],
+  ['#3DDC84', 'Up'],
+  ['#FF5F75', 'Down'],
 ];
 
 export default function PressPage() {

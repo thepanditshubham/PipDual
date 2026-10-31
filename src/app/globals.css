@@ -1,35 +1,37 @@
 @import "tailwindcss";
 
 /* ── Design tokens ──
-   One palette, black and burnt orange, borrowed from the trading-terminal look
-the product is modelled on. Every token name below is the same name the app
-already used, so components did not have to change — only the values did. */
+   One palette: indigo-slate surfaces under a single amber ink, the field the
+   reference betting terminal paints. Every token name below is the same name
+   the app already used, so components did not have to change — only the values
+   did. */
 :root {
   color-scheme: dark;
-  /* Core dark palette */
-  --bg: #000000;
-  --surface: #0d0b0a;
-  --surface-muted: #1a1714;
-  --border: #302a22;
+  /* Core dark palette — layered indigo, each rung one step lighter */
+  --bg: #23233a;
+  --surface: #2b2b46;
+  --surface-muted: #383856;
+  --border: #3e3e60;
 
-  /* Brand colors */
-  --pink: #ffaa33;
-  --purple: #ff7722;
-  --purple-deep: #e5661a;
-  --purple-light: #ffaa33;
+  /* Brand colors — amber, the only saturated ink in the product */
+  --pink: #ffc25c;
+  --purple: #f0a53a;
+  --purple-deep: #d68a24;
+  --purple-light: #ffc25c;
+  --amber: #ffc25c;
 
-  /* Text */
-  --text: #ede8c8;
-  --text-secondary: #aaa080;
-  --text-muted: #968769;
+  /* Text — warm cream for figures, lavender for everything else */
+  --text: #ebe6f7;
+  --text-secondary: #b3adc9;
+  --text-muted: #928cae;
 
   /* Green CTA */
-  --green-start: #0a5c37;
-  --green-end: #00dd66;
+  --green-start: #127a4a;
+  --green-end: #3ddc84;
 
   /* Status */
-  --up: #00dd66;
-  --down: #ff4444;
+  --up: #3ddc84;
+  --down: #ff5f75;
 
   /* Legacy aliases for components that still use these */
   --panel: var(--surface);
@@ -40,101 +42,101 @@ already used, so components did not have to change — only the values did. */
   --foreground: var(--text);
 
   /* ── Terminal Design Tokens ── */
-  --term-bg:         #0d0b0a;   /* Deep charcoal canvas */
-  --term-surface:    #0b0908;   /* Top header, right sidebar, bottom bar */
-  --term-panel:      #141110;   /* Cards, toolbars, sub-panels */
-  --term-panel-deep: #000000;   /* Chart canvas area */
-  --term-border:     #222018;   /* Subtle hairline dividers */
-  --term-border-hi:  #302a22;   /* Hover / active borders */
-  --term-text:       #ede8c8;   /* Primary crisp text */
-  --term-muted:      #968769;   /* Secondary / icon / subtitle text */
-  --term-label:      #aaa080;   /* Medium brightness label text */
-  --term-buy:        #00dd66;   /* Long / profit green */
-  --term-buy-dim:    rgba(0,221,102,0.10);
-  --term-sell:       #ff4444;   /* Short / loss red */
-  --term-sell-dim:   rgba(255,68,68,0.10);
-  --term-accent:     #ff7722;   /* The one accent: burnt orange */
-  --term-accent-dim: rgba(255,119,34,0.14);
+  --term-bg:         #26263c;   /* Arena floor — deep indigo */
+  --term-surface:    #242438;   /* Top header, right sidebar, bottom bar */
+  --term-panel:      #2c2c46;   /* Cards, toolbars, sub-panels */
+  --term-panel-deep: #292940;   /* Chart canvas area */
+  --term-border:     #3a3a58;   /* Subtle hairline dividers */
+  --term-border-hi:  #47476b;   /* Hover / active borders */
+  --term-text:       #ece7f8;   /* Primary crisp text */
+  --term-muted:      #928cae;   /* Secondary / icon / subtitle text */
+  --term-label:      #b3adc9;   /* Medium brightness label text */
+  --term-buy:        #3ddc84;   /* Long / profit green */
+  --term-buy-dim:    rgba(61,220,132,0.10);
+  --term-sell:       #ff5f75;   /* Short / loss red */
+  --term-sell-dim:   rgba(255,95,117,0.12);
+  --term-accent:     #f0a53a;   /* The one accent: amber */
+  --term-accent-dim: rgba(240,165,58,0.14);
 
   /* Terminal chrome — switchable with the light/dark toggle */
-  --term-raised:        #1a1714;  /* Chips, inputs, raised buttons */
-  --term-strong:        #fff2cc;  /* Headings and figures on panels */
-  --term-soft:          #aaa080;  /* Secondary copy */
-  --term-dim:           #8a806a;  /* Captions, timestamps */
-  --term-border-hover:  #44403a;
-  --term-accent-hi:     #ffaa33;
-  --term-accent-active: #e5661a;
-  --term-accent-text:   #ffaa33;
-  --term-amber:         #ffaa33;
-  --term-gem:           #33dddd;
-  --term-canvas:        #000000;  /* Page floor under the arena backdrop */
-  --term-raised-hi:     #211e1a;  /* Hover state for raised chips */
-  --term-purple:        #ff7722;
-  --term-buy-bright:    #00ff77;
-  --term-buy-2:         #00c95c;
-  --term-buy-3:         #0a5c37;
-  --term-sell-2:        #ff6b5a;
-  --term-sell-deep:     #7a1616;  /* Dark-red end of the alert bar gradient */
-  --term-warn-deep:     #7c3a12;  /* Burnt end — warning alert bars */
-  --term-buy-deep:      #0a4a2e;  /* Dark green end — success alert bars */
-  --term-accent-deep:   #4a2108;  /* Dark ember end — info alert bars */
-  /* Warm heat ramp — the challenge board's stake tiers. Amber through deep
-     red, one hue hotter per rung. Dark values first, light overrides below. */
-  --term-heat-1:        #ffc844;  /* standard — gold */
-  --term-heat-2:        #ffaa33;  /* elevated — amber */
-  --term-heat-3:        #ff7722;  /* hot      — orange */
-  --term-heat-4:        #e5431a;  /* whale    — ember */
-  /* Primary action accent — orange, the one saturated colour in the product.
+  --term-raised:        #363654;  /* Chips, inputs, raised buttons */
+  --term-strong:        #fdf8ee;  /* Headings and figures on panels */
+  --term-soft:          #b3adc9;  /* Secondary copy */
+  --term-dim:           #7f7899;  /* Captions, timestamps */
+  --term-border-hover:  #55557e;
+  --term-accent-hi:     #ffc25c;
+  --term-accent-active: #d68a24;
+  --term-accent-text:   #ffc25c;
+  --term-amber:         #ffc25c;
+  --term-gem:           #b39cff;
+  --term-canvas:        #1f1f33;  /* Page floor under the arena backdrop */
+  --term-raised-hi:     #3e3e60;  /* Hover state for raised chips */
+  --term-purple:        #f0a53a;
+  --term-buy-bright:    #5ff0a2;
+  --term-buy-2:         #2bb96c;
+  --term-buy-3:         #125c3a;
+  --term-sell-2:        #ff8093;
+  --term-sell-deep:     #6d1626;  /* Dark-red end of the alert bar gradient */
+  --term-warn-deep:     #6b4310;  /* Burnt end — warning alert bars */
+  --term-buy-deep:      #10402a;  /* Dark green end — success alert bars */
+  --term-accent-deep:   #4a3210;  /* Dark ember end — info alert bars */
+  /* Amber heat ramp — the challenge board's stake tiers. Gold through ember,
+     one hue hotter per rung. Dark values first, light overrides below. */
+  --term-heat-1:        #ffd47a;  /* standard — gold */
+  --term-heat-2:        #ffc25c;  /* elevated — amber */
+  --term-heat-3:        #f0a53a;  /* hot      — orange */
+  --term-heat-4:        #eb7f5c;  /* whale    — ember */
+  /* Primary action accent — amber, the one saturated colour in the product.
      Kept separate from --term-buy so win/loss colouring stays semantically
      green/red. */
-  --term-primary:       #ff7722;
-  --term-primary-hi:    #ffaa33;
-  --term-primary-deep:  #e5661a;
-  --term-primary-text:  #ffaa33;
+  --term-primary:       #f0a53a;
+  --term-primary-hi:    #ffc25c;
+  --term-primary-deep:  #d68a24;
+  --term-primary-text:  #ffc25c;
 
   /* Site chrome — the marketing / auth / account pages switch with `html[data-theme]` */
-  --ui-deep:            #000000;  /* Page floor under cards */
-  --ui-panel:           #0d0b0a;  /* Section panels */
-  --ui-raised:          #141110;  /* Cards, tiles */
-  --ui-raised-hi:       #1a1714;  /* Raised hover */
-  --ui-border-alt:      #302a22;
-  --ui-border-soft:     #222018;
-  --green-soft:         #00dd66;  /* Mint highlights on dark */
-  --accent:             #ff7722;
-  --accent-hi:          #ffaa33;
-  --accent-active:      #e5661a;
-  --accent-soft:        #ffaa33;
-  --green:              #00dd66;
-  --warn:               #ffc844;
+  --ui-deep:            #23233a;  /* Page floor under cards */
+  --ui-panel:           #292944;  /* Section panels */
+  --ui-raised:          #2f2f4c;  /* Cards, tiles */
+  --ui-raised-hi:       #35354f;  /* Raised hover */
+  --ui-border-alt:      #3e3e60;
+  --ui-border-soft:     #35354f;
+  --green-soft:         #3ddc84;  /* Mint highlights on dark */
+  --accent:             #f0a53a;
+  --accent-hi:          #ffc25c;
+  --accent-active:      #d68a24;
+  --accent-soft:        #ffc25c;
+  --green:              #3ddc84;
+  --warn:               #ffd47a;
 
   /* ── Raw reference palette ──
      The source values behind the tokens above, for surfaces that want the exact
      colour rather than a semantic alias (the auth screens use these directly). */
-  --fin-black:    #000000;
-  --fin-panel:    #0d0b0a;
-  --fin-panel2:   #141110;
-  --fin-surface:  #1a1714;
-  --fin-surface2: #211e1a;
-  --fin-hover:    #1e1a16;
-  --fin-border-1: #222018;
-  --fin-border-2: #302a22;
-  --fin-border-3: #44403a;
-  --fin-orange:   #ff7722;
-  --fin-amber:    #ffaa33;
-  --fin-gold:     #ffc844;
-  --fin-yellow:   #ffe044;
-  --fin-cream:    #fff2cc;
-  --fin-white:    #ede8c8;
-  --fin-dim:      #aaa080;
-  --fin-muted:    #968769;
-  --fin-ghost:    #8a806a;
-  --fin-red:      #ff4444;
-  --fin-green:    #00dd66;
-  --fin-cyan:     #33dddd;
+  --fin-black:    #23233a;
+  --fin-panel:    #292944;
+  --fin-panel2:   #2f2f4c;
+  --fin-surface:  #343452;
+  --fin-surface2: #3d3d5c;
+  --fin-hover:    #333350;
+  --fin-border-1: #33334f;
+  --fin-border-2: #3e3e60;
+  --fin-border-3: #52527a;
+  --fin-orange:   #f0a53a;
+  --fin-amber:    #ffc25c;
+  --fin-gold:     #ffd27a;
+  --fin-yellow:   #ffe08a;
+  --fin-cream:    #fdf3e0;
+  --fin-white:    #e9e4f5;
+  --fin-dim:      #b3adc9;
+  --fin-muted:    #928cae;
+  --fin-ghost:    #7c7695;
+  --fin-red:      #ff5f75;
+  --fin-green:    #3ddc84;
+  --fin-cyan:     #a58cff;
 }
 
 /* ── Paper variant (not offered) ──
-   The product has one theme now: black and burnt orange. These daylight values are
+   The product has one theme now: indigo and amber. These daylight values are
    kept behind a `paper` attribute nothing sets, so a saved `light` preference from
    the old build can no longer repaint the terminal look. Re-enable by pointing
    ThemeProvider at `paper` instead of `light`. */
@@ -220,6 +222,104 @@ html[data-theme='paper'] {
   --term-primary-hi:   #8b5cf6;
   --term-primary-deep: #5b21b6;
   --term-primary-text: #6d28d9;
+}
+
+/* ── Lobby palette — the arcade field ──
+   Scoped to [data-lobby] so the battle terminal keeps its own inks. The lobby
+   paints the same indigo field as the rest of the product, with amber carrying
+   every primary action and every selected state; green and red stay reserved
+   for profit, loss and trade direction. Flat surfaces, hairline borders — no
+   colour wash, no texture. */
+.term-theme[data-lobby] {
+  --term-bg:           #26263c;
+  --term-surface:      #242438;
+  --term-panel:        #2c2c46;
+  --term-panel-deep:   #292940;
+  --term-raised:       #363654;
+  --term-raised-hi:    #3e3e60;
+  --term-border:       #3a3a58;
+  --term-border-hi:    #47476b;
+  --term-border-hover: #55557e;
+  --term-text:         #ece7f8;
+  --term-strong:       #fdf8ee;
+  --term-soft:         #b3adc9;
+  --term-muted:        #928cae;
+  --term-label:        #b3adc9;
+  --term-dim:          #7f7899;
+  --term-canvas:       #1f1f33;
+  --term-buy:          #3ddc84;
+  --term-buy-dim:      rgba(61,220,132,0.10);
+  --term-buy-bright:   #5ff0a2;
+  --term-buy-2:        #2bb96c;
+  --term-buy-3:        #125c3a;
+  --term-sell:         #ff5f75;
+  --term-sell-dim:     rgba(255,95,117,0.12);
+  --term-sell-2:       #ff8093;
+  --term-sell-deep:    #6d1626;
+  --term-accent:       #f0a53a;
+  --term-accent-hi:    #ffc25c;
+  --term-accent-active:#d68a24;
+  --term-accent-text:  #ffc25c;
+  --term-accent-dim:   rgba(240,165,58,0.14);
+  --term-accent-deep:  #4a3210;
+  --term-primary:      #f0a53a;
+  --term-primary-hi:   #ffc25c;
+  --term-primary-deep: #d68a24;
+  --term-primary-text: #ffc25c;
+  --term-purple:       #f0a53a;
+  --term-amber:        #ffc25c;  /* coin gold */
+  --term-gem:          #b39cff;
+  --term-heat-1:       #ffd47a;
+  --term-heat-2:       #ffc25c;
+  --term-heat-3:       #f0a53a;
+  --term-heat-4:       #eb7f5c;
+  --term-warn-deep:    #6b4310;
+}
+
+.term-theme[data-lobby][data-theme='paper'] {
+  --term-bg:           #eef2f8;
+  --term-surface:      #ffffff;
+  --term-panel:        #f6f8fc;
+  --term-panel-deep:   #edf1f7;
+  --term-raised:       #e9eef6;
+  --term-raised-hi:    #dde5f1;
+  --term-border:       #dde4ef;
+  --term-border-hi:    #c7d2e3;
+  --term-border-hover: #b3c0d6;
+  --term-text:         #16202f;
+  --term-strong:       #0b1220;
+  --term-soft:         #55637a;
+  --term-muted:        #68778f;
+  --term-label:        #3a475c;
+  --term-dim:          #7b879c;
+  --term-canvas:       #f2f5fa;
+  --term-buy:          #007a55;
+  --term-buy-dim:      rgba(0,122,85,0.10);
+  --term-buy-bright:   #0a9d70;
+  --term-buy-2:        #0a8a63;
+  --term-buy-3:        #065f47;
+  --term-sell:         #d92d3c;
+  --term-sell-dim:     rgba(217,45,60,0.10);
+  --term-sell-2:       #e11d48;
+  --term-sell-deep:    #8a1220;
+  --term-accent:       #1e53e5;
+  --term-accent-hi:    #2f6bff;
+  --term-accent-active:#163fb8;
+  --term-accent-text:  #1d4ed8;
+  --term-accent-dim:   rgba(30,83,229,0.12);
+  --term-accent-deep:  #1b2f6b;
+  --term-primary:      #1e53e5;
+  --term-primary-hi:   #2f6bff;
+  --term-primary-deep: #163fb8;
+  --term-primary-text: #1d4ed8;
+  --term-purple:       #1e53e5;
+  --term-amber:        #9a6700;
+  --term-gem:          #0e7490;
+  --term-heat-1:       #1d4ed8;
+  --term-heat-2:       #2563eb;
+  --term-heat-3:       #1e40af;
+  --term-heat-4:       #6d28d9;
+  --term-warn-deep:    #7c2d12;
 }
 
 .term-theme[data-theme='paper']::-webkit-scrollbar-track {
@@ -337,7 +437,7 @@ select:focus-visible {
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: #3f3c3d; }
+::-webkit-scrollbar-thumb:hover { background: #55557e; }
 
 /* ═══════════════════════════════════════
    ANIMATED GRADIENT BORDER (CSS Houdini)
@@ -365,7 +465,7 @@ select:focus-visible {
   inset: -1.5px;
   border-radius: inherit;
   padding: 1.5px;
-  background: conic-gradient(from var(--angle), #e74694, #9262f9, #e74694);
+  background: conic-gradient(from var(--angle), #f0a53a, #a58cff, #f0a53a);
   animation: gradient-spin 3s linear infinite;
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
@@ -404,7 +504,7 @@ select:focus-visible {
 }
 
 .gradient-active-bg {
-  background: linear-gradient(138.51deg, color-mix(in srgb, var(--green-start) 12%, transparent) 3.04%, color-mix(in srgb, var(--green-soft) 12%, transparent) 97.61%);
+  background: linear-gradient(138.51deg, color-mix(in srgb, var(--accent-active) 12%, transparent) 3.04%, color-mix(in srgb, var(--accent) 12%, transparent) 97.61%);
 }
 
 /* ═══════════════════════════════════════
@@ -417,8 +517,8 @@ select:focus-visible {
   gap: 0.5rem;
   padding: 0.625rem 1.5rem;
   border-radius: 9999px;
-  background: linear-gradient(315deg, var(--green-start) 0%, var(--green-end) 100%);
-  color: #ffffff;
+  background: linear-gradient(315deg, var(--accent-active) 0%, var(--accent) 55%, var(--accent-hi) 100%);
+  color: #241c10;
   font-family: var(--font-plex, 'IBM Plex Mono'), ui-monospace, 'Courier New', monospace;
   font-weight: 600;
   font-size: 0.875rem;
@@ -498,7 +598,7 @@ select:focus-visible {
 
 .card:hover {
   border-color: var(--ui-border-alt);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 24px rgba(9, 9, 22, 0.5);
 }
 
 html[data-theme='paper'] .card:hover,
@@ -566,8 +666,8 @@ html[data-theme='paper'] .card-signal:hover {
 }
 
 .badge-pink {
-  background: rgba(231, 70, 148, 0.1);
-  border: 1px solid rgba(231, 70, 148, 0.25);
+  background: rgba(240, 165, 58, 0.1);
+  border: 1px solid rgba(240, 165, 58, 0.28);
   color: var(--pink);
   border-radius: 9999px;
   padding: 0.2rem 0.6rem;
@@ -577,9 +677,9 @@ html[data-theme='paper'] .card-signal:hover {
 }
 
 .badge-purple {
-  background: rgba(146, 98, 249, 0.1);
-  border: 1px solid rgba(146, 98, 249, 0.25);
-  color: var(--purple-light);
+  background: rgba(165, 140, 255, 0.12);
+  border: 1px solid rgba(165, 140, 255, 0.3);
+  color: #cbbcff;
   border-radius: 9999px;
   padding: 0.2rem 0.6rem;
   font-size: 0.7rem;
@@ -600,9 +700,9 @@ html[data-theme='paper'] .card-signal:hover {
    ACTIVE / SELECTED STATES
 ═══════════════════════════════════════ */
 .tab-active {
-  background: linear-gradient(138.51deg, color-mix(in srgb, var(--green-start) 12%, transparent) 3.04%, color-mix(in srgb, var(--green-soft) 12%, transparent) 97.61%);
-  border: 1px solid color-mix(in srgb, var(--green-soft) 20%, transparent);
-  color: var(--green-soft);
+  background: linear-gradient(138.51deg, color-mix(in srgb, var(--accent-active) 12%, transparent) 3.04%, color-mix(in srgb, var(--accent) 12%, transparent) 97.61%);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  color: var(--accent-hi);
 }
 
 /* ═══════════════════════════════════════
@@ -623,7 +723,7 @@ html[data-theme='paper'] .bg-grid {
 
 /* ═══════════════════════════════════════
    LOBBY GLOW BACKDROP
-   The arena floor is black: no photograph, no colour wash, no grid. This
+   The arena floor is indigo: no photograph, no colour wash, no grid. This
    layer adds only the vignette that seats the chrome on top of the canvas.
    The CRT texture is not part of it: the lobby mounts the same fixed
    `.site-scanlines` overlay the landing page carries, so the texture sits
@@ -631,8 +731,8 @@ html[data-theme='paper'] .bg-grid {
 ═══════════════════════════════════════ */
 .lobby-glow-veil {
   background:
-    radial-gradient(120% 90% at 50% 38%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.16) 55%, rgba(0, 0, 0, 0.7) 100%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.32) 18%, rgba(0, 0, 0, 0) 46%, rgba(0, 0, 0, 0.4) 76%, rgba(0, 0, 0, 0.9) 100%);
+    radial-gradient(120% 90% at 50% 38%, rgba(31, 31, 51, 0) 0%, rgba(31, 31, 51, 0.16) 55%, rgba(31, 31, 51, 0.7) 100%),
+    linear-gradient(180deg, rgba(31, 31, 51, 0.8) 0%, rgba(31, 31, 51, 0.32) 18%, rgba(31, 31, 51, 0) 46%, rgba(31, 31, 51, 0.4) 76%, rgba(31, 31, 51, 0.9) 100%);
 }
 
 /* ═══════════════════════════════════════
@@ -759,7 +859,7 @@ html[data-theme='paper'] .bg-grid {
    single 420px rail on the right holding the form. The left column carries
    the whole visual identity — drifting grid, two blurred glows, a rotating
    geometric mark, corner brackets and a scanline — so the form side can stay
-   severe: 9px uppercase labels, 30px inputs, one orange button.
+   severe: 9px uppercase labels, 30px inputs, one amber button.
 
    Everything is squared. Numbers are the reference design's: 30px inputs,
    32px submit, 340px inner rail, 50px grid, 8s scanline.
@@ -770,7 +870,7 @@ html[data-theme='paper'] .bg-grid {
   z-index: 40;
   display: flex;
   overflow: hidden;
-  background: #000;
+  background: var(--fin-black);
   font-family: var(--font-body);
   color: var(--fin-white);
 }
@@ -914,7 +1014,7 @@ html[data-theme='paper'] .bg-grid {
   justify-content: center;
   width: 500px;
   overflow-y: auto;
-  background: rgba(10, 8, 6, 0.6);
+  background: rgba(35, 35, 58, 0.55);
 }
 
 .auth-right-inner {
@@ -1059,7 +1159,7 @@ html[data-theme='paper'] .bg-grid {
 
 .auth-input--error {
   border-color: var(--fin-red);
-  box-shadow: 0 0 0 1px rgba(255, 68, 68, 0.2);
+  box-shadow: 0 0 0 1px rgba(255, 95, 117, 0.2);
 }
 
 .auth-input-wrap { position: relative; }
@@ -1247,8 +1347,8 @@ html[data-theme='paper'] .bg-grid {
   padding: 6px 10px;
   color: var(--fin-red);
   font-size: 10px;
-  background: rgba(255, 68, 68, 0.08);
-  border: 1px solid rgba(255, 68, 68, 0.25);
+  background: rgba(255, 95, 117, 0.08);
+  border: 1px solid rgba(255, 95, 117, 0.25);
   animation: authFadeInUp 0.2s ease;
 }
 
@@ -1262,8 +1362,8 @@ html[data-theme='paper'] .bg-grid {
   color: var(--fin-green);
   font-size: 10px;
   line-height: 1.5;
-  background: rgba(0, 221, 102, 0.08);
-  border: 1px solid rgba(0, 221, 102, 0.25);
+  background: rgba(61, 220, 132, 0.08);
+  border: 1px solid rgba(61, 220, 132, 0.25);
   animation: authFadeInUp 0.2s ease;
 }
 
@@ -1292,7 +1392,7 @@ html[data-theme='paper'] .bg-grid {
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  background: rgba(10, 8, 6, 0.95);
+  background: rgba(35, 35, 58, 0.95);
 }
 
 .auth-strength {
@@ -1605,8 +1705,8 @@ html[data-theme='paper'] .bg-grid {
   gap: 10px;
   min-height: 34px;
   padding: 7px 40px 7px 16px;
-  background: linear-gradient(90deg, #080605 0%, #17120a 50%, #080605 100%);
-  border-bottom: 1px solid rgba(255, 200, 68, 0.22);
+  background: linear-gradient(90deg, #23233a 0%, #332c47 50%, #23233a 100%);
+  border-bottom: 1px solid rgba(240, 165, 58, 0.24);
 }
 
 .promo-badge {
@@ -1617,7 +1717,7 @@ html[data-theme='paper'] .bg-grid {
   font-weight: 600;
   letter-spacing: 1.8px;
   text-transform: uppercase;
-  border: 1px solid rgba(255, 200, 68, 0.5);
+  border: 1px solid rgba(240, 165, 58, 0.5);
 }
 
 .promo-text {
@@ -1642,7 +1742,7 @@ html[data-theme='paper'] .bg-grid {
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
-  border-bottom: 1px solid rgba(255, 200, 68, 0.4);
+  border-bottom: 1px solid rgba(240, 165, 58, 0.4);
 }
 
 .promo-cta:hover { border-bottom-color: var(--fin-gold); }
@@ -1678,7 +1778,7 @@ html[data-theme='paper'] .bg-grid {
   align-items: center;
   height: 48px;
   padding: 0 var(--gutter);
-  background: rgba(0, 0, 0, 0.92);
+  background: rgba(35, 35, 58, 0.92);
   border-bottom: 1px solid var(--fin-border-2);
   backdrop-filter: blur(12px);
 }
@@ -1827,7 +1927,7 @@ html[data-theme='paper'] .bg-grid {
   display: flex;
   flex-direction: column;
   padding: 8px var(--gutter) 16px;
-  background: rgba(0, 0, 0, 0.97);
+  background: rgba(35, 35, 58, 0.97);
   border-bottom: 1px solid var(--fin-border-2);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
 }
@@ -1847,6 +1947,7 @@ html[data-theme='paper'] .bg-grid {
 .lp-burger-panel .lp-btn {
   margin-top: 12px;
   border-bottom: 0;
+  color: #241c10;
 }
 
 .lp-btn {
@@ -1937,7 +2038,7 @@ html[data-theme='paper'] .bg-grid {
   height: 5px;
   background: var(--fin-green);
   border-radius: 50%;
-  box-shadow: 0 0 0 0 rgba(0, 221, 102, 0.6);
+  box-shadow: 0 0 0 0 rgba(61, 220, 132, 0.6);
   animation: lpPulse 2.4s ease-out infinite;
 }
 
@@ -2268,7 +2369,7 @@ html[data-theme='paper'] .bg-grid {
   overflow: hidden;
   border-top: 1px solid var(--fin-border-1);
   border-bottom: 1px solid var(--fin-border-1);
-  background: #080605;
+  background: var(--fin-panel);
 }
 
 .lp-ticker-track {
@@ -2475,9 +2576,9 @@ html[data-theme='paper'] .bg-grid {
 .lp-footer-links a:hover { color: var(--fin-orange); }
 
 @keyframes lpPulse {
-  0% { box-shadow: 0 0 0 0 rgba(0, 221, 102, 0.55); }
-  70% { box-shadow: 0 0 0 7px rgba(0, 221, 102, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(0, 221, 102, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(61, 220, 132, 0.55); }
+  70% { box-shadow: 0 0 0 7px rgba(61, 220, 132, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(61, 220, 132, 0); }
 }
 
 @keyframes lpMarquee {
@@ -2763,7 +2864,7 @@ html[data-theme='paper'] .bg-grid {
   font-size: 11px;
   font-weight: 700;
   background: rgba(76, 35, 101, 0);
-  border: 1px solid rgba(76, 35, 101, 1);
+  border: 1px solid rgba(240, 165, 58, 0.38);
 }
 
 .pg-board-name {
@@ -2789,7 +2890,7 @@ html[data-theme='paper'] .bg-grid {
   font-size: 9px;
   letter-spacing: 0.8px;
   text-transform: uppercase;
-  border: 1px solid rgba(255, 170, 51, 0.3);
+  border: 1px solid rgba(240, 165, 58, 0.32);
 }
 
 .pg-board-note {
@@ -2933,8 +3034,8 @@ html[data-theme='paper'] .bg-grid {
   color: var(--fin-amber);
   font-size: 12.5px;
   line-height: 1.65;
-  background: rgba(255, 170, 51, 0.06);
-  border: 1px solid rgba(255, 170, 51, 0.28);
+  background: rgba(240, 165, 58, 0.06);
+  border: 1px solid rgba(240, 165, 58, 0.28);
 }
 
 .pg-note svg { flex-shrink: 0; margin-top: 2px; }
@@ -3067,7 +3168,7 @@ html[data-theme='paper'] .bg-grid {
   border-radius: 50%;
 }
 
-.pg-dot--ok { background: var(--fin-green); box-shadow: 0 0 8px rgba(0, 221, 102, 0.5); }
+.pg-dot--ok { background: var(--fin-green); box-shadow: 0 0 8px rgba(61, 220, 132, 0.5); }
 .pg-dot--warn { background: var(--fin-gold); }
 .pg-dot--down { background: var(--fin-red); }
 

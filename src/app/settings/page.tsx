@@ -51,8 +51,8 @@ export default function SettingsPage() {
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center"
             style={{
-              background: 'rgba(231,70,148,0.1)',
-              border: '1px solid rgba(231,70,148,0.2)',
+              background: 'rgba(240,165,58,0.1)',
+              border: '1px solid rgba(240,165,58,0.22)',
               color: 'var(--pink)',
             }}
           >
@@ -85,8 +85,8 @@ export default function SettingsPage() {
         icon={<User size={18} />}
         title="Trader Identity"
         iconColor="var(--purple-light)"
-        iconBg="rgba(146,98,249,0.1)"
-        iconBorder="rgba(146,98,249,0.2)"
+        iconBg="rgba(240,165,58,0.1)"
+        iconBorder="rgba(240,165,58,0.22)"
       >
         <form onSubmit={handleSaveProfile} className="space-y-5 max-w-md">
           <div>
@@ -135,8 +135,8 @@ export default function SettingsPage() {
         icon={<Palette size={18} />}
         title="Theme & Appearance"
         iconColor="var(--pink)"
-        iconBg="rgba(231,70,148,0.1)"
-        iconBorder="rgba(231,70,148,0.2)"
+        iconBg="rgba(255,194,92,0.1)"
+        iconBorder="rgba(255,194,92,0.22)"
       >
         <div className="grid sm:grid-cols-3 gap-3 max-w-lg">
           {[
@@ -154,10 +154,10 @@ export default function SettingsPage() {
                   isActive
                     ? {
                         background:
-                          'linear-gradient(138.51deg, color-mix(in srgb, var(--green-start) 14%, transparent) 3.04%, color-mix(in srgb, var(--green-soft) 14%, transparent) 97.61%)',
-                        border: '1px solid color-mix(in srgb, var(--green-soft) 25%, transparent)',
-                        color: 'var(--green-soft)',
-                        boxShadow: '0 0 12px color-mix(in srgb, var(--green-start) 15%, transparent)',
+                          'linear-gradient(138.51deg, color-mix(in srgb, var(--accent-active) 14%, transparent) 3.04%, color-mix(in srgb, var(--accent) 14%, transparent) 97.61%)',
+                        border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
+                        color: 'var(--accent-hi)',
+                        boxShadow: '0 0 12px color-mix(in srgb, var(--accent-active) 15%, transparent)',
                       }
                     : {
                         background: 'var(--surface-muted)',
@@ -179,8 +179,8 @@ export default function SettingsPage() {
         icon={<Globe size={18} />}
         title="Language / भाषा"
         iconColor="var(--purple-light)"
-        iconBg="rgba(172,148,250,0.1)"
-        iconBorder="rgba(172,148,250,0.2)"
+        iconBg="rgba(179,156,255,0.1)"
+        iconBorder="rgba(179,156,255,0.22)"
       >
         <div className="grid sm:grid-cols-3 gap-3 max-w-lg">
           {[
@@ -198,10 +198,10 @@ export default function SettingsPage() {
                   isActive
                     ? {
                         background:
-                          'linear-gradient(138.51deg, color-mix(in srgb, var(--green-start) 14%, transparent) 3.04%, color-mix(in srgb, var(--green-soft) 14%, transparent) 97.61%)',
-                        border: '1px solid color-mix(in srgb, var(--green-soft) 25%, transparent)',
-                        color: 'var(--green-soft)',
-                        boxShadow: '0 0 12px color-mix(in srgb, var(--green-start) 15%, transparent)',
+                          'linear-gradient(138.51deg, color-mix(in srgb, var(--accent-active) 14%, transparent) 3.04%, color-mix(in srgb, var(--accent) 14%, transparent) 97.61%)',
+                        border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)',
+                        color: 'var(--accent-hi)',
+                        boxShadow: '0 0 12px color-mix(in srgb, var(--accent-active) 15%, transparent)',
                       }
                     : {
                         background: 'var(--surface-muted)',
@@ -222,8 +222,8 @@ export default function SettingsPage() {
         icon={<Volume2 size={18} />}
         title="Audio Synthesizer"
         iconColor="var(--green-soft)"
-        iconBg="rgba(5,122,85,0.12)"
-        iconBorder="rgba(132,225,188,0.2)"
+        iconBg="rgba(61,220,132,0.1)"
+        iconBorder="rgba(61,220,132,0.22)"
       >
         <div
           className="flex items-center justify-between max-w-md p-4 rounded-xl"

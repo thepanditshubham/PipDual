@@ -31,11 +31,11 @@ function MissionCard({ mission, accent }: { mission: UserMission; accent: string
         </span>
       </div>
 
-      <ProgressBar percent={percent} color={done ? '#089981' : accent} height={4} />
+      <ProgressBar percent={percent} color={done ? '#3ddc84' : accent} height={4} />
 
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          {def.rewardXp > 0 && <Chip color="#2962ff">+{def.rewardXp} XP</Chip>}
+          {def.rewardXp > 0 && <Chip color="#f0a53a">+{def.rewardXp} XP</Chip>}
           {def.rewardCoins > 0 && (
             <Chip color="#f59e0b">
               <CoinIcon /> +{def.rewardCoins}
@@ -53,7 +53,7 @@ function MissionCard({ mission, accent }: { mission: UserMission; accent: string
             mission.claimed
               ? 'bg-[var(--term-raised)] text-[var(--term-muted)] border border-[var(--term-border)] cursor-default'
               : done
-                ? 'bg-[var(--term-buy)] hover:bg-[var(--term-buy-3)] text-white cursor-pointer shadow-md'
+                ? 'bg-[var(--term-buy)] hover:bg-[var(--term-buy-3)] text-[var(--term-canvas)] cursor-pointer shadow-md'
                 : 'bg-[var(--term-raised)] text-[var(--term-muted)] border border-[var(--term-border)] cursor-default'
           }`}
         >
@@ -190,7 +190,7 @@ export function MissionsTab() {
 
         <div className="space-y-2">
           {missions.daily.map((mission) => (
-            <MissionCard key={mission.missionId} mission={mission} accent="#089981" />
+            <MissionCard key={mission.missionId} mission={mission} accent="#3ddc84" />
           ))}
         </div>
 
@@ -216,7 +216,7 @@ export function MissionsTab() {
               missions.bonusClaimed
                 ? 'bg-[var(--term-raised)] text-[var(--term-buy)] border border-[var(--term-buy)]/30 cursor-default'
                 : bonusReady
-                  ? 'bg-[var(--term-buy)] hover:bg-[var(--term-buy-3)] text-white cursor-pointer'
+                  ? 'bg-[var(--term-buy)] hover:bg-[var(--term-buy-3)] text-[var(--term-canvas)] cursor-pointer'
                   : 'bg-[var(--term-raised)] text-[var(--term-muted)] border border-[var(--term-border)] cursor-default'
             }`}
           >
@@ -262,7 +262,7 @@ export function MissionsTab() {
         </SectionTitle>
         <div className="space-y-2">
           {missions.weekly.map((mission) => (
-            <MissionCard key={mission.missionId} mission={mission} accent="#2962ff" />
+            <MissionCard key={mission.missionId} mission={mission} accent="#f0a53a" />
           ))}
         </div>
         <p className="text-[10px] font-mono text-[var(--term-muted)]">

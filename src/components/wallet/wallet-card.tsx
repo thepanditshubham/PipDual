@@ -60,13 +60,13 @@ export function WalletCard({ coins, onOpen }: WalletCardProps) {
         <div className="grid grid-cols-2 gap-2">
           <Link
             href="/register"
-            className="h-9 rounded border border-[var(--term-primary)]/55 bg-[var(--term-primary)]/10 hover:bg-[var(--term-primary)]/18 text-[var(--term-strong)] text-xs font-bold flex items-center justify-center transition-colors"
+            className="h-9 rounded-lg bg-[var(--term-accent)] hover:bg-[var(--term-accent-hi)] text-[var(--term-canvas)] text-xs font-bold flex items-center justify-center transition-colors"
           >
             Register
           </Link>
           <Link
             href="/login"
-            className="h-9 rounded bg-[var(--term-raised)] hover:bg-[var(--term-raised-hi)] border border-[var(--term-border)] text-[var(--term-text)] text-xs font-bold flex items-center justify-center transition-colors"
+            className="h-9 rounded-lg bg-[var(--term-raised)] hover:bg-[var(--term-raised-hi)] border border-[var(--term-border)] text-[var(--term-text)] text-xs font-bold flex items-center justify-center transition-colors"
           >
             Sign in
           </Link>
@@ -75,13 +75,13 @@ export function WalletCard({ coins, onOpen }: WalletCardProps) {
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => openAt('deposit')}
-            className="h-9 rounded border border-[var(--term-primary)]/55 bg-[var(--term-primary)]/10 hover:bg-[var(--term-primary)]/18 text-[var(--term-strong)] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            className="h-9 rounded-lg bg-[var(--term-accent)] hover:bg-[var(--term-accent-hi)] text-[var(--term-canvas)] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
             <ArrowUpRight size={13} /> Deposit
           </button>
           <button
             onClick={() => openAt('withdraw')}
-            className="h-9 rounded bg-[var(--term-raised)] hover:bg-[var(--term-raised-hi)] border border-[var(--term-border)] text-[var(--term-text)] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            className="h-9 rounded-lg bg-[var(--term-raised)] hover:bg-[var(--term-raised-hi)] border border-[var(--term-border)] text-[var(--term-text)] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
             <ArrowDownLeft size={13} /> Withdraw
           </button>

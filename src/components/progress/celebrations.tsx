@@ -6,11 +6,11 @@ import type { CelebrationKind } from '@/lib/progress/types';
 import { useHydrated } from './bits';
 
 const LOOK: Record<CelebrationKind, { color: string; icon: typeof Crown }> = {
-  level: { color: '#2962ff', icon: Sparkles },
+  level: { color: '#f0a53a', icon: Sparkles },
   rank: { color: '#f59e0b', icon: Crown },
-  achievement: { color: '#a855f7', icon: Award },
-  mission: { color: '#089981', icon: Target },
-  season: { color: '#38bdf8', icon: CalendarClock },
+  achievement: { color: '#b39cff', icon: Award },
+  mission: { color: '#3ddc84', icon: Target },
+  season: { color: '#8f9dff', icon: CalendarClock },
 };
 
 /**

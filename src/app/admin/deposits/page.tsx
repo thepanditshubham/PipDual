@@ -291,7 +291,7 @@ export default function AdminDepositsPage() {
           onClick={() => setShowAll(false)}
           className={`px-4 py-2 text-xs font-bold border transition-colors cursor-pointer ${
             !showAll
-              ? 'bg-[var(--purple)] text-white border-[var(--purple)]'
+              ? 'bg-[var(--purple)] text-[var(--term-canvas)] border-[var(--purple)]'
               : 'bg-[var(--surface-muted)] text-[var(--text-secondary)] border-[var(--border)]'
           }`}
         >
@@ -301,7 +301,7 @@ export default function AdminDepositsPage() {
           onClick={() => setShowAll(true)}
           className={`px-4 py-2 text-xs font-bold border transition-colors cursor-pointer ${
             showAll
-              ? 'bg-[var(--purple)] text-white border-[var(--purple)]'
+              ? 'bg-[var(--purple)] text-[var(--term-canvas)] border-[var(--purple)]'
               : 'bg-[var(--surface-muted)] text-[var(--text-secondary)] border-[var(--border)]'
           }`}
         >
@@ -429,7 +429,7 @@ export default function AdminDepositsPage() {
                               }}
                               disabled={busyId === deposit.id}
                               aria-expanded={approving}
-                              className="px-3 py-1 text-[10px] font-bold uppercase bg-[var(--up)] text-white disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                              className="px-3 py-1 text-[10px] font-bold uppercase bg-[var(--up)] text-[var(--term-canvas)] disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
                             >
                               {busyId === deposit.id ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
                               Approve
@@ -558,7 +558,7 @@ export default function AdminDepositsPage() {
                               <button
                                 onClick={() => void handleApprove(deposit)}
                                 disabled={!valid || Boolean(clash) || busyId === deposit.id}
-                                className="bg-[var(--up)] px-4 py-2 text-xs font-bold text-white disabled:opacity-50 cursor-pointer"
+                                className="bg-[var(--up)] px-4 py-2 text-xs font-bold text-[var(--term-canvas)] disabled:opacity-50 cursor-pointer"
                               >
                                 Confirm approval
                               </button>
@@ -621,7 +621,7 @@ export default function AdminDepositsPage() {
                               <button
                                 onClick={() => void handleReject(deposit)}
                                 disabled={!rejectNote.trim() || busyId === deposit.id}
-                                className="bg-[var(--down)] px-4 py-2 text-xs font-bold text-white disabled:opacity-50 cursor-pointer"
+                                className="bg-[var(--down)] px-4 py-2 text-xs font-bold text-[var(--term-canvas)] disabled:opacity-50 cursor-pointer"
                               >
                                 Confirm rejection
                               </button>

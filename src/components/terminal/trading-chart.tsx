@@ -13,6 +13,8 @@ import {
   type IChartApi,
   type ISeriesApi,
   type IPriceLine,
+  type CandlestickData,
+  type UTCTimestamp,
 } from 'lightweight-charts';
 import {
   SlidersHorizontal,
@@ -116,14 +118,14 @@ function readChartPalette(scope: HTMLElement | null) {
     return value || fallback;
   };
   return {
-    background: read('--term-panel-deep', '#000000'),
-    text: read('--term-muted', '#968769'),
-    crosshair: read('--term-border-hover', '#44403a'),
-    crosshairLabel: read('--term-raised', '#1a1714'),
-    border: read('--term-border', '#222018'),
-    up: read('--term-buy', '#00dd66'),
-    down: read('--term-sell', '#ff4444'),
-    line: read('--term-primary', '#ff7722'),
+    background: read('--term-panel-deep', '#292940'),
+    text: read('--term-muted', '#928cae'),
+    crosshair: read('--term-border-hover', '#55557e'),
+    crosshairLabel: read('--term-raised', '#363654'),
+    border: read('--term-border', '#3a3a58'),
+    up: read('--term-buy', '#3ddc84'),
+    down: read('--term-sell', '#ff5f75'),
+    line: read('--term-primary', '#f0a53a'),
   };
 }
 
@@ -497,13 +499,13 @@ export function TradingChart({
     }
     const source = ordered ? candles : [...candles].sort((a, b) => a.time - b.time);
 
-    const cleanCandles: any[] = [];
+    const cleanCandles: CandlestickData<UTCTimestamp>[] = [];
     let lastTime = -1;
 
     for (const c of source) {
       if (c.time > lastTime) {
         cleanCandles.push({
-          time: c.time as any,
+          time: c.time as UTCTimestamp,
           open: c.open,
           high: c.high,
           low: c.low,
@@ -1231,7 +1233,7 @@ export function TradingChart({
                 >
                   {/* Size box — static side colour (long green / short red), not P&L driven */}
                   <div
-                    className="flex items-center justify-center h-[22px] min-w-[28px] px-1.5 rounded-[3px] font-mono text-[12px] font-extrabold text-white shadow-lg"
+                    className="flex items-center justify-center h-[22px] min-w-[28px] px-1.5 rounded-[3px] font-mono text-[12px] font-extrabold text-[var(--term-canvas)] shadow-lg"
                     style={{ background: entryColor }}
                     title={`${isLong ? 'Long' : 'Short'} ${position.size} @ ${fmt(position.entryPrice)}`}
                   >
