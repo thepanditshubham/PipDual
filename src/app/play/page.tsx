@@ -2613,7 +2613,7 @@ function PlayLobbyContent() {
                 widest it can be and still clear a centred column, so the
                 panel only detaches once the window reaches 1670px; below that
                 it stays the rail's first card and nothing is covered. */}
-            <div data-challenge-dock className="min-[1670px]:fixed min-[1670px]:right-0 min-[1670px]:top-14 min-[1670px]:bottom-0 min-[1670px]:z-20 min-[1670px]:w-[256px] min-[1670px]:overflow-y-auto min-[1670px]:border-l min-[1670px]:border-[var(--term-border-hi)] min-[1670px]:bg-[var(--term-panel)]/95 min-[1670px]:p-2.5 min-[1670px]:shadow-[-16px_0_32px_-16px_rgba(0,0,0,0.9)] min-[1670px]:backdrop-blur-xl">
+            <div data-challenge-dock className="min-[1670px]:fixed min-[1670px]:right-0 min-[1670px]:top-14 min-[1670px]:bottom-0 min-[1670px]:z-20 min-[1670px]:w-[256px] min-[1670px]:overflow-y-auto min-[1670px]:border-l min-[1670px]:border-[var(--term-border-hi)] min-[1670px]:bg-[var(--term-panel)]/95 min-[1670px]:p-2.5 min-[1670px]:backdrop-blur-xl">
               <div className="rounded-lg border border-[var(--term-border)] bg-[var(--term-panel)]/90 backdrop-blur-md overflow-hidden min-[1670px]:rounded-none min-[1670px]:border-0 min-[1670px]:bg-transparent">
               {/* Header — the rail colours speak for the tiers; hover a ticket
                   for the full pot maths */}
