@@ -104,13 +104,10 @@ export default function PrivacyPage() {
                 <strong className="text-[var(--text)]">Gameplay & Performance Data:</strong> Match trade timestamps, order prices, direction, P&L calculations, and Elo rating adjustments.
               </li>
               <li>
-                <strong className="text-[var(--text)]">Wallet &amp; Deposit Records:</strong> Coin balance and one record per coin purchase — deposit id, the coin and network chosen, the amount expected, the destination address we showed you, the memo/tag, the transaction hash you pasted, and the review status. A transaction hash only points at a transfer that is already public on its own blockchain, and nothing is credited until a reviewer verifies it.
+                <strong className="text-[var(--text)]">Game Wallet:</strong> Your virtual coin balance and the ledger entries that explain it — match entries, pots, missions and adjustments. The game never collects a payment method, wallet address, transaction hash or crypto identity, because there are no deposits or payouts.
               </li>
               <li>
-                <strong className="text-[var(--text)]">Payout Records:</strong> When you request a withdrawal we store the coins escrowed, the network, the receiving address you supplied, any memo you added, and the payout transaction hash recorded against it. That address is the only piece of your own crypto identity we hold — it is needed to send money back to you and to dispute a payout. Pip Duel never asks for, and never stores, a seed phrase, a private key or a signature.
-              </li>
-              <li>
-                <strong className="text-[var(--text)]">Guest Mode:</strong> Ephemeral session tokens stored locally in your browser storage. No email or personal identifiers are stored for guest players, and guests cannot deposit or withdraw coins.
+                <strong className="text-[var(--text)]">Guest Mode:</strong> Ephemeral session tokens stored locally in your browser storage. No email or personal identifiers are stored for guest players, and guest balances stay on the device.
               </li>
             </ul>
           </section>

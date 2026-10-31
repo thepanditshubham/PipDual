@@ -57,8 +57,8 @@ export default function HowToPlayPage() {
       desc: 'Clients perform an authoritative epoch time anchor check, ensuring millisecond-level tick synchronization between rivals.',
     },
     {
-      title: 'Live and Demo Tables',
-      desc: 'Every duel runs on the fixed $10,000 virtual balance. Demo is free and pays nothing. Live charges a coin entry (coins are bought by sending crypto — $1 = 100 coins, credited once a deposit is reviewed) and the winner collects the pooled pot after a 15% arena burn. Coins are real value in both directions: you can also ask for any balance back as USDT from the wallet, minus a $1 network fee, so stake only what you can afford to lose.',
+      title: 'Ranked and Practice Tables',
+      desc: 'Every duel runs on the fixed $10,000 virtual balance. Practice is free and pays nothing. Ranked charges a virtual coin entry and the winner collects the pooled pot after a 15% sink. Coins are game credits earned by playing and in missions: they are never bought, never transferred and have no cash value, so the only thing at stake is your rank.',
     },
   ];
 

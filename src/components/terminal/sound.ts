@@ -1,15 +1,10 @@
 // Web Audio API Synthesizer for Terminal & UI Sound Effects
-// Enhanced with official MW3 Lobby sound asset (/mw3-lobby.mp3)
 
 class SoundFX {
   private ctx: AudioContext | null = null;
   public enabled = true;
   private lastHoverTime = 0;
   private lastClickTime = 0;
-  private mw3Buffer: AudioBuffer | null = null;
-  private mw3Loading = false;
-  private mw3Attempts = 0;
-  private mw3Element: HTMLAudioElement | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -21,10 +16,6 @@ class SoundFX {
       } catch {
         // ignore localStorage access issues in sandboxed frames
       }
-      // No fetch here on purpose. The track is loaded from unlock(), which
-      // runs on the first real gesture: fetching during module evaluation
-      // fires a request on every page load — including ones that never play
-      // a sound — and any dev-server rebuild turns it into a visible error.
     }
   }
 
@@ -55,106 +46,11 @@ class SoundFX {
     return this.ctx;
   }
 
-  /**
-   * Preload and decode /mw3-lobby.mp3 into an AudioBuffer for zero-latency playback
-   */
-  private async loadMW3Audio() {
-    if (this.mw3Buffer || this.mw3Loading || typeof window === 'undefined') return;
-    // Two attempts only: a missing asset is not going to appear on the third
-    // try, and a retry loop on every pointerdown would be worse than silence.
-    if (this.mw3Attempts >= 2) return;
-    this.mw3Attempts += 1;
-    this.mw3Loading = true;
-    try {
-      const response = await fetch('/mw3-lobby.mp3');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const arrayBuffer = await response.arrayBuffer();
-      const ctx = this.getContext();
-      if (ctx) {
-        this.mw3Buffer = await ctx.decodeAudioData(arrayBuffer);
-      }
-    } catch (err) {
-      // The lobby track is garnish — every effect has a synth fallback — so a
-      // failed load must never escalate into an app error.
-      console.info('[sound] lobby track unavailable, using synth fallback', err);
-    } finally {
-      this.mw3Loading = false;
-    }
-  }
-
-  /**
-   * Unlock AudioContext on first user interaction (browser policy)
-   */
+  /** Unlock the AudioContext on the first real gesture (browser policy). */
   public unlock() {
-    const ctx = this.getContext();
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
-    this.loadMW3Audio();
+    this.getContext();
   }
 
-  /**
-   * Play the MW3 lobby audio buffer with zero latency
-   */
-  private playMW3Buffer(options: { volume?: number; playbackRate?: number; maxDuration?: number } = {}) {
-    if (!this.enabled) return false;
-    const ctx = this.getContext();
-    if (!ctx) return false;
-
-    if (this.mw3Buffer) {
-      try {
-        const source = ctx.createBufferSource();
-        source.buffer = this.mw3Buffer;
-
-        const gainNode = ctx.createGain();
-        const volume = options.volume ?? 0.45;
-        gainNode.gain.setValueAtTime(volume, ctx.currentTime);
-
-        if (options.playbackRate) {
-          source.playbackRate.setValueAtTime(options.playbackRate, ctx.currentTime);
-        }
-
-        source.connect(gainNode);
-        gainNode.connect(ctx.destination);
-
-        const startTime = ctx.currentTime;
-        source.start(startTime);
-
-        if (options.maxDuration) {
-          gainNode.gain.setValueAtTime(volume, startTime + options.maxDuration * 0.7);
-          gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + options.maxDuration);
-          source.stop(startTime + options.maxDuration);
-        }
-        return true;
-      } catch {
-        return false;
-      }
-    } else {
-      // Direct HTML5 Audio fallback while the buffer decodes. One shared
-      // element: `new Audio()` per hover leaks a decoder on every pointer move.
-      try {
-        if (!this.mw3Element) {
-          this.mw3Element = new Audio('/mw3-lobby.mp3');
-          this.mw3Element.preload = 'auto';
-        }
-        const audio = this.mw3Element;
-        audio.volume = options.volume ?? 0.45;
-        audio.playbackRate = options.playbackRate ?? 1;
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-        return true;
-      } catch {
-        return false;
-      }
-    }
-  }
-
-  /**
-   * Direct trigger for MW3 lobby sound
-   */
-  playMW3(volume = 0.5) {
-    this.playMW3Buffer({ volume });
-  }
 
   /**
    * Hover sound (tactical micro-burst)
@@ -165,11 +61,7 @@ class SoundFX {
     if (now - this.lastHoverTime < 45) return; // Debounce rapid sweeps
     this.lastHoverTime = now;
 
-    // Use a fast, crisp micro-slice of MW3 audio if available
-    const played = this.playMW3Buffer({ volume: 0.18, playbackRate: 1.6, maxDuration: 0.08 });
-    if (played) return;
-
-    // Fallback: Web Audio synthesizer tick
+    // Web Audio synthesizer tick
     const ctx = this.getContext();
     if (!ctx) return;
     try {

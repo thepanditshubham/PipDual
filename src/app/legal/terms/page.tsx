@@ -83,7 +83,7 @@ export default function TermsPage() {
             <span>Simulation Notice</span>
           </div>
           <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-            Pip Duel is a competitive simulation game: every chart, price and order you see is synthetic. Its currency is not. Coins are bought with real crypto and can be paid back out as crypto, so a Live duel stakes value that is real money to you. Point balances, rankings and win-streaks remain in-game only and carry no value at all.
+            Pip Duel is a competitive simulation game: every chart, price, order and coin is part of the game. Coins are virtual credits earned by playing and in missions; they cannot be bought, transferred or redeemed, and a ranked entry stakes nothing but game progress. Point balances, rankings and win-streaks remain in-game only and carry no monetary value.
           </p>
         </div>
 
@@ -108,24 +108,21 @@ export default function TermsPage() {
               <span className="text-[var(--accent)] font-mono text-base">2.</span> Strictly Virtual Currency & Simulation Policy
             </h2>
             <p>
-              Pip Duel simulates markets for competition and entertainment. Market data, order fills and
-              portfolio swings are synthetic; coins are not. Read this section before depositing:
+              Pip Duel simulates markets for competition and entertainment. Market data, order fills,
+              portfolio swings and coins are all part of the game:
             </p>
             <ul className="list-disc pl-6 space-y-1.5 text-[var(--text-secondary)] text-xs">
               <li>
                 <strong className="text-[var(--text)]">Simulation, Not Advice:</strong> Virtual dollars, points, win-streaks, ranking scores and generated candles have no monetary value, cannot be redeemed for fiat or crypto, and cannot be transferred outside the game.
               </li>
               <li>
-                <strong className="text-[var(--text)]">Coins Carry Real Value:</strong> Coins are bought by sending crypto to the arena&apos;s deposit address ($1 = 100 coins) and are credited only after a reviewer confirms the transfer on-chain. A Live entry burns coins to stake a duel; the winner collects the pooled pot, and those winnings can be withdrawn as crypto. Treat every Live entry as money you can lose.
+                <strong className="text-[var(--text)]">Virtual Coins Only:</strong> Coins are game credits earned by playing and in missions. They are never purchased with money, cannot be transferred between accounts, and have no cash, crypto or stored value.
               </li>
               <li>
-                <strong className="text-[var(--text)]">Deposits Are Final:</strong> A coin purchase is settled by a crypto transfer you send yourself. On-chain transfers cannot be reversed by Pip Duel, so a mistyped address, a wrong network, a memo/tag left out, or an amount below the pack price can end with nothing credited. Reviewers approve, reject, or ask for a corrected claim; a rejected deposit is not refundable, and sending the same transaction hash twice credits once.
+                <strong className="text-[var(--text)]">No Deposits Or Payouts:</strong> The game has no deposit address, payment rail, withdrawal flow or cash-out. Ranked entries burn virtual coins; a win returns a virtual pot; a loss costs virtual coins only.
               </li>
               <li>
-                <strong className="text-[var(--text)]">Withdrawals:</strong> Any coin balance can be requested back as USDT, with a $5 minimum and a $1 network fee taken off the payout. Requesting one escrows the coins immediately — they leave your balance while a reviewer checks the account and sends the transfer by hand. A refused payout returns the coins; a sent payout cannot be reversed. Payouts go to the address on the request and nowhere else, and the arena may hold or refuse a payout on an account it cannot verify.
-              </li>
-              <li>
-                <strong className="text-[var(--text)]">No Custody, No Investment:</strong> Coins are an entry token for a game, not a deposit, an investment, or a stored-value product. Pip Duel holds no balance on your behalf once a payout is sent, and offers no interest, returns or custody.
+                <strong className="text-[var(--text)]">No Custody, No Investment:</strong> Coins are an entry token for a game, not a deposit, an investment, or a stored-value product. Pip Duel holds no funds and offers no interest, returns or custody.
               </li>
               <li>
                 <strong className="text-[var(--text)]">Synthetic Market Engine:</strong> Market candles and tick variations are mathematically generated or historical simulations created for synchronous head-to-head competition. No duel touches a real order book.
@@ -186,7 +183,9 @@ export default function TermsPage() {
               To the maximum extent permitted by applicable law, Pip Duel, its developers, contributors, and the Forexwala community will not be liable for any indirect, consequential, punitive, or incidental damages arising out of your access or inability to access the platform.
             </p>
             <p>
-              Money you send on-chain is yours to route correctly. Pip Duel is not liable for a deposit sent to the wrong address, the wrong network, or without the memo a rail requires, nor for a payout signed off and broadcast to the address a player supplied. Value staked in a Live duel is lost when the duel is lost.
+              Virtual coins have no cash value. There is no deposit to route and no payout to
+              reverse. A ranked entry is lost when the duel is lost; nothing outside the game is at
+              stake.
             </p>
           </section>
 

@@ -71,27 +71,27 @@ export default function SupportPage() {
 
       <section className="lp-section">
         <div className="lp-head">
-          <span className="lp-kicker">Money questions</span>
-          <h2 className="lp-h2">Deposits and withdrawals</h2>
+          <span className="lp-kicker">Game questions</span>
+          <h2 className="lp-h2">Coins, results and disconnects</h2>
         </div>
 
         <FaqList
           items={[
             {
-              q: 'I sent crypto but my coins never arrived',
-              a: 'Send the transaction ID. A reviewer opens it on the explorer and checks the recipient address, the amount and the confirmations. If it went to a different address than the one on the deposit screen, it cannot be recovered — that is why the address is only ever shown inside the app.',
-            },
-            {
-              q: 'My withdrawal is queued and I need it faster',
-              a: 'Payouts are reviewed manually, so there is a queue. Quote the request time and destination rail; if the ledger is clean it does not need to wait for anything else.',
+              q: 'My coin balance looks wrong',
+              a: 'Send the match code or the mission name and the balance you expected. Coins are earned by playing and in missions; there is no deposit that could be missing, so every change has a match or mission behind it.',
             },
             {
               q: 'A duel ended and the result looks wrong',
-              a: 'Send the room code. Settlement is a replay of your submitted actions, so the result can be re-run and compared — a disagreement is a bug we want to see.',
+              a: 'Send the room code. The score is a replay of your submitted actions, so the result can be re-run and compared — a disagreement is a bug we want to see.',
             },
             {
               q: 'I lost an entry because of a disconnection',
               a: 'The duel runs on the ticket clock, not on your connection. Bars keep closing whether your tab is open or not, so a disconnect is not a settlement error. If the room itself failed to stay up, that is different — send the code.',
+            },
+            {
+              q: 'Can I get my coins back?',
+              a: 'Coins have no cash value and there is no purchase to refund. A ranked entry is spent when the duel starts; practice is always free if you want to test a setup.',
             },
           ]}
         />
@@ -101,8 +101,8 @@ export default function SupportPage() {
         <div className="pg-prose">
           <h2>What support will never do</h2>
           <ul>
-            <li>Ask for your password, a seed phrase or a private key.</li>
-            <li>Send you a deposit address in a direct message.</li>
+            <li>Ask for your password or a private key.</li>
+            <li>Ask for a payment, a deposit or a wallet address.</li>
             <li>Change a settled result by hand.</li>
           </ul>
           <p>

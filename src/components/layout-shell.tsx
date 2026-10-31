@@ -15,7 +15,6 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   const isDedicated =
     pathname === '/' ||
     isSitePath(pathname) ||
-    pathname.startsWith('/admin') ||
     pathname.startsWith('/play') ||
     pathname.startsWith('/lobby') ||
     pathname.startsWith('/terminal') ||

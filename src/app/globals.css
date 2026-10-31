@@ -812,22 +812,6 @@ html[data-theme='paper'] .bg-grid {
 }
 
 /* ---------------------------------------------------------------------
-   ADMIN CONSOLE — SQUARE CHROME
-   The console is a work surface, not a marketing card: every corner in
-   the admin shell is square. This also flattens the shared `.card` and
-   the `select` field rule above — both are unlayered and one comes
-   later in the file, so the !important is what makes the scope hold
-   regardless of source order. Scoped to [data-admin] (set by
-   src/app/admin/layout.tsx) so the rest of the app keeps its rounding.
---------------------------------------------------------------------- */
-[data-admin],
-[data-admin] *,
-[data-admin] *::before,
-[data-admin] *::after {
-  border-radius: 0 !important;
-}
-
-/* ---------------------------------------------------------------------
    ONE CORNER RULE FOR THE WHOLE PRODUCT
 
    Every surface is cut square. The design is a terminal, and one rounded

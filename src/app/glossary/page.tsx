@@ -1,6 +1,6 @@
 import { CtaBand, PageHero, SitePage } from '@/components/site/site-chrome';
 import { MAX_ORDERS_PER_MATCH, TICKS_PER_BAR } from '@/lib/engine/constants';
-import { COINS_PER_USD, HOUSE_CUT } from '@/lib/economy/config';
+import { HOUSE_CUT } from '@/lib/economy/config';
 
 export const metadata = {
   title: 'Glossary — The words this arena uses',
@@ -25,12 +25,11 @@ const TERMS: { term: string; def: string }[] = [
   { term: 'Drawdown', def: 'How far the account fell from its running peak. A large win with a deep drawdown is not the same result as a clean one.' },
   { term: 'Risk-adjusted', def: 'Scoring that reads P&L together with the risk taken to get it, so size cannot buy a win on its own.' },
   { term: 'Equity curve', def: 'The running value of an account over the duel, shown to the rival as a sparkline — never the orders behind it.' },
-  { term: 'Coin', def: `The only currency. ${COINS_PER_USD} coins = $1, bought with crypto and withdrawn as USDT.` },
-  { term: 'Peg', def: `The fixed exchange between coins and dollars. It does not move and does not improve with pack size.` },
-  { term: 'Pot', def: 'Two entries pooled. The winner receives the pot minus the house cut.' },
-  { term: 'House cut', def: `${Math.round(HOUSE_CUT * 100)}% of the pot, burned as the platform fee. Published, not deducted per trade.` },
-  { term: 'Live table', def: 'A duel that stakes coins. Result affects your rating and your balance.' },
-  { term: 'Demo table', def: 'Same chart, same cap, no stake and no rating change.' },
+  { term: 'Coin', def: 'The only game credit. Earned by playing and in missions; never bought, transferred or redeemed for cash.' },
+  { term: 'Pot', def: 'Two virtual entries pooled. The winner receives the pot minus the sink.' },
+  { term: 'House cut', def: `${Math.round(HOUSE_CUT * 100)}% of the virtual pot removed from circulation as a game sink. Published, not deducted per trade.` },
+  { term: 'Ranked table', def: 'A duel that stakes virtual coins. Result affects your rating and your coin balance.' },
+  { term: 'Practice table', def: 'Same chart, same cap, no stake and no rating change.' },
   { term: 'RP', def: 'Rating points. They decide your division, move after each settled duel, and decay slowly if you stop playing.' },
   { term: 'Division', def: 'A 200-RP step inside a tier — Bronze III up to Master. Divisions are how the ladder stays readable.' },
   { term: 'Season', def: 'A reset window for the ladder. Ratings compress, divisions are re-earned, settlement logic does not change.' },

@@ -158,12 +158,12 @@ export default function FairnessPage() {
             are not real gold, real euro or real crude. No claim on this site says otherwise.
           </p>
 
-          <h2>The house is paid from the pot</h2>
+          <h2>Part of the virtual pot leaves circulation</h2>
           <p>
-            Two entries of {cheapest} coins make a 2× pot; {Math.round(HOUSE_CUT * 100)}% is burned
-            as the platform fee and the winner receives the rest. That arithmetic is printed on the
+            Two entries of {cheapest} coins make a 2× pot; {Math.round(HOUSE_CUT * 100)}% is removed
+            as a sink and the winner receives the rest. That arithmetic is printed on the
             pricing page rather than buried, because it is the one number a player should check
-            before staking.
+            before entering.
           </p>
 
           <h2>Entry rules are fixed, not negotiable</h2>
@@ -173,11 +173,11 @@ export default function FairnessPage() {
             is what stops a duel being won by order volume rather than by a read.
           </p>
 
-          <h2>Withdrawals are reviewed by a human</h2>
+          <h2>Coins are virtual, by design</h2>
           <p>
-            Crypto out is queued and checked before it is sent. That is slower than an instant
-            payout and slower than we would like — see{' '}
-            <Link href="/security">security</Link> for what a reviewer checks.
+            There is no crypto in, no crypto out and no cash-out queue. Coins are earned by playing
+            and in missions, spent on ranked entries, and never converted to anything. See the{' '}
+            <Link href="/pricing">pricing page</Link> for the entry and sink numbers.
           </p>
         </div>
       </section>

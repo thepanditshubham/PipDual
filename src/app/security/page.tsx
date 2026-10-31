@@ -1,12 +1,9 @@
-import Link from 'next/link';
-import { Lock, Radio, Wallet } from 'lucide-react';
 import { CtaBand, PageHero, Prose, SitePage } from '@/components/site/site-chrome';
-import { MIN_WITHDRAW_USD, WITHDRAW_FEE_USD } from '@/lib/economy/config';
 
 export const metadata = {
-  title: 'Security — Accounts, deposits and payouts',
+  title: 'Security — Accounts, fair play and reporting',
   description:
-    'How Pip Duel protects accounts, reviews crypto deposits on-chain, and what a reviewer checks before a withdrawal is sent.',
+    'How Pip Duel protects accounts, scopes database access with row-level security, and what to do if you find a vulnerability.',
 };
 
 export default function SecurityPage() {
@@ -16,107 +13,55 @@ export default function SecurityPage() {
         kicker="Security"
         title={
           <>
-            The chart is public.
+            A game account
             <br />
-            <em>Your account is not.</em>
+            <em>is still an account.</em>
           </>
         }
-        lead="Three places money can go wrong: the account, the deposit and the payout. Each has one job — make the wrong outcome require more than a mistake, and make every movement leave a record."
-        meta={['Crypto in, crypto out', `Withdrawals from $${MIN_WITHDRAW_USD}`, 'Manual review on every payout']}
+        lead="No money moves through Pip Duel, so the security job is narrower: protect the account, protect other players' rows, and keep the game honest. Every write is scoped in Postgres, not in the browser."
+        meta={['RLS-scoped data', 'Least privilege', 'Private disclosure']}
       />
-
-      <section className="lp-section lp-section--panel">
-        <div className="lp-features">
-          <article className="lp-feature">
-            <div className="lp-feature-icon"><Lock size={16} /></div>
-            <h3 className="lp-feature-title">Account</h3>
-            <p className="lp-feature-desc">
-              Passwords are hashed by the auth provider, sessions are token-based, and the address on
-              the account is the only one support will reply to. Nobody on the team will ever ask for
-              your password or a seed phrase.
-            </p>
-          </article>
-          <article className="lp-feature">
-            <div className="lp-feature-icon"><Radio size={16} /></div>
-            <h3 className="lp-feature-title">Deposits</h3>
-            <p className="lp-feature-desc">
-              A deposit is a transfer to a published address, credited only after the transaction is
-              read on-chain and the amount, recipient and confirmation count match the declared
-              transfer. A screenshot is never enough.
-            </p>
-          </article>
-          <article className="lp-feature">
-            <div className="lp-feature-icon"><Wallet size={16} /></div>
-            <h3 className="lp-feature-title">Payouts</h3>
-            <p className="lp-feature-desc">
-              Withdrawals queue for review. The reviewer checks the balance, the coin ledger and the
-              destination address before release, and the transfer record is kept against your account.
-            </p>
-          </article>
-        </div>
-      </section>
 
       <section className="lp-section">
         <Prose
           sections={[
             {
-              heading: 'What we will never ask for',
+              heading: '1. Accounts',
+              body: [
+                'Sign-in is handled by Supabase Auth (email and Google). Passwords never reach this application, and the anon key that ships to the browser is designed to be public.',
+                'Guest sessions live in local storage and have no database profile, so a guest cannot read or write another player’s row.',
+              ],
+            },
+            {
+              heading: '2. The database is the authorization boundary',
               list: [
-                'Your password, in any channel, for any reason.',
-                'A seed phrase, private key or wallet recovery file. No support flow needs one.',
-                'A deposit sent to an address you were given in a direct message. Every deposit address is on the deposit screen inside the app.',
-                'Remote access to your device.',
-              ],
-              body: [
-                'If someone claiming to be Pip Duel asks for any of the above, they are not us. Report it through support so we can warn the community.',
+                'Row-level security scopes wallet reads and writes to the signed-in player.',
+                'Profile authority columns (role, status, rating) are not writable by clients; column grants and a trigger hold that line.',
+                'Admin tooling is not part of the public build. There is no public admin route to attack.',
+                'The application never uses a service-role key in the browser.',
               ],
             },
             {
-              heading: 'How a deposit is credited',
+              heading: '3. Fair play',
               body: [
-                'You send crypto to the address shown for that rail and paste the transaction ID. A reviewer opens the transaction in a public explorer, checks the recipient address and the amount, and only then credits coins.',
-                'Because the check is manual, the first deposit of a session is not instant. That delay is the control: it is what makes a mis-pasted address, an underpaid transfer or a replayed transaction ID fail loudly instead of quietly.',
+                'The market is deterministic and both terminals derive the same window from the ticket start time. The server re-simulates the submitted action log and scores it independently; a browser-edited score has nothing to attach to.',
+                'The current submit endpoint is unauthenticated and persists nothing. Treat it as a scoring service, not a settlement service.',
               ],
             },
             {
-              heading: 'How a payout is sent',
+              heading: '4. Reporting a vulnerability',
               body: [
-                `Coins convert at the same peg used for deposits. The payout floor is $${MIN_WITHDRAW_USD} and the flat network fee is $${WITHDRAW_FEE_USD}, taken from the amount you receive rather than charged up front.`,
-                'Payouts are stablecoin transfers on rails the arena already holds funds on, so a withdrawal does not wait for a market sale to settle. Every request is reviewed against the ledger before it leaves.',
-              ],
-            },
-            {
-              heading: 'What we cannot protect you from',
-              body: [
-                'If someone has your wallet, your email, or your device, the arena is not the weakest link. If your recovery address is wrong, a payout sent to it cannot be recalled.',
-              ],
-              list: [
-                'A lost entry is a spent entry — duels are not refundable once the ticket starts.',
-                'A transfer to an address you typed yourself is irreversible.',
-                'Community channels are public. Nobody legitimate will ask for account credentials there.',
-              ],
-            },
-            {
-              heading: 'Reporting a vulnerability',
-              body: [
-                'If you believe you have found a security bug, report it through support before disclosing it publicly. Include the steps to reproduce it and what you expected to happen. Responsible reports are acknowledged and credited.',
+                'Do not open a public issue. Use the private advisory link or the security email in SECURITY.md. Include a reproduction, the affected area and the impact; never include real credentials or another player’s data.',
+                'We acknowledge within 48 hours and aim to triage within five business days. Good-faith research is covered by the safe-harbour statement in SECURITY.md.',
               ],
             },
           ]}
         />
-
-        <div className="pg-prose" style={{ marginTop: 26 }}>
-          <p>
-            Related: <Link href="/legal/aml-kyc">AML / KYC policy</Link> ·{' '}
-            <Link href="/legal/risk">risk disclosure</Link> ·{' '}
-            <Link href="/support">support</Link>.
-          </p>
-        </div>
       </section>
 
       <CtaBand
-        title="Questions about a specific transfer?"
-        copy="Send the transaction ID through support. A reviewer can read the same chain you can."
+        title="Found something? Tell us privately."
+        copy="Security advisories reach the maintainers without tipping off players or scanners."
       />
     </SitePage>
   );

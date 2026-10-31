@@ -1,6 +1,6 @@
 import { Check, Minus } from 'lucide-react';
 import { CtaBand, PageHero, SitePage } from '@/components/site/site-chrome';
-import { COINS_PER_USD, HOUSE_CUT, LIVE_FEES } from '@/lib/economy/config';
+import { HOUSE_CUT, LIVE_FEES } from '@/lib/economy/config';
 import { MAX_ORDERS_PER_MATCH } from '@/lib/engine/constants';
 
 export const metadata = {
@@ -27,7 +27,7 @@ const ROWS: { label: string; cells: (string | boolean)[] }[] = [
   },
   {
     label: 'Cost to start',
-    cells: [`${cheapest} coins ($${(cheapest / COINS_PER_USD).toFixed(2)}) · demo free`, '$50–$500 evaluation fee', 'Free', 'Whatever you stake'],
+    cells: [`${cheapest} virtual coins · practice free`, '$50–$500 evaluation fee', 'Free', 'Whatever you stake'],
   },
   {
     label: 'Market data',
@@ -38,16 +38,12 @@ const ROWS: { label: string; cells: (string | boolean)[] }[] = [
     cells: ['Another player, on the identical chart', 'The firm’s rulebook, not a person', 'Nobody', 'The house'],
   },
   {
-    label: 'Can you withdraw winnings',
-    cells: [true, 'Only after passing the evaluation', false, true],
-  },
-  {
     label: 'Ranked ladder',
     cells: ['Yes — divisions from Bronze to Master', false, false, false],
   },
   {
     label: 'Most you can lose in one attempt',
-    cells: ['The entry you chose', 'The evaluation fee', 'Nothing', 'Your whole stake'],
+    cells: ['Nothing — coins have no cash value', 'The evaluation fee', 'Nothing', 'Your whole stake'],
   },
   {
     label: 'Can you prove the result afterwards',
@@ -69,8 +65,8 @@ export default function ComparePage() {
             <em>and it is certainly not a bet.</em>
           </>
         }
-        lead="Four formats that all look like “trade for money” from the outside. They differ in what decides the outcome, how long it takes, and how much a single attempt can cost you."
-        meta={[`${MAX_ORDERS_PER_MATCH} entries per duel`, `${Math.round(HOUSE_CUT * 100)}% house cut, published`]}
+        lead="Four formats that all look like “trade for money” from the outside. They differ in what decides the outcome, how long it takes, and what a single attempt can cost you."
+        meta={[`${MAX_ORDERS_PER_MATCH} entries per duel`, `${Math.round(HOUSE_CUT * 100)}% virtual pot sink`]}
       />
 
       {/* ── The table ────────────────────────────────────────── */}

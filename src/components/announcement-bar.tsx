@@ -2,9 +2,10 @@
 
 /**
  * announcement-bar.tsx
- * The one-line strip above the lobby header and the menu bar — what the
- * console at /admin/announcements publishes. It is the first thing on the
- * page, so it paints from this device's cache before Supabase answers, and
+ * The one-line strip above the lobby header and the menu bar. Rows are
+ * published by the private operator console; this component is read-only.
+ * It is the first thing on the page, so it paints from this device's cache
+ * before Supabase answers, and
  * quietly disappears if there is nothing live or the player has dismissed
  * every strip. Colours are fixed per tone instead of theme tokens, so the
  * same announcement reads identically on the marketing pages and the arena.

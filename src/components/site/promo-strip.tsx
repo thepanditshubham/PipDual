@@ -58,14 +58,13 @@ export function PromoStrip() {
 
       <p className="promo-text">
         <span className="promo-long">
-          <strong>Affiliate</strong> — earn a share of the platform fee from every trader you bring.
-          Paid out of the house cut, never from the pot.
+          <strong>Free to play</strong> — virtual coins only. No deposits, no payouts, no cash value.
         </span>
         <span className="promo-short">
-          <strong>Affiliate</strong> — earn from the house fee.
+          <strong>Free to play</strong> — virtual coins only.
         </span>{' '}
-        <Link href="/affiliate" className="promo-cta">
-          Explore the programme →
+        <Link href="/how-to-play" className="promo-cta">
+          How it works →
         </Link>
       </p>
 

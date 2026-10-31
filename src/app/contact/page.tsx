@@ -11,7 +11,7 @@ export const metadata = {
 const ROUTES = [
   {
     who: 'Players',
-    what: 'Bugs, stuck duels, deposit and withdrawal questions.',
+    what: 'Bugs, stuck duels, account and coin-balance questions.',
     where: 'Support',
     href: '/support',
     note: 'Include the room code and a UTC time. Internal.',
@@ -32,7 +32,7 @@ const ROUTES = [
   },
   {
     who: 'Abuse & impersonation',
-    what: 'Someone claiming to be Pip Duel asking for keys, deposits or account access.',
+    what: 'Someone claiming to be Pip Duel asking for payments, keys or account access.',
     where: 'Telegram',
     href: 'https://t.me/forexwala',
     note: 'Screenshots help. Report first, do not confront.',
@@ -113,9 +113,9 @@ export default function ContactPage() {
         <div className="pg-prose">
           <h2>What we cannot do</h2>
           <p>
-            Support cannot reverse a settled duel, restore an entry spent on a loss, or release a
-            withdrawal before it has been reviewed. Those three answers are the same for everyone,
-            which is what makes them worth stating.
+            Support cannot reverse a settled duel, restore a coin entry spent on a loss, or
+            change a score by hand. Those answers are the same for everyone, which is what makes
+            them worth stating.
           </p>
 
           <h2>Response time</h2>

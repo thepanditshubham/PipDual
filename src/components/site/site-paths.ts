@@ -17,7 +17,6 @@ export const SITE_PATHS = [
   '/security',
   '/proof',
   '/status',
-  '/affiliate',
   '/glossary',
   '/support',
   '/contact',
@@ -27,7 +26,6 @@ export const SITE_PATHS = [
   '/blog',
   '/invites',
   '/legal/risk',
-  '/legal/aml-kyc',
   '/legal/responsible-trading',
 ] as const;
 

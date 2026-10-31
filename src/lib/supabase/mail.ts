@@ -1,14 +1,15 @@
 /**
  * mail.ts
- * The player's company inbox. Rows are written by Postgres triggers when a
- * deposit or payout changes state, so the same mail follows the player across
- * devices. A client can read its own mail, mark it read and clear letters it no
- * longer wants; it cannot create or rewrite them.
+ * The player's company inbox. Rows are written server-side by the operator
+ * (match results, missions, announcements), so the same mail follows the
+ * player across devices. A client can read its own mail, mark it read and
+ * clear letters it no longer wants; it cannot create or rewrite them.
  */
 import { getSupabase } from './client';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Legacy categories are tolerated so old rows still render; new mail is system. */
 export type MailCategory = 'deposit' | 'withdrawal' | 'system';
 
 export interface PlayerMail {

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Swords, Bot, BarChart3, HelpCircle, Crosshair,
-  Settings as SettingsIcon, Mail, Share2, Headphones,
+  Settings as SettingsIcon, Mail, Headphones,
   Coins, ChevronDown, ChevronUp, Flame,
   Volume2, VolumeX, Clock, ArrowLeft, AlertCircle, CheckCircle2,
   ExternalLink, User, Ticket, LogIn, LogOut,
@@ -14,7 +14,6 @@ import {
 import { useAuthStore } from '@/lib/auth/store';
 import { DEFAULT_AVATAR } from '@/lib/auth/avatar';
 import { getSupabase } from '@/lib/supabase/client';
-import { fetchPlayerNames } from '@/lib/supabase/wallet';
 import { sound } from '@/components/terminal/sound';
 import { joinMatchmakingQueue, generateRoomCode, type QueuePlayer, type QueueScope, type MatchFoundPayload } from '@/lib/matchmaking/matchmaker';
 import {
@@ -28,7 +27,6 @@ import { openPrivateTable } from '@/lib/tables/private-table';
 import { FriendsPanel } from '@/components/lobby/friends-panel';
 import { LobbyLeftRail, type LobbyTab } from '@/components/lobby/lobby-rail';
 import { AnnouncementBar } from '@/components/announcement-bar';
-import { WalletCard, WalletPanel, WALLET_TABS, type WalletTab } from '@/components/wallet';
 import { TerminalModeToggle, useTerminalMode } from '@/components/terminal/theme-mode';
 import { ProgressCelebrations, StatsPanel } from '@/components/progress';
 import { useProgressStore } from '@/lib/progress/store';
@@ -43,14 +41,6 @@ import {
   saveMailCache,
   type PlayerMail,
 } from '@/lib/supabase/mail';
-import {
-  buildInviteLink,
-  fetchIbDesk,
-  fetchIbLeaderboard,
-  transferIbBalance,
-  type IbBoardRow,
-  type IbDesk,
-} from '@/lib/supabase/referrals';
 
 const PAIRS = [
   { symbol: 'XAU/USD', name: 'Gold / US Dollar', spread: '0.3' },
@@ -378,20 +368,11 @@ function PlayLobbyContent() {
   const demoAcceptRef = useRef<NodeJS.Timeout | null>(null);
 
   // Center column tab: the Match Ticket, the Stats screen, or one of the
-  // utility screens the rail and the wallet card open. Money is a
-  // center-column screen too — the wallet card only points at it.
+  // utility screens the rail opens.
   const [centerTab, setCenterTab] = useState<LobbyTab>('ticket');
-  // Which half of the money flow the wallet card asked for.
-  const [walletTab, setWalletTab] = useState<WalletTab>('deposit');
 
-  const openWallet = (tab: WalletTab) => {
-    sound.playClick();
-    setWalletTab(tab);
-    setCenterTab('wallet');
-  };
-
-  // Mailbox. Letters are written server-side by the deposit and payout
-  // triggers, so the same inbox follows the player across devices.
+  // Mailbox. Letters are written server-side, so the same inbox follows the
+  // player across devices.
   const [mailItems, setMailItems] = useState<PlayerMail[]>([]);
   const [mailUnavailable, setMailUnavailable] = useState(false);
   const [expandedMailId, setExpandedMailId] = useState<string | null>(null);
@@ -409,21 +390,6 @@ function PlayLobbyContent() {
   const historyPages = Math.max(1, Math.ceil(history.length / HISTORY_PAGE_SIZE));
   const historyWindowStart = Math.min(historyPage, historyPages - 1) * HISTORY_PAGE_SIZE;
   const historySlice = history.slice(historyWindowStart, historyWindowStart + HISTORY_PAGE_SIZE);
-
-  // Affiliate desk, forex-broker style: a tiered rebate off the platform fee
-  // of every Live duel the downline trades. Reads only — the pairing, the
-  // tier, and every commission are decided inside Postgres — with one write:
-  // the player's own transfer of the desk balance into the wallet.
-  const [affiliateDesk, setAffiliateDesk] = useState<IbDesk | null>(null);
-  const [affiliateBoard, setAffiliateBoard] = useState<IbBoardRow[]>([]);
-  const [affiliateUnavailable, setAffiliateUnavailable] = useState(false);
-  const [affiliateLoading, setAffiliateLoading] = useState(false);
-  const [affiliateTransferring, setAffiliateTransferring] = useState(false);
-  const [affiliateNotice, setAffiliateNotice] = useState<string | null>(null);
-  const [affiliateCopied, setAffiliateCopied] = useState(false);
-  // The callsign as the database holds it: a signup whose name was taken got a
-  // suffix, and only the stored one resolves an invite link.
-  const [affiliateCode, setAffiliateCode] = useState('');
 
   // Sound
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -856,12 +822,12 @@ function PlayLobbyContent() {
         beginReveal(match.roomCode, () => {
           /*
            * The entry is charged here, not when the queue started: leaving a
-           * queue costs nothing. Reading the wallet at the last moment also
-           * means a deposit made mid-queue is honoured by this match.
+           * queue costs nothing. Reading the balance at the last moment also
+           * means a mission reward collected mid-queue is honoured by this match.
            */
           if (entry > 0 && !spendCoins(entry)) {
             setQueueNotice(
-              `Live entry needs ${entry.toLocaleString()} coins and the wallet fell short. Deposit or drop to Demo.`,
+              `Live entry needs ${entry.toLocaleString()} coins and your balance fell short. Earn coins in missions or drop to Practice.`,
             );
             setQueueing(false);
             return;
@@ -990,7 +956,7 @@ function PlayLobbyContent() {
           return;
         }
         if (!spendCoins(seat)) {
-          setQueueNotice('The wallet fell short of that table — deposit coins first.');
+          setQueueNotice('That table needs more coins than you hold — earn coins in missions first.');
           return;
         }
         stashRoomSession(code, { mode: 'standard', opponent: 'live', duration, ranked: true, stake: seat });
@@ -1093,7 +1059,7 @@ function PlayLobbyContent() {
     // cannot pay for — the charge itself happens on pairing.
     if (mode === 'live' && !canAffordEntry) {
       setQueueNotice(
-        `Live entry is ${entryFee.toLocaleString()} coins · you hold ${userCoins.toLocaleString()}. Deposit coins or drop to Demo.`,
+        `Live entry is ${entryFee.toLocaleString()} coins · you hold ${userCoins.toLocaleString()}. Earn coins in missions or drop to Practice.`,
       );
       return;
     }
@@ -1147,7 +1113,7 @@ function PlayLobbyContent() {
           stopReadyCheck();
           setMatchFoundData(null);
           setQueueNotice(
-            `That duel needs ${match.stake.toLocaleString()} coins and the wallet fell short. Deposit more.`,
+            `That duel needs ${match.stake.toLocaleString()} coins and your balance fell short. Earn coins in missions.`,
           );
           return;
         }
@@ -1353,70 +1319,6 @@ function PlayLobbyContent() {
     }
   ), []);
 
-  /* Affiliate: the code is the callsign, so there is nothing to mint here. The
-     desk reads what Postgres already paid — tier, balance, every commission —
-     and moves no coins of its own. Re-read on every open, the mailbox way. */
-  const affiliateUserId = currentUser && !currentUser.isGuest ? currentUser.id : '';
-
-  const loadAffiliate = useCallback(async (playerId: string) => {
-    setAffiliateLoading(true);
-    const [desk, board, names] = await Promise.all([
-      fetchIbDesk(playerId),
-      fetchIbLeaderboard(8),
-      fetchPlayerNames([playerId]),
-    ]);
-    setAffiliateDesk(desk);
-    setAffiliateUnavailable(desk === null);
-    setAffiliateBoard(board ?? []);
-    setAffiliateCode(names[playerId] ?? '');
-    setAffiliateLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (centerTab !== 'affiliate' || !affiliateUserId) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadAffiliate(affiliateUserId);
-  }, [centerTab, affiliateUserId, loadAffiliate]);
-
-  // "Copied" is a two-second confirmation, not a thing to remember.
-  useEffect(() => {
-    if (!affiliateCopied) return;
-    const t = setTimeout(() => setAffiliateCopied(false), 2000);
-    return () => clearTimeout(t);
-  }, [affiliateCopied]);
-
-  const copyInviteLink = async () => {
-    const link = buildInviteLink(affiliateCode || (currentUser?.username ?? ''));
-    if (!link) return;
-    sound.playClick();
-    try {
-      await navigator.clipboard.writeText(link);
-      setAffiliateCopied(true);
-    } catch {
-      setQueueNotice('Your browser blocked the clipboard — select the link and copy it by hand.');
-    }
-  };
-
-  /* Empty the desk into the game wallet. The coins cross inside Postgres
-     (one ledger row, kind 'referral'), so the wallet only becomes truthful
-     after a re-sync — then the ordinary withdrawal flow cashes them out. */
-  const transferDeskToWallet = async () => {
-    if (!affiliateUserId || affiliateTransferring) return;
-    sound.playClick();
-    setAffiliateTransferring(true);
-    setAffiliateNotice(null);
-    const moved = await transferIbBalance();
-    if (moved === null) {
-      setAffiliateNotice('The desk is unreachable right now — try again when the database is back.');
-    } else if (moved > 0) {
-      await syncFromSupabase(affiliateUserId);
-      setAffiliateNotice(`${moved.toLocaleString()} coins moved to the wallet. Withdraw them any time from Money.`);
-    }
-    const fresh = await fetchIbDesk(affiliateUserId);
-    if (fresh) setAffiliateDesk(fresh);
-    setAffiliateTransferring(false);
-  };
-
   /* ──────────────────────────────────────────────────────────
      MAIN LOBBY DASHBOARD — Clean, Simple, Authentic Terminal UI
   ────────────────────────────────────────────────────────── */
@@ -1488,8 +1390,6 @@ function PlayLobbyContent() {
             {([
               ['ticket', 'Battle', Swords],
               ['stats', 'Stats', BarChart3],
-              ['wallet', 'Money', Coins],
-              ['affiliate', 'Affiliate', Share2],
               ['mail', 'Inbox', Mail],
             ] as const).map(([id, label, Icon]) => {
               const active = centerTab === id;
@@ -1502,7 +1402,6 @@ function PlayLobbyContent() {
                     setCenterTab(id);
                   }}
                   aria-current={active ? 'page' : undefined}
-                  title={id === 'affiliate' ? 'Affiliate — rebate on referred volume' : undefined}
                   className={`relative flex h-full min-w-[64px] flex-col items-center justify-center gap-1 px-2 text-[11px] font-semibold leading-none transition-colors cursor-pointer ${
                     active
                       ? 'text-[var(--term-accent-text)]'
@@ -1529,24 +1428,12 @@ function PlayLobbyContent() {
               <span className="text-[var(--term-label)]">{onlineCount.toLocaleString()} online</span>
             </div>
 
-            {/* Balance + Deposit — the one money door, always in the header,
-                the way Quotex keeps the account and its top-up side by side */}
-            {currentUser && !currentUser.isGuest && (
-              <div className="flex items-center gap-1.5">
-                <span className="hidden sm:flex h-8 items-center gap-1.5 rounded-lg border border-[var(--term-border)] bg-[var(--term-raised)] px-2.5 text-[11px] font-mono font-bold text-[var(--term-strong)]">
-                  <img src="/coin.png" alt="" className="h-3.5 w-3.5 shrink-0 object-contain" />
-                  {(balanceSyncing && mounted ? 0 : userCoins).toLocaleString()}
-                </span>
-                <button
-                  onClick={() => {
-                    sound.playClick();
-                    openWallet('deposit');
-                  }}
-                  className="h-8 rounded-lg bg-[var(--term-accent)] px-3.5 text-[11px] font-bold tracking-wide text-[var(--term-canvas)] transition-colors hover:bg-[var(--term-accent-hi)] cursor-pointer"
-                >
-                  Deposit
-                </button>
-              </div>
+            {/* Balance — game credits, earned by playing. There is no top-up. */}
+            {currentUser && (
+              <span className="hidden sm:flex h-8 items-center gap-1.5 rounded-lg border border-[var(--term-border)] bg-[var(--term-raised)] px-2.5 text-[11px] font-mono font-bold text-[var(--term-strong)]">
+                <Coins size={13} className="text-[var(--term-amber)]" />
+                {(balanceSyncing && mounted ? 0 : userCoins).toLocaleString()}
+              </span>
             )}
 
             {/* Light / dark switch — shared with the battle terminal */}
@@ -1610,7 +1497,7 @@ function PlayLobbyContent() {
         <div className="mx-auto flex w-full max-w-[1180px] flex-wrap items-start gap-3 px-3 py-4 md:gap-4 md:px-4 md:py-5">
 
           {/* ══════════════════════════════════════════════════════════
-              LEFT RAIL: identity, season snapshot, referral, rail nav
+              LEFT RAIL: identity, season snapshot, rail nav
           ══════════════════════════════════════════════════════════ */}
           <aside className="order-2 w-full shrink-0 lg:order-1 lg:w-[225px]">
             <LobbyLeftRail
@@ -1631,8 +1518,7 @@ function PlayLobbyContent() {
           {/* ══════════════════════════════════════════════════════════
               CENTER COLUMN: [ Battle ] [ Stats ]
                              MATCH TICKET (Perforated Pass)
-                             — or, opened from the wallet card:
-                             [ Deposit ] [ Withdraw ]
+                             — or the utility screens opened from the rail.
           ══════════════════════════════════════════════════════════ */}
           <div className="order-1 w-full min-w-0 space-y-3 lg:order-2 lg:flex-1 lg:max-w-[620px]">
 
@@ -1679,61 +1565,6 @@ function PlayLobbyContent() {
                 </span>
               </div>
             </div>
-
-            {centerTab === 'wallet' && (
-              <div className="bg-[var(--term-panel)]/90 backdrop-blur-md border border-[var(--term-border)] rounded-lg p-4 space-y-4 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between gap-3 pb-2.5 border-b border-[var(--term-border)]">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Coins size={16} className="text-[var(--term-amber)] shrink-0" />
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--term-strong)] font-mono truncate">
-                      Wallet
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-2.5 shrink-0">
-                    <span className="text-xs font-mono font-bold text-[var(--term-strong)] hidden sm:inline">
-                      {(balanceSyncing && mounted ? 0 : userCoins).toLocaleString()} coins
-                    </span>
-                    <button
-                      onClick={() => setCenterTab('ticket')}
-                      className="text-xs font-mono text-[var(--term-muted)] hover:text-[var(--term-strong)] flex items-center gap-1 cursor-pointer"
-                    >
-                      ✕ Close
-                    </button>
-                  </div>
-                </div>
-
-                {/* Money lands here from the top bar, so both halves are laid
-                    out as tabs — opening the screen never hides one of them
-                    behind whichever direction was used last. */}
-                <div className="grid grid-cols-2 gap-2">
-                  {WALLET_TABS.map((entry) => {
-                    const active = walletTab === entry.id;
-                    return (
-                      <button
-                        key={entry.id}
-                        onClick={() => {
-                          sound.playClick();
-                          setWalletTab(entry.id);
-                        }}
-                        aria-current={active ? 'page' : undefined}
-                        className={`h-9 rounded border text-[12px] font-bold transition-colors cursor-pointer ${
-                          active
-                            ? 'border-[var(--term-primary)] bg-[var(--term-raised)] text-[var(--term-strong)]'
-                            : 'border-[var(--term-border)] bg-[var(--term-bg)] text-[var(--term-muted)] hover:border-[var(--term-border-hi)] hover:text-[var(--term-text)]'
-                        }`}
-                      >
-                        {entry.label}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <WalletPanel
-                  coins={balanceSyncing && mounted ? 0 : userCoins}
-                  tab={walletTab}
-                />
-              </div>
-            )}
 
             {/* ── TAB CONTENT: MATCH TICKET ──
                 A found match does not open a page of its own: the MATCH FOUND
@@ -2010,7 +1841,7 @@ function PlayLobbyContent() {
                     {mode === 'live' && (
                       <div className="space-y-2.5">
                         <label className="flex items-center gap-1.5 text-xs font-bold text-[var(--term-label)] uppercase tracking-wider font-mono leading-none">
-                          <img src="/coin.png" alt="" className="w-3.5 h-3.5 shrink-0" />
+                          <Coins size={14} className="shrink-0 text-[var(--term-amber)]" aria-hidden="true" />
                           Coins
                         </label>
                         <div className="flex items-stretch gap-1.5">
@@ -2072,7 +1903,7 @@ function PlayLobbyContent() {
                           id="find-match-btn"
                           disabled={!myChallenge && !queueing && isChallengeMode && (!challengeValid || !challengeAffordable)}
                           onClick={() => {
-                            // A challenge already out: this button withdraws it.
+                            // A challenge already out: this button cancels it.
                             if (myChallenge) {
                               handleCancelChallenge();
                               return;
@@ -2335,25 +2166,6 @@ function PlayLobbyContent() {
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* Partner banner — sits directly under the join card, on that tab only. */}
-            {centerTab === 'ticket' && (
-              <a
-                href="https://ib.ecmarkets.co/PL/2/9EETK"
-                target="_blank"
-                rel="noopener noreferrer nofollow sponsored"
-                className="block overflow-hidden border border-[var(--term-border)] bg-[var(--term-surface)]/70"
-              >
-                <img
-                  src="https://file.ecmarkets.com/s3-crm-p/operation/c817804ee08bbb3bf5e107fb3979de62.png"
-                  alt="ECMarkets"
-                  width={1140}
-                  height={250}
-                  loading="lazy"
-                  className="block h-auto w-full"
-                />
-              </a>
             )}
 
             {/* Recent duels — the same record the archive page reads, newest
@@ -2663,7 +2475,7 @@ function PlayLobbyContent() {
                             <p className="text-xs leading-relaxed text-[var(--term-label)] whitespace-pre-line">{item.body}</p>
                             <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-mono uppercase tracking-wide">
                               <span className="text-[var(--term-muted)]">
-                                {item.category === 'deposit' ? 'Deposit desk' : item.category === 'withdrawal' ? 'Payout desk' : 'Arena system'}
+                                {item.category === 'system' ? 'Arena system' : 'Legacy record'}
                               </span>
                               {hasCoins && <span className="font-bold text-[var(--term-amber)]">{coins.toLocaleString()} C</span>}
                               <span className="flex items-center gap-1 text-[var(--term-buy)]">
@@ -2681,296 +2493,13 @@ function PlayLobbyContent() {
                       {mailUnavailable
                         ? 'Mail is unavailable right now — run supabase/setup.sql so the mailbox table exists.'
                         : mailUserId
-                          ? 'No mail yet. Deposits and payout requests write a letter here automatically.'
+                          ? 'No mail yet. Match results and announcements write a letter here automatically.'
                           : 'Mail is delivered to registered accounts. Guest sessions have no inbox.'}
                     </div>
                   )}
                 </div>
               </div>
             )}
-
-            {/* ── TAB CONTENT: AFFILIATE ── */}
-            {centerTab === 'affiliate' && (() => {
-              // The code is the callsign the database holds, not the one typed
-              // at signup — a clashing name got a suffix, and only the stored
-              // spelling resolves an invite link.
-              const code = affiliateCode
-                || (currentUser && !currentUser.isGuest ? currentUser.username : '');
-              const link = buildInviteLink(code);
-              const desk = affiliateDesk;
-              const tier = desk?.tier ?? null;
-              const cfg = desk?.config;
-              const nextTier = tier
-                ? desk?.tiers.find((t) => t.active && t.level === tier.nextLevel) ?? null
-                : null;
-
-              return (
-              <div className="bg-[var(--term-panel)]/90 backdrop-blur-md border border-[var(--term-border)] rounded-lg p-4 space-y-4 animate-in fade-in duration-200">
-                {/* Header */}
-                <div className="flex items-center justify-between gap-3 pb-2.5 border-b border-[var(--term-border)]">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Share2 size={16} className="text-[var(--term-primary)] shrink-0" />
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--term-strong)] font-mono">Affiliate desk</h3>
-                      {/* What the desk pays and on what: volume, not sign-ups */}
-                      <p className="text-[10px] font-mono leading-snug text-[var(--term-muted)]">
-                        Rebate on the house fee — your rate follows the volume your invited traders
-                        stake, not how many sign up.
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setCenterTab('ticket')}
-                    className="text-xs font-mono text-[var(--term-muted)] hover:text-[var(--term-strong)] flex items-center gap-1 cursor-pointer shrink-0"
-                  >
-                    ✕ Close
-                  </button>
-                </div>
-
-                {!mounted ? null : !currentUser || currentUser.isGuest ? (
-                  <div className="space-y-2 rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-3">
-                    <p className="text-[11px] font-mono leading-relaxed text-[var(--term-label)]">
-                      An invite link is tied to a callsign, and a guest session has no database row
-                      to pay. Register and the code becomes your username.
-                    </p>
-                    <Link
-                      href="/register"
-                      className="inline-flex items-center gap-1.5 text-[11px] font-mono font-bold text-[var(--term-primary)] hover:text-[var(--term-strong)] cursor-pointer"
-                    >
-                      Create an account <ArrowLeft size={12} className="rotate-180" />
-                    </Link>
-                  </div>
-                ) : affiliateLoading && !desk ? (
-                  <p className="rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-6 text-center text-[11px] font-mono text-[var(--term-muted)]">
-                    Opening your desk…
-                  </p>
-                ) : affiliateUnavailable && !desk ? (
-                  <div className="rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-6 text-center text-[11px] font-mono leading-relaxed text-[var(--term-muted)]">
-                    The affiliate desk is unreadable right now — run supabase/setup.sql so the
-                    affiliate tables exist, then reopen this tab.
-                  </div>
-                ) : (
-                  <>
-                    {/* Desk counters */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {[
-                        { label: 'Desk balance', value: desk ? desk.balance.toLocaleString() : '—', color: 'text-[var(--term-amber)]' },
-                        { label: 'Lifetime earned', value: desk ? desk.lifetime.toLocaleString() : '—', color: 'text-[var(--term-buy)]' },
-                        { label: 'Team volume', value: tier ? tier.lifetimeVolume.toLocaleString() : '—', color: 'text-[var(--term-accent-text)]' },
-                        { label: 'Your rate', value: tier ? `${tier.ratePer100} / 100` : '—', color: 'text-[var(--term-strong)]' },
-                      ].map((s) => (
-                        <div key={s.label} className="rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-2">
-                          <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-muted)]">{s.label}</p>
-                          <p className={`text-base font-mono font-bold leading-6 ${s.color}`}>{s.value}</p>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Current rung and the climb to the next one */}
-                    {tier && (
-                      <div className="rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-2.5 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-mono font-bold text-[var(--term-strong)]">
-                            {tier.name}
-                            <span className="text-[var(--term-muted)] font-normal"> · Level {tier.level}</span>
-                          </p>
-                          <span className="text-[10px] font-mono text-[var(--term-amber)] shrink-0">
-                            {tier.ratePer100} coins per 100 staked{cfg ? ` · fee ${cfg.houseFeePct}%` : ''}
-                          </span>
-                        </div>
-                        {nextTier && tier.nextMinVolume !== null ? (
-                          <>
-                            <div className="h-1.5 rounded bg-[var(--term-surface)] overflow-hidden">
-                              <div
-                                className="h-full bg-[var(--term-primary)]"
-                                style={{ width: `${Math.min(100, Math.round((tier.lifetimeVolume / Math.max(1, tier.nextMinVolume)) * 100))}%` }}
-                              />
-                            </div>
-                            <p className="text-[10px] font-mono text-[var(--term-muted)]">
-                              {tier.needForNext.toLocaleString()} more volume → Level {nextTier.level} ({nextTier.ratePer100} per 100)
-                            </p>
-                          </>
-                        ) : (
-                          <p className="text-[10px] font-mono text-[var(--term-muted)]">
-                            Top rung of the ladder — this desk already pays the best rate the arena ships.
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* The one door out of the desk */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void transferDeskToWallet()}
-                          disabled={!desk || desk.balance <= 0 || affiliateTransferring}
-                          className="flex-1 md:flex-none px-4 h-10 rounded-lg text-xs font-bold cursor-pointer transition-all border border-[var(--term-primary)]/50 bg-[linear-gradient(135deg,var(--term-primary)_0%,var(--term-primary-deep)_100%)] text-[var(--term-canvas)] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {affiliateTransferring
-                            ? 'Moving…'
-                            : desk && desk.balance > 0
-                              ? `Transfer ${desk.balance.toLocaleString()} to wallet`
-                              : 'Desk is empty'}
-                        </button>
-                        <span className="text-[10px] font-mono text-[var(--term-dim)]">
-                          Desk coins sit apart until you move them — then they withdraw like any balance.
-                        </span>
-                      </div>
-                      {cfg && !cfg.enabled && (
-                        <p className="rounded-md bg-[var(--term-bg)] border border-[var(--term-amber)]/40 px-3 py-2 text-[10px] font-mono leading-relaxed text-[var(--term-amber)]">
-                          The arena has paused new rebate credits. Commissions already on your desk stay
-                          yours and still transfer.
-                        </p>
-                      )}
-                      {affiliateNotice && (
-                        <p className="rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-2 text-[10px] font-mono leading-relaxed text-[var(--term-soft)]">
-                          {affiliateNotice}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Your link */}
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">Your invite link</p>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          readOnly
-                          value={link}
-                          onFocus={(e) => e.currentTarget.select()}
-                          className="flex-1 h-10 px-3 bg-[var(--term-bg)] border border-[var(--term-border)] focus:border-[var(--term-primary)] rounded-lg font-mono text-xs text-[var(--term-strong)] focus:outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => void copyInviteLink()}
-                          className={`px-4 h-10 rounded-lg text-xs font-bold cursor-pointer transition-all border ${
-                            affiliateCopied
-                              ? 'border-[var(--term-buy)]/50 bg-[var(--term-buy)]/15 text-[var(--term-buy)]'
-                              : 'border-[var(--term-border-hi)] bg-[var(--term-raised)] text-[var(--term-strong)] hover:bg-[var(--term-surface)]'
-                          }`}
-                        >
-                          {affiliateCopied ? 'Copied' : 'Copy'}
-                        </button>
-                      </div>
-                      <p className="text-[10px] font-mono text-[var(--term-dim)]">
-                        Code <span className="font-bold text-[var(--term-primary)]">@{code}</span> — every trader who signs up through this link pays you a rebate while they play.
-                      </p>
-                    </div>
-
-                    {/* How it pays */}
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">How the rebate pays</p>
-                      <ul className="space-y-1.5 rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-2.5 text-[11px] font-mono text-[var(--term-soft)]">
-                        <li className="flex gap-1.5">
-                          <span className="text-[var(--term-buy)] shrink-0">▸</span>
-                          {cfg
-                            ? `Every Live duel burns ${cfg.houseFeePct}% of the pooled pot as the platform fee — a 100-coin entry pays a 30-coin fee.`
-                            : 'The platform fee per duel loads with the desk.'}
-                        </li>
-                        <li className="flex gap-1.5">
-                          <span className="text-[var(--term-amber)] shrink-0">▸</span>
-                          {tier
-                            ? `Your slice: ${tier.ratePer100} coins per 100 your trader stakes — every duel they play, not a one-off bonus.`
-                            : 'Your tier rate loads with the desk.'}
-                        </li>
-                        {cfg && (
-                          <li className="flex gap-1.5">
-                            <span className="text-[var(--term-muted)] shrink-0">▸</span>
-                            The house floor keeps its share: at least {cfg.minHousePctOfFee}% of every fee stays with the arena, so a rebate never eats the pot maths.
-                          </li>
-                        )}
-                        <li className="flex gap-1.5">
-                          <span className="text-[var(--term-accent-text)] shrink-0">▸</span>
-                          Level up on funded downline — invites whose deposit got approved. The ladder below is what the arena ships today.
-                        </li>
-                        <li className="flex gap-1.5">
-                          <span className="text-[var(--term-primary)] shrink-0">▸</span>
-                          Commissions land on the desk, not the wallet. Transfer them when you like; from the wallet they withdraw as USDT after review.
-                        </li>
-                      </ul>
-                    </div>
-
-                    {/* The ladder itself */}
-                    {desk && desk.tiers.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">Rebate ladder</p>
-                        <div className="rounded-md border border-[var(--term-border)] divide-y divide-[var(--term-border)] overflow-hidden">
-                          {desk.tiers.map((t) => (
-                            <div key={t.level} className={`flex items-center gap-2.5 px-3 py-1.5 bg-[var(--term-bg)] text-xs font-mono ${t.active ? '' : 'opacity-45'}`}>
-                              <span className="w-4 shrink-0 text-right text-[var(--term-muted)]">L{t.level}</span>
-                              <span className={`min-w-0 flex-1 truncate ${tier && t.level === tier.level ? 'text-[var(--term-primary)] font-bold' : 'text-[var(--term-text)]'}`}>{t.name}</span>
-                              <span className="shrink-0 text-[var(--term-amber)]">{t.ratePer100} / 100</span>
-                              <span className="shrink-0 text-[var(--term-soft)]">{t.minVolume > 0 ? `${t.minVolume.toLocaleString()} volume` : 'start'}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Recent commissions */}
-                    {desk && desk.earnings.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">Recent commissions</p>
-                        <div className="rounded-md border border-[var(--term-border)] divide-y divide-[var(--term-border)] overflow-hidden">
-                          {desk.earnings.slice(0, 8).map((row) => (
-                            <div key={row.id} className="flex items-center gap-2 px-3 py-2 bg-[var(--term-bg)]">
-                              <span className="min-w-0 flex-1 truncate text-xs font-mono text-[var(--term-strong)]">@{row.traderName}</span>
-                              <span className="text-[10px] font-mono text-[var(--term-muted)] shrink-0">{row.stake.toLocaleString()} in · L{row.tierLevel}</span>
-                              <span className="text-[10px] font-mono text-[var(--term-muted)] shrink-0">{formatMailStamp(row.createdAt)}</span>
-                              <span className="text-[10px] font-mono font-bold text-[var(--term-buy)] shrink-0">+{row.commission.toLocaleString()}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Who you brought in */}
-                    {desk && desk.invites.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">Your downline</p>
-                        <div className="rounded-md border border-[var(--term-border)] divide-y divide-[var(--term-border)] overflow-hidden">
-                          {desk.invites.slice(0, 8).map((row) => (
-                            <div key={row.id} className="flex items-center gap-2 px-3 py-2 bg-[var(--term-bg)]">
-                              <span className="min-w-0 flex-1 truncate text-xs font-mono text-[var(--term-strong)]">@{row.username}</span>
-                              <span className="text-[10px] font-mono text-[var(--term-muted)] shrink-0">{formatMailStamp(row.createdAt)}</span>
-                              <span
-                                className={`text-[10px] font-mono font-bold shrink-0 ${row.funded ? 'text-[var(--term-buy)]' : 'text-[var(--term-muted)]'}`}
-                                title={row.funded ? 'Deposit approved — counts toward your level' : 'Signed up, no approved deposit yet'}
-                              >
-                                {row.funded ? 'Funded' : 'New'}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* The ladder race */}
-                    {affiliateBoard.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">Affiliate ladder</p>
-                        <div className="rounded-md border border-[var(--term-border)] divide-y divide-[var(--term-border)] overflow-hidden">
-                          {affiliateBoard.map((row, i) => (
-                            <div key={row.callsign} className="flex items-center gap-2.5 px-3 py-1.5 bg-[var(--term-bg)] text-xs font-mono">
-                              <span className="w-4 shrink-0 text-right text-[var(--term-muted)]">{i + 1}</span>
-                              <span className={`min-w-0 flex-1 truncate ${row.callsign === code ? 'text-[var(--term-primary)] font-bold' : 'text-[var(--term-text)]'}`}>@{row.callsign}</span>
-                              <span className="shrink-0 text-[var(--term-soft)]">{row.volume.toLocaleString()} vol</span>
-                              <span className="shrink-0 text-[var(--term-buy)]">{row.coins.toLocaleString()}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {affiliateLoading && (
-                      <p className="text-[10px] font-mono text-[var(--term-dim)]">Refreshing the desk…</p>
-                    )}
-                  </>
-                )}
-              </div>
-              );
-            })()}
 
             {/* ── TAB CONTENT: SUPPORT / HOW TO PLAY ── */}
             {centerTab === 'support' && (
@@ -2997,7 +2526,7 @@ function PlayLobbyContent() {
                     { n: '02', title: 'Enter the Queue', desc: 'Hit Find Match. The engine pairs you with a rival of similar ELO rating within seconds. Both traders see an identical price feed — one global market series, and the duel trades the window that opens on the minute it fires, live on the clock.' },
                     { n: '03', title: '1-Minute Lobby Prep', desc: 'Once matched, a 60-second prep window starts. Study the chart, plan your bias — long or short — and set your first order before the clock hits zero.' },
                     { n: '04', title: 'Trade to Win More Pips', desc: 'Use Market, Limit, or Stop orders. Open and close positions freely. The trader with the highest net pip P&L when the timer expires wins the duel.' },
-                    { n: '05', title: 'Claim Your ELO & Rewards', desc: 'Win → gain ELO and the Live pot. Lose → lose ELO and your entry. Draw → no change, entry returned. Coins come from reviewed crypto deposits and from pots you win, and any balance can be paid back out as USDT from the wallet.' },
+                    { n: '05', title: 'Claim Your ELO & Rewards', desc: 'Win → gain ELO and the Live pot. Lose → lose ELO and your entry. Draw → no change, entry returned. Coins are earned by playing and in missions; they are never bought and cannot be cashed out.' },
                   ].map((s) => (
                     <div key={s.n} className="flex gap-3 px-3 py-2.5 rounded-md bg-[var(--term-bg)] border border-[var(--term-border)]">
                       <span className="w-5 h-5 rounded bg-[var(--term-accent)]/12 border border-[var(--term-accent)]/25 text-[var(--term-accent-text)] shrink-0 mt-px flex items-center justify-center text-[10px] font-black font-mono">
@@ -3062,7 +2591,7 @@ function PlayLobbyContent() {
           </div>
 
           {/* ══════════════════════════════════════════════════════════
-              RIGHT DOCK: open challenges first, then the wallet, then the
+              RIGHT DOCK: open challenges first, then the balance, then the
               friends panel — a game-style rail that stays at the edge
           ══════════════════════════════════════════════════════════ */}
           {/* A dock, not a column: on wide screens the rail sticks under the
@@ -3207,14 +2736,6 @@ function PlayLobbyContent() {
               </div>
             </div>
             </div>
-
-            {/* Wallet — under the board now: the balance and its two buttons;
-                the flow itself opens in the center column, the same place the
-                Match Ticket renders */}
-            <WalletCard
-              coins={balanceSyncing && mounted ? 0 : userCoins}
-              onOpen={openWallet}
-            />
 
             {/* Friends — the messaging panel closes the rail: masthead, search,
                 the All/Online strip, then the conversation list */}

@@ -23,7 +23,6 @@ import { useProgressStore } from '@/lib/progress/store';
 import { XAU_PIP_SIZE } from '@/lib/progress/config';
 import type { MatchOutcome, RewardPacket } from '@/lib/progress/types';
 import { getSupabase } from '@/lib/supabase/client';
-import { awardIbCommission } from '@/lib/supabase/referrals';
 import { sound } from '@/components/terminal/sound';
 
 import { TradingChart } from '@/components/terminal/trading-chart';
@@ -359,18 +358,9 @@ function PlayRoomContent() {
       potSettledRef.current = true;
       const payout = payoutFor(outcome, liveStake);
       if (payout > 0) addCoins(payout);
-      /* Affiliate rebate: this seat's entry paid its platform fee, so the upline
-         who brought this trader in earns their tier's slice. Postgres owns
-         every number — this only names the duel and this player's own stake,
-         and the (match, seat) key inside makes a repeat call pay nothing.
-         A draw refunds both entries, so no fee burns and no rebate is owed.
-         Fire-and-forget: a desk miss must never hold up the pot. */
-      if (outcome !== 'draw' && user && !user.isGuest) {
-        void awardIbCommission(matchId, liveStake);
-      }
       setPotResult({ stake: liveStake, payout });
     },
-    [liveStake, addCoins, matchId, user],
+    [liveStake, addCoins],
   );
 
   /** Feed one finished Live duel into the progress pipeline. */

@@ -4,7 +4,7 @@ export interface UserProfile {
   displayName: string;
   email?: string;
   avatarUrl?: string;
-  /** Arena coins — the only currency. Bought with deposits, paid out by Live pots. */
+  /** Virtual game credits — earned by playing, spent on ranked entries. */
   virtualBalance?: number;
   rating: number;
   riskRating: number;

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { SiteFooter, SiteNav } from '@/components/site/site-chrome';
 import { MATCH_DURATIONS, MAX_ORDERS_PER_MATCH } from '@/lib/engine/constants';
-import { COINS_PER_USD, HOUSE_CUT, LIVE_FEES } from '@/lib/economy/config';
+import { HOUSE_CUT, LIVE_FEES } from '@/lib/economy/config';
 import { SYNTH_PAIRS } from '@/lib/engine/synthetic-market';
 
 export const metadata = {
@@ -16,9 +16,8 @@ export const metadata = {
     '1v1 trading battles on a synthetic market that never closes. Identical candles for both traders, four entries each, five to fifteen minutes to settle it.',
 };
 
-/** Winner's return on one entry: two stakes in, the house takes its cut. */
+/** Winner's return on one virtual entry: two entries in, the sink takes its share. */
 const WINNER_MULTIPLE = (1 - HOUSE_CUT) * 2;
-const CHEAPEST_ENTRY = Math.min(...Object.values(LIVE_FEES)) / COINS_PER_USD;
 const CHEAPEST_COINS = Math.min(...Object.values(LIVE_FEES));
 const TABLE_MINUTES = Object.values(MATCH_DURATIONS).map((seconds) => seconds / 60);
 
@@ -72,9 +71,9 @@ const TERMS = [
     text: 'Fifteen seconds through four hours, all cut from the same source. A duel runs on the clock, and the engine fills on the same prints the chart draws.',
   },
   {
-    num: 'USDT',
-    title: 'Payouts on two rails',
-    text: 'Withdraw on BEP20 or TRC20, from $5, with a flat $1 network fee taken off the payout rather than charged up front.',
+    num: '100%',
+    title: 'Virtual coins only',
+    text: 'Coins are earned by playing and in missions. There is no purchase, no deposit and no cash-out; the only thing a duel can cost you is rank.',
   },
 ];
 
@@ -103,15 +102,15 @@ const FAQ = [
   },
   {
     q: 'What can I lose?',
-    a: `One entry. Live tables start at ${CHEAPEST_COINS} coins ($${CHEAPEST_ENTRY.toFixed(2)}) and that is the whole stake — there is no margin call behind it.`,
+    a: `One virtual entry. Ranked tables start at ${CHEAPEST_COINS} coins and that is the whole stake — there is no margin call behind it. Coins have no cash value.`,
   },
   {
     q: 'Why only four entries?',
     a: 'Four is enough to open, add, reverse or re-enter, and too few to average into a losing trade. The cap is the same for both players, which is what makes it a read rather than a click contest.',
   },
   {
-    q: 'Do I need to deposit to start?',
-    a: 'No. A free account opens the demo tables, which use the same chart, the same spread and the same entry cap.',
+    q: 'Do I need to pay to start?',
+    a: 'No. A free account opens the practice tables, which use the same chart, the same spread and the same entry cap. Ranked tables use coins earned by playing.',
   },
 ];
 
@@ -241,12 +240,12 @@ export default function LandingPage() {
               {CHEAPEST_COINS} <small>coins to enter</small>
             </div>
             <p className="lp-table-note">
-              ${CHEAPEST_ENTRY.toFixed(2)} at {COINS_PER_USD} coins per dollar. Pooled pot, fixed cut.
+              Coins are earned by playing; there is no purchase and no cash-out.
             </p>
             <ul className="lp-list">
               <li><Check size={12} /> Winner collects {WINNER_MULTIPLE.toFixed(2)}× the entry</li>
               <li><Check size={12} /> {TABLE_MINUTES.join(', ')} minute tables</li>
-              <li><Check size={12} /> Withdrawable in USDT</li>
+              <li><Check size={12} /> No cash value, no withdrawal</li>
             </ul>
             <Link href="/play" className="lp-btn">
               <Swords size={13} />
@@ -262,7 +261,7 @@ export default function LandingPage() {
             <p className="lp-table-note">Ranked nothing. Teaches everything.</p>
             <ul className="lp-list">
               <li><Check size={12} /> The same candles and entry cap</li>
-              <li><Check size={12} /> Practise a setup before you stake it</li>
+              <li><Check size={12} /> Practise a setup before you take it ranked</li>
               <li><Check size={12} /> Instant match against a bot or a human</li>
             </ul>
             <Link href="/modes" className="lp-btn lp-btn--ghost">
@@ -324,8 +323,8 @@ export default function LandingPage() {
             <div className="lp-stat-k">Of the pot to the winner</div>
           </div>
           <div className="lp-stat">
-            <div className="lp-stat-v">${CHEAPEST_ENTRY.toFixed(0)}</div>
-            <div className="lp-stat-k">Cheapest live entry</div>
+            <div className="lp-stat-v">{CHEAPEST_COINS.toLocaleString()}</div>
+            <div className="lp-stat-k">Cheapest ranked entry · coins</div>
           </div>
         </div>
       </section>

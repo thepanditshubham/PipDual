@@ -24,7 +24,6 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-1">
           <NavLink href="/modes">Modes</NavLink>
           <NavLink href="/how-to-play">How to Play</NavLink>
-          <NavLink href="/affiliate">Affiliate</NavLink>
         </div>
 
         <div className="hidden md:flex items-center gap-3">
@@ -70,7 +69,6 @@ export function Navbar() {
             
             <MobileNavLink href="/modes" onClick={() => setMobileOpen(false)}>Modes</MobileNavLink>
             <MobileNavLink href="/how-to-play" onClick={() => setMobileOpen(false)}>How to Play</MobileNavLink>
-            <MobileNavLink href="/affiliate" onClick={() => setMobileOpen(false)}>Affiliate</MobileNavLink>
             <hr className="my-2 divider" />
             <MobileNavLink href="/login" onClick={() => setMobileOpen(false)}>Login</MobileNavLink>
             <Link

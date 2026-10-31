@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { PageHero, Prose, SitePage } from '@/components/site/site-chrome';
-import { COINS_PER_USD, HOUSE_CUT, LIVE_FEES, MIN_WITHDRAW_USD, WITHDRAW_FEE_USD } from '@/lib/economy/config';
+import { HOUSE_CUT, LIVE_FEES } from '@/lib/economy/config';
 
 export const metadata = {
   title: 'Risk disclosure',
@@ -22,8 +22,8 @@ export default function RiskPage() {
             <em>Read before your first Live entry.</em>
           </>
         }
-        lead="This page exists because money changes hands. It is written to be read, not to be survived — if any line here surprises you, do not stake coins yet."
-        meta={['Last updated October 2026', 'Applies to all Live tables']}
+        lead="This page exists because a duel has stakes — virtual ones. Read it before you spend coins."
+        meta={['Last updated October 2026', 'Applies to all ranked tables']}
       />
 
       <section className="lp-section">
@@ -32,9 +32,8 @@ export default function RiskPage() {
             {
               heading: '1. You can lose the entry, and that is the whole stake',
               body: [
-                `A Live entry costs ${cheapest} coins or more depending on the table, and it is spent the moment the duel starts. Losing the duel does not refund it. There is no separate margin call and no liquidation event later — the entry is the maximum a single duel can cost you.`,
-                'Coins are bought with crypto at a fixed peg of ' +
-                  `${COINS_PER_USD} coins to the dollar. If you could not afford to lose the dollar value of an entry, do not take the table.`,
+                `A ranked entry costs ${cheapest} virtual coins or more depending on the table, and it is spent the moment the duel starts. Losing the duel does not refund it. The entry is the maximum a single duel can cost you.`,
+                'Coins are game credits, not money: they are earned by playing and in missions, cannot be bought, and have no cash value. There is no dollar amount to lose.',
               ],
             },
             {
@@ -45,18 +44,18 @@ export default function RiskPage() {
               ],
             },
             {
-              heading: '3. The house is paid from the pot',
+              heading: '3. Part of the virtual pot leaves circulation',
               body: [
-                `Two entries form the pot. The arena retains ${Math.round(HOUSE_CUT * 100)}% as its fee and pays the remainder to the winner. That means a player who wins exactly half their duels still loses money over time; the format only pays if your win rate and sizing beat the fee.`,
+                `Two virtual entries form the pot. ${Math.round(HOUSE_CUT * 100)}% is removed from circulation as a game sink and the remainder goes to the winner. That keeps the coin ladder from inflating; it is not a fee paid to anyone.`,
               ],
             },
             {
-              heading: '4. Crypto adds risks that have nothing to do with trading',
+              heading: '4. The game can be interrupted',
               list: [
-                'Transfers are irreversible. A deposit sent to the wrong address cannot be recalled, by us or by anyone.',
-                'Network conditions and confirmation times are outside our control.',
-                `Withdrawals are manually reviewed, carry a flat $${WITHDRAW_FEE_USD} fee and start at $${MIN_WITHDRAW_USD}. A payout is not instant.`,
-                'The value of crypto in your own currency can move while a deposit or withdrawal is in flight.',
+                'The duel runs on the ticket clock, not on your connection. A dropped tab does not pause the market.',
+                'Open positions settle at the prices the series produced, whether or not you were watching.',
+                'A browser crash or a refreshed tab can lose the session; the result is still derived from the submitted actions.',
+                'Virtual coins lost in a duel are not restored. Practice tables are always free if you want to test the layout.',
               ],
             },
             {

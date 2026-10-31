@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { UserProfile, MatchHistoryItem } from './types';
 import { ensureCoins, fetchCoins, upsertCoins } from '@/lib/supabase/wallet';
+import { STARTING_COINS } from '@/lib/economy/config';
 
 interface AuthState {
   user: UserProfile | null;
@@ -11,7 +12,7 @@ interface AuthState {
   logout: () => void;
   recordMatch: (match: MatchHistoryItem) => void;
   updateProfile: (updates: Partial<UserProfile>) => void;
-  /** Credit arena coins (deposits, pot payouts) and persist the balance. */
+  /** Credit virtual coins from a pot or mission and persist the balance. */
   addCoins: (amount: number) => number;
   /**
    * Debit coins for a Live entry. Refuses to overdraw, so a stake can never
@@ -57,7 +58,7 @@ export const useAuthStore = create<AuthState>()(
           riskRating: 1200,
           isGuest: true,
           role: 'user',
-          virtualBalance: 0,
+          virtualBalance: STARTING_COINS,
           createdAt: new Date().toISOString(),
         };
 

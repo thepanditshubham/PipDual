@@ -43,10 +43,10 @@ export default function AboutPage() {
               ],
             },
             {
-              heading: 'How we make money',
+              heading: 'How the economy works',
               body: [
-                `Live duels pool two entries. The arena burns ${Math.round(HOUSE_CUT * 100)}% of that pot as its fee and pays the winner the rest. The cheapest entry is ${cheapest} coins — one dollar — and an entry is the most a single duel can cost you.`,
-                'We do not charge deposits, subscriptions, data fees or inactivity fees. There is no spread markup on top of the simulated market: the bid/ask you trade against is part of the simulation and is identical for both players.',
+                `Ranked duels pool two virtual entries. The game removes ${Math.round(HOUSE_CUT * 100)}% of that pot as a sink and pays the winner the rest. The cheapest entry is ${cheapest} coins, and an entry is the most a single duel can cost you.`,
+                'Coins are game credits earned by playing and in missions. They are never purchased, transferred or redeemed, and there is no spread markup on top of the simulated market: the bid/ask you trade against is identical for both players.',
               ],
             },
             {

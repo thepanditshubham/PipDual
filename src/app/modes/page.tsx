@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import { ArrowRight, Bot, Check, Coins, Flame, Play, Shield, Swords, Trophy } from 'lucide-react';
 import { CtaBand, PageHero, SitePage } from '@/components/site/site-chrome';
-import { COINS_PER_USD, HOUSE_CUT, LIVE_FEES } from '@/lib/economy/config';
+import { HOUSE_CUT, LIVE_FEES } from '@/lib/economy/config';
 import { potFor } from '@/lib/economy/stakes';
 
 export const metadata = {
   title: 'Game modes | Pip Duel',
   description:
-    'Live duels with a coin pot, free Demo duels, and three scoring rule sets: Standard P&L, Risk-adjusted, and Versus Bot.',
+    'Live duels with a virtual coin pot, free Practice duels, and three scoring rule sets: Standard P&L, Risk-adjusted, and Versus Bot.',
 };
 
 const cheapest = Math.min(...Object.values(LIVE_FEES));
@@ -171,7 +171,7 @@ export default function ModesPage() {
               </div>
               <p className="lp-table-note">
                 {mode.featured
-                  ? `$${(cheapest / COINS_PER_USD).toFixed(2)} at ${COINS_PER_USD} coins to the dollar.`
+                  ? `${cheapest.toLocaleString()} virtual coins. Coins are earned by playing and never bought or cashed out.`
                   : 'Same rules, no coin movement.'}
               </p>
               <ul className="lp-list">

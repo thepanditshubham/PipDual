@@ -97,10 +97,10 @@ export default function DisclaimerPage() {
               <span className="text-[var(--accent)] font-mono text-base">1.</span> No Financial Services Offered
             </h2>
             <p>
-              Pip Duel is NOT a broker-dealer, financial institution, registered investment advisor (RIA), crypto exchange, payment processor, or portfolio manager. We accept no investment, offer no investment opportunity, execute no live market transaction, and hold no funds in custody for you. Deposits and payouts are peer-to-peer transfers you make and receive on public blockchains; a human reviewer confirms each one against the explorer before coins are credited or a payout is signed off, and that reviewer may hold or refuse a payout on an account that cannot be verified.
+              Pip Duel is NOT a broker-dealer, financial institution, registered investment advisor (RIA), crypto exchange, payment processor, or portfolio manager. We accept no investment, offer no investment opportunity, execute no live market transaction, and hold no funds in custody for you. The game has no deposit, payout, wallet-address or crypto rail of any kind.
             </p>
             <p>
-              Coins are an entry token with one purpose: buying into a Live duel. A won pot increases your coin balance, and any coin balance can be requested back as USDT after a $1 network fee. That makes the game value-in, value-out — which is precisely why it is not offered to anyone under the age of majority, to any jurisdiction where paid-entry skill or chance games with crypto prizes are restricted, and never as a way to grow money. Nothing here is a return on capital.
+              Coins are virtual game credits with one purpose: entering a ranked duel. Coins are earned by playing and in missions, are never purchased, transferred or redeemed, and have no cash, crypto or stored value. Nothing here is a return on capital or a way to grow money.
             </p>
           </section>
 

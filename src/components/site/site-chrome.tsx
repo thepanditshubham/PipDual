@@ -17,7 +17,6 @@ const NAV = [
   { href: '/modes', label: 'Modes' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/fairness', label: 'Fairness' },
-  { href: '/affiliate', label: 'Affiliate' },
 ];
 
 /** Dropdown groups, opened by hover or keyboard focus — no JavaScript. */
@@ -68,7 +67,6 @@ const FOOTER = [
     title: 'Company',
     links: [
       { href: '/about', label: 'About' },
-      { href: '/affiliate', label: 'Affiliate' },
       { href: '/blog', label: 'Blog' },
       { href: '/contact', label: 'Contact' },
       { href: '/support', label: 'Support' },

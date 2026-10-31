@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,7 +10,6 @@ import { AlertCircle, CheckCircle2, Eye, EyeOff, Lock, Mail, User } from 'lucide
 import { useAuthStore } from '@/lib/auth/store';
 import { getSupabase } from '@/lib/supabase/client';
 import { ensureCoins } from '@/lib/supabase/wallet';
-import { lookupReferralCode, normalizeReferralCode } from '@/lib/supabase/referrals';
 import { AuthShell, AuthWelcome } from '@/components/auth/auth-shell';
 
 /**
@@ -65,7 +64,6 @@ function passwordStrength(pwd: string): { score: number; label: string; tone: st
 
 export function AuthForm({ initialMode }: { initialMode: 'login' | 'signup' }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { setUser, user } = useAuthStore();
 
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
@@ -73,9 +71,6 @@ export function AuthForm({ initialMode }: { initialMode: 'login' | 'signup' }) {
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
-  const referralCode = normalizeReferralCode(searchParams.get('ref'));
-  const [inviterName, setInviterName] = useState<string | null>(null);
 
   const loginForm = useForm<LoginValues>({ resolver: zodResolver(LoginSchema) });
   const registerForm = useForm<RegisterValues>({
@@ -92,24 +87,6 @@ export function AuthForm({ initialMode }: { initialMode: 'login' | 'signup' }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (oauthError) setErrorMsg(oauthError);
   }, []);
-
-  useEffect(() => {
-    if (!referralCode) {
-      setInviterName(null);
-      return;
-    }
-    let active = true;
-    lookupReferralCode(referralCode)
-      .then((name) => {
-        if (active) setInviterName(name);
-      })
-      .catch(() => {
-        if (active) setInviterName(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, [referralCode]);
 
   /** Swap the form in place and keep the address bar honest. */
   const switchMode = (next: 'login' | 'signup') => {
@@ -191,9 +168,6 @@ export function AuthForm({ initialMode }: { initialMode: 'login' | 'signup' }) {
             data: {
               username: data.username,
               display_name: data.username,
-              // Read by the trigger on auth.users, which writes the pairing and pays
-              // the inviter. Self-referral is refused there, not here.
-              ...(referralCode ? { ref: referralCode } : {}),
             },
           },
         });
@@ -283,23 +257,6 @@ export function AuthForm({ initialMode }: { initialMode: 'login' | 'signup' }) {
           Sign Up
         </button>
       </div>
-
-      {/* Invite read-out — the code is echoed, never trusted. */}
-      {mode === 'signup' &&
-        referralCode &&
-        (inviterName ? (
-          <div className="auth-note">
-            <CheckCircle2 size={12} aria-hidden="true" />
-            <span>
-              Invited by <strong>@{inviterName}</strong> — this link is attached to your new account.
-            </span>
-          </div>
-        ) : (
-          <div className="auth-note auth-note--muted">
-            <AlertCircle size={12} aria-hidden="true" />
-            <span>Invite code “{referralCode}” doesn’t match an account, so it is ignored.</span>
-          </div>
-        ))}
 
       {errorMsg && (
         <div className="auth-error" role="alert">

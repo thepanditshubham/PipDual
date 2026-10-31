@@ -8,13 +8,24 @@ export const metadata = {
 
 const ENTRIES: { date: string; title: string; items: string[] }[] = [
   {
+    date: '31 Oct 2026',
+    title: 'Free-to-play hardening',
+    items: [
+      'Crypto deposits, withdrawals, on-chain verification, the deposit QR and the money review desks were removed.',
+      'The affiliate/IB desk and referral commissions were removed; invite codes now only bring a friend.',
+      'Coins are virtual credits earned by playing and in missions: no purchase, no transfer, no cash-out.',
+      'The public admin console was removed from the open-source build; operator tooling stays private.',
+      'The indigo and amber theme replaced the charcoal and burnt-orange palette.',
+    ],
+  },
+  {
     date: '29 Oct 2026',
     title: 'New design system and the public site',
     items: [
-      'One typeface across the product: IBM Plex Mono, with a black and burnt-orange palette.',
+      'One typeface across the product: IBM Plex Mono, with an indigo and amber palette.',
       'Landing page rebuilt around a centred hero and a live terminal mock.',
-      'Marketing pages added: pricing, fairness, compare, FAQ, proof, security, status, affiliate, glossary, blog, about and the policy set.',
-      'Modes and pricing rebuilt on the shared marketing system; the leaderboard page was retired and the affiliate programme took its navigation slot.',
+      'Marketing pages added: pricing, fairness, compare, FAQ, proof, security, status, glossary, blog, about and the policy set.',
+      'Modes and pricing rebuilt on the shared marketing system.',
       'The standalone 24/7 market terminal was retired. Duels still run on the same generator; only the public spectator page was removed.',
       'Every page is now a server component — no client bundle on the marketing site.',
     ],
@@ -43,9 +54,9 @@ const ENTRIES: { date: string; title: string; items: string[] }[] = [
     date: '26 Oct 2026',
     title: 'Coins-only economy',
     items: [
-      'Virtual dollars retired from the wallet. Coins are the only currency, pegged at 100 to the dollar.',
-      'Live entry fees published per table length; the house cut is a fixed 15% of the pooled pot.',
-      'Crypto deposits reviewed on-chain before crediting; withdrawals queued on USDT rails.',
+      'Virtual dollars retired from the wallet. Coins became the only currency; they were later made virtual-only.',
+      'Ranked entry fees published per table length; the sink is a fixed 15% of the pooled pot.',
+      'The paid wallet described in this entry was removed in the free-to-play build — no deposits or payouts remain.',
     ],
   },
   {
@@ -62,7 +73,7 @@ const ENTRIES: { date: string; title: string; items: string[] }[] = [
     title: 'Friends and challenges',
     items: [
       'Add rivals, send a challenge, and take it from the lobby board.',
-      'Invite codes attached at signup, with self-referral refused by the database.',
+      'Invite codes attached at signup. Referral commissions were removed in the free-to-play build.',
     ],
   },
 ];

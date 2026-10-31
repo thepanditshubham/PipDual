@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Check } from 'lucide-react';
 import { PageHero, SitePage } from '@/components/site/site-chrome';
-import { normalizeReferralCode } from '@/lib/supabase/referrals';
-import { COINS_PER_USD, LIVE_FEES } from '@/lib/economy/config';
+import { LIVE_FEES } from '@/lib/economy/config';
 import { MAX_ORDERS_PER_MATCH } from '@/lib/engine/constants';
 
 export const metadata = {
@@ -14,7 +13,7 @@ const cheapest = Math.min(...Object.values(LIVE_FEES));
 
 export default async function InvitePage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  const invite = normalizeReferralCode(code);
+  const invite = code.trim().slice(0, 24).toUpperCase();
 
   return (
     <SitePage>
@@ -58,24 +57,23 @@ export default async function InvitePage({ params }: { params: Promise<{ code: s
             <div className="lp-feature-icon"><Check size={16} /></div>
             <h3 className="lp-feature-title">A free demo table, immediately</h3>
             <p className="lp-feature-desc">
-              No deposit to start. Demo duels use the same chart, the same spread and the same{' '}
-              {MAX_ORDERS_PER_MATCH}-entry cap as a Live table.
+              No top-up to start. Practice duels use the same chart, the same spread and the same{' '}
+              {MAX_ORDERS_PER_MATCH}-entry cap as a ranked table.
             </p>
           </article>
           <article className="lp-feature">
             <div className="lp-feature-icon"><Check size={16} /></div>
-            <h3 className="lp-feature-title">One dollar if you want stakes</h3>
+            <h3 className="lp-feature-title">Ranked tables use virtual coins</h3>
             <p className="lp-feature-desc">
-              Live entries start at {cheapest} coins — $
-              {(cheapest / COINS_PER_USD).toFixed(2)} at {COINS_PER_USD} coins to the dollar. That is
-              the most a single duel can cost you.
+              Ranked entries start at {cheapest} coins. Coins are earned by playing and in missions;
+              they are never bought and have no cash value.
             </p>
           </article>
           <article className="lp-feature">
             <div className="lp-feature-icon"><Check size={16} /></div>
             <h3 className="lp-feature-title">Start without paying</h3>
             <p className="lp-feature-desc">
-              Demo duels are free and use the exact chart a Live table trades. Study the layout before
+              Practice duels are free and use the exact chart a ranked table trades. Study the layout before
               you decide anything.
             </p>
           </article>
@@ -83,9 +81,8 @@ export default async function InvitePage({ params }: { params: Promise<{ code: s
 
         <div className="pg-prose" style={{ marginTop: 30 }}>
           <p>
-            What happens to the code: your inviter earns a share of the platform fee from duels you
-            play. It never comes out of your entries or your winnings — see the{' '}
-            <Link href="/affiliate">affiliate page</Link> for the full mechanics.
+            Invite codes are a way to bring a friend to the arena. They do not pay commission, and no
+            part of your entry or winnings is shared with anyone.
           </p>
         </div>
       </section>

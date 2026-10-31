@@ -4,7 +4,7 @@
  * lobby-rail.tsx
  * The lobby's left rail, laid out the way a social profile rail reads: a
  * cover-and-avatar identity card, the season snapshot under it, a one-line
- * referral promo, then one hairline list of every screen the rail can open.
+ * one hairline list of every screen the rail can open.
  *
  * Pure presentation — the lobby owns the state. Every figure is passed in from
  * the same store read the ticket uses, so the rail can never quote a win rate
@@ -12,7 +12,7 @@
  */
 import Link from 'next/link';
 import {
-  Settings, Mail, Share2, HelpCircle, ChevronRight, Pencil, History,
+  Settings, Mail, HelpCircle, ChevronRight, Pencil, History,
 } from 'lucide-react';
 import { DEFAULT_AVATAR } from '@/lib/auth/avatar';
 import { ACHIEVEMENTS } from '@/lib/progress/config';
@@ -20,7 +20,7 @@ import { sound } from '@/components/terminal/sound';
 import type { UserProfile } from '@/lib/auth/types';
 
 /** Every screen the lobby's center column can show. */
-export type LobbyTab = 'ticket' | 'stats' | 'settings' | 'mail' | 'affiliate' | 'support' | 'wallet';
+export type LobbyTab = 'ticket' | 'stats' | 'settings' | 'mail' | 'support';
 
 export interface LobbyLeftRailProps {
   user: UserProfile | null;
@@ -59,7 +59,6 @@ export function LobbyLeftRail({
   const navRows: { id: LobbyTab; label: string; Icon: typeof Settings; badge?: number; hint?: string }[] = [
     { id: 'settings', label: 'Settings', Icon: Settings },
     { id: 'mail', label: 'Mail', Icon: Mail, badge: unreadMail },
-    { id: 'affiliate', label: 'Affiliate desk', Icon: Share2, hint: 'Affiliate — rebate on referred volume' },
     { id: 'support', label: 'How to play', Icon: HelpCircle },
   ];
 
@@ -71,21 +70,7 @@ export function LobbyLeftRail({
           Cover, square avatar hanging over it, name and headline, then the
           dashed action row that a social profile puts under the headline. */}
       <div className="overflow-hidden rounded-lg border border-[var(--term-border)] bg-[var(--term-panel)]/90 backdrop-blur-md">
-        <div className="relative h-14 w-full overflow-hidden bg-[linear-gradient(120deg,var(--term-accent-deep),var(--term-accent))]">
-          {/* The arena artwork is multiplied into the cover so it reads as
-              the banner's own surface rather than a pasted rectangle. */}
-          <div
-            className="absolute inset-0 bg-cover bg-center mix-blend-multiply opacity-25"
-            style={{
-              backgroundImage: "url('/lobby-arena-bg.jpg')",
-              WebkitMaskImage:
-                'linear-gradient(to bottom, #000 55%, rgba(0,0,0,0.6) 80%, transparent 100%)',
-              maskImage:
-                'linear-gradient(to bottom, #000 55%, rgba(0,0,0,0.6) 80%, transparent 100%)',
-            }}
-            aria-hidden="true"
-          />
-        </div>
+        <div className="relative h-14 w-full overflow-hidden bg-[linear-gradient(120deg,var(--term-accent-deep),var(--term-accent))]" />
 
         <div className="px-4 pb-3">
           <div className="relative z-10 -mt-7 flex items-end justify-between gap-2">
@@ -178,28 +163,6 @@ export function LobbyLeftRail({
           View all stats ›
         </button>
       </div>
-
-      {/* ── Referral promo ─────────────────────────────────────────────────
-          The small stand-alone card a social rail uses for a promotion, with
-          the desk one click away. */}
-      <button
-        onClick={() => open('affiliate')}
-        className="w-full rounded-lg border border-[var(--term-border)] bg-[var(--term-panel)]/90 p-3 text-left backdrop-blur-md transition-colors hover:border-[var(--term-border-hi)] cursor-pointer"
-      >
-        <div className="flex items-start gap-2.5">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded border border-[var(--term-accent)]/30 bg-[var(--term-accent)]/15 text-[var(--term-accent-text)]">
-            <Share2 size={14} />
-          </span>
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold leading-snug text-[var(--term-strong)]">
-              Refer a trader, earn on every duel
-            </p>
-            <p className="mt-0.5 text-[10px] font-mono leading-snug text-[var(--term-dim)]">
-              Rebate lands in your affiliate desk.
-            </p>
-          </div>
-        </div>
-      </button>
 
       {/* ── Rail nav ───────────────────────────────────────────────────────
           One card, one hairline per row — the same shape the reference rail

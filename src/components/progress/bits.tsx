@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { Coins } from 'lucide-react';
 
 const noopSubscribe = () => () => {};
 
@@ -125,8 +126,7 @@ export function ProgressEmpty({ children }: { children: ReactNode }) {
 }
 
 export function CoinIcon() {
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src="/coin.png" alt="Coin" className="w-3.5 h-3.5 object-contain" />;
+  return <Coins size={14} className="text-[var(--term-amber)]" aria-hidden="true" />;
 }
 
 export function pct(value: number): string {

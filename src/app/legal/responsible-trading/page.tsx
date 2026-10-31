@@ -52,20 +52,20 @@ export default function ResponsiblePlayPage() {
               heading: '3. Warning signs',
               list: [
                 'Hiding how much you play from people close to you.',
-                'Playing to recover money rather than to compete.',
-                'Borrowing, or selling something, to fund entries.',
+                'Playing to recover rank rather than to compete.',
+                'Skipping sleep, work or study to keep queuing.',
                 'Irritability when you cannot play, or playing far longer than you intended.',
                 'Feeling relief only when a duel starts, not when it ends well.',
               ],
               body: [
-                'Any one of these is a reason to stop and use the Demo tables for a while. Several together is a reason to stop entirely.',
+                'Any one of these is a reason to stop and use the practice tables for a while. Several together is a reason to stop entirely.',
               ],
             },
             {
               heading: '4. Freeze your own account',
               body: [
-                'You can ask support to freeze your account for a period you choose — 24 hours, a week, a month, or permanently. The freeze blocks deposits and duels; it does not touch an existing balance.',
-                `A freeze ends by your request, not by a timer quietly expiring. Any withdrawal above $${Math.min(...Object.values(LIVE_FEES)) / 100} can still be requested during a freeze so that funds are never trapped.`,
+                'You can ask support to freeze your account for a period you choose — 24 hours, a week, a month, or permanently. The freeze blocks ranked duels; your coin balance stays where it is.',
+                'A freeze ends by your request, not by a timer quietly expiring. Coins have no cash value and cannot be withdrawn, so nothing can be trapped outside the game.',
               ],
             },
             {

@@ -27,18 +27,6 @@ const SERVICES = [
     note: 'Operational',
   },
   {
-    name: 'Deposits',
-    detail: 'On-chain review queue. A deposit is credited only after a reviewer confirms the transfer.',
-    state: 'ok',
-    note: 'Operational · reviewed manually',
-  },
-  {
-    name: 'Withdrawals',
-    detail: 'Payout queue on USDT BEP20 / TRC20.',
-    state: 'ok',
-    note: 'Operational · reviewed manually',
-  },
-  {
     name: 'Website & terminal',
     detail: 'Marketing pages, the lobby and the battle terminal.',
     state: 'ok',
