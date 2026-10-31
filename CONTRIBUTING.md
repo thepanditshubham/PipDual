@@ -108,7 +108,7 @@ and `supabase/migrations/` carries incremental changes.
 
 - Every new table: `enable row level security` and a policy that names
   `auth.uid()`. `using (true)` is only for genuinely public catalogues.
-- Never let a client write a number that a payout or a rank reads.
+- Never let a client write a number that a score or a ranking reads.
 - New `SECURITY DEFINER` function: `set search_path = public, pg_temp`,
   `revoke all from public`, `grant execute` to the smallest role that needs it,
   and an authority check as the first statement.

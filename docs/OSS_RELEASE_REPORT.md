@@ -1,366 +1,217 @@
 # Pip Duel — Open-source release report
 
 **Date:** 2026-10-31
-**Branch:** `chore/open-source-prep` (not pushed)
-**Scope:** open-source readiness, docs, CI and onboarding. No code deletion, no
-history rewrite, no visibility change, no publish.
+**Branch:** `chore/open-source-prep`
+**Scope:** free-to-play remediation, docs, CI and onboarding.
+**Mode:** working tree only — no force-push, `main` untouched, history not rewritten.
 
-Companion documents: [OSS_AUDIT.md](OSS_AUDIT.md) (findings and evidence),
+Companion: [OSS_AUDIT.md](OSS_AUDIT.md) (findings and evidence),
 [ARCHITECTURE.md](ARCHITECTURE.md), [GOOD_FIRST_ISSUES.md](GOOD_FIRST_ISSUES.md).
 
 ---
 
 ## 1. Verdict
 
-**No-go for a public release today.**
+**Go for a public release of this tree, after the manual checklist in §8.**
 
-The repository is now structurally ready — license, policies, README, CI,
-templates, onboarding — and a clean clone installs, lints, type-checks, tests and
-builds. But the public release is blocked by product content, not paperwork:
+All Critical, High and Medium findings from the audit were removed or fixed in
+the working tree:
 
-- the real-money wallet stack is still in the tree (deposits, withdrawals, chain
-  verification, house cut, IB payouts);
-- a live USDT-BEP20 house address is committed in two test files and a QR image;
-- the lobby ships copyrighted MW3 audio and an EC Markets logo + IB affiliate
-  link with unknown permission;
-- `player_balances` and `player_friends` are world-readable/writable (audit
-  PD-003/PD-004), and `origin/main` already carries the audit that explains them.
+- no deposits, withdrawals, crypto rails, chain checks, wallet addresses, QR
+  images, IB commissions or money admin desks;
+- no copyrighted MW3 audio, EC Markets banner or unknown-origin art;
+- no public admin console and no no-op middleware;
+- wallet and friends are scoped by RLS; guest balances stay on the device;
+- the captured Chrome profile and its local checkpoint refs were deleted.
 
-Fix those, then the go/no-go flips. See §11.
+What remains is operational: rotate the old keys, fill the TODO placeholders,
+decide whether to purge old history, run the GitHub setup, and push.
 
 ---
 
 ## 2. What changed
 
-Commits on `chore/open-source-prep`, oldest first:
-
-| Commit | Subject |
+| Area | Change |
 |---|---|
-| `ae2b303` | `docs: add open-source readiness audit` |
-| `e9ee2a3` | `style(theme): adopt indigo and amber palette` |
-| `0b4efe2` | `docs: add AGPL license and project policies` |
-| `4fd33c2` | `chore: add env template, package metadata and sample-data tooling` |
-| `a006f63` | `chore(github): add templates, CI, DCO, secret scan and dependabot` |
-| `546a317` | `docs: add architecture overview` |
-| `4fded7b` | `docs: rewrite README for the public free-to-play build` |
-| `503946f` | `docs: add starter issues and GitHub setup script` |
+| Money stack | Deleted deposits, withdrawals, deposit/withdraw stores, on-chain verification, `/api/chain/tx`, wallet forms/card/panel, admin deposits/withdrawals/ledger/referrals, IB/referral client, money SQL and the money migrations |
+| Coins | Virtual credits only. Starting balance 1,000 for a new account. Ranked entry and the virtual pot remain; a 15% sink removes credits from circulation. No purchase, transfer or cash-out |
+| Admin | The public admin console (`/admin/**`, admin components/data module) was removed; operator tooling is private. Announcements are read-only in the public schema |
+| RLS | `player_balances` and `player_friends` policies now require `auth.uid()::text = player_id` / requester/addressee; guest balances are local |
+| Legal/marketing | Pricing is a free-to-play page; FAQ, glossary, proof, security, status, support, terms, privacy, disclaimer, risk and responsible-trading copy rewritten. Removed `/affiliate` and `/legal/aml-kyc` routes and links |
+| Assets | Deleted `mw3-lobby.mp3`, the deposit QR, the bull/bear and ticket art, `coin.png`, `default-avatar.png` and the Next favicon. Added an original SVG app icon and inline SVG avatar; coins use the Lucide icon |
+| Sound | MW3 loader/playback removed; hover uses the synthesized WebAudio tick |
+| Auth | Referral-code lookup removed from signup; input validation unchanged |
+| DB schema | `supabase/setup.sql` no longer creates money tables/functions or admin announcement writers; money migrations and the money SQL test were deleted |
+| Local evidence | `.rea-cathode/` deleted; both `refs/cline/checkpoints/*` refs pruned; reflog expired. `git gc` reported exit 128 in the sandbox and can be re-run |
+| Secrets | `.gitleaks.toml` and `SECURITY_AUDIT_REPORT.md` deleted; local `.env`/`.env.local` reduced to Supabase URL, anon key and site URL |
+| Docs | Audit carries a remediation table; README, roadmap, security, notices and architecture updated |
 
-### Files added
+### Commits on this branch
 
-- `LICENSE` — verbatim GNU AGPL-3.0 text (SPDX `AGPL-3.0-only`).
-- `TRADEMARK.md`, `THIRD_PARTY_NOTICES.md`.
-- `README.md` — rewritten for the free-to-play scope.
-- `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1),
-  `SECURITY.md`, `ROADMAP.md`.
-- `.env.example` — free-to-play variables only.
-- `.gitleaks.toml` — scoped allowlist for public USDT contract addresses.
-- `docs/ARCHITECTURE.md`, `docs/GOOD_FIRST_ISSUES.md`,
-  `docs/OSS_AUDIT.md`, `docs/OSS_RELEASE_REPORT.md`.
-- `scripts/seed-sample-data.mjs` — deterministic synthetic candles.
-- `scripts/setup-github.sh` — labels, starter issues, printed branch-protection
-  command. **Not run.**
-- `.github/ISSUE_TEMPLATE/{bug_report,feature_request,config}.yml`,
-  `.github/PULL_REQUEST_TEMPLATE.md`, `.github/CODEOWNERS`,
-  `.github/dependabot.yml`,
-  `.github/workflows/{ci,dco,secret-scan}.yml`.
+Earlier prep commits remain; the remediation adds:
 
-### Files modified
-
-- `package.json` — `license: AGPL-3.0-only`, `engines.node >= 20.9`,
-  `typecheck` and `seed` scripts.
-- `.gitignore` — ignores generated `/data/`.
-- `eslint.config.mjs` — ignores local `.rea-cathode/`, coverage and test output.
-- `src/app/api/matches/submit/route.ts`, `src/components/terminal/trading-chart.tsx`
-  — removed `any`; typed chart time as `UTCTimestamp`.
-- `src/components/theme-provider.tsx`, `src/app/play/page.tsx`,
-  `src/app/play/[room]/page.tsx` — targeted `react-hooks/set-state-in-effect`
-  disables on the game-clock/theme-sync effects (with rationale comments).
-- `src/app/legal/terms/page.tsx` — escaped an apostrophe.
-- The 36-file indigo/amber theme change set (`globals.css` plus pages and
-  components) is included in `e9ee2a3`. It also contains pre-existing uncommitted
-  UI edits that were in the working tree when this task started
-  (`result-modal.tsx` and a few others). If you want those separated, split the
-  commit before publishing.
-
-**Not changed:** no money module was deleted, no asset was removed, no history
-was rewritten, no branch was pushed, no repository setting was touched.
+- `refactor: remove real-money features and the public admin console`
+- `docs: describe the free-to-play build and remediation`
+- `docs: add the free-to-play release report` (this file)
 
 ---
 
 ## 3. Verification
 
-### Clean-clone test (README steps)
+### Clean clone (README steps)
 
 Cloned `chore/open-source-prep` into a fresh temp directory, copied
-`.env.example` to `.env.local`, and ran the documented commands:
+`.env.example` to `.env.local`, then:
 
 | Step | Result |
 |---|---|
-| `git clone --branch chore/open-source-prep <local repo>` | OK |
-| `npm ci` | OK — 433 packages, ~52 s |
-| `cp .env.example .env.local` | OK |
-| `npm run lint` | **0 errors**, 51 warnings |
+| `npm ci` | OK |
+| `npm run lint` | **0 errors**, 47 warnings |
 | `npm run typecheck` | OK |
-| `npm test` | **149 tests / 8 files passed** |
-| `npm run build` | OK — all routes compiled |
-| `npm run dev` + GET `/`, `/login`, `/play` | **200 / 200 / 200** with placeholder Supabase env |
+| `npm test` | **73 tests / 5 files passed** |
+| `npm run build` | OK |
+| `npm start` + GET `/`, `/play`, `/pricing`, `/legal/terms`, `/login` | **200** |
+| GET `/affiliate`, `/admin`, `/legal/aml-kyc` | **404** (routes removed) |
 
-The app boots without a backend because `getSupabase()` returns `null` for the
-placeholder URL. Guest and bot play therefore work from the quick start; auth,
-friends, mail and 1v1 matching need a Supabase project.
-
-### Tooling checks
-
-- **Seed script:** generated 60 candles across 3 pairs; byte-identical on a
-  second run; metadata marks the data synthetic.
-- **YAML:** all `.github` YAML parses cleanly.
-- **Shell:** `bash` is not installed on this Windows host, so
-  `scripts/setup-github.sh` was not syntax-checked locally. Run `bash -n` before
-  executing it.
-- **Dependencies:** `npm audit --omit=dev` reports **0 vulnerabilities**.
-- **Secrets:** see below.
+The app boots with placeholder Supabase values; guest/practice play works
+without a backend.
 
 ### Secrets scan after changes
 
 | Scope | Findings |
 |---|---|
-| Working tree (`src`, `docs`, `scripts`, `.github`, root docs) | 0 |
-| Git history, all refs (`gitleaks git --all`) | **28** |
-| Public branches (`main`, `security/audit-2026-10-29`) | 0 |
+| Working tree (`src`) | **0** |
+| Full local history (`gitleaks git --all`) | **1** — the public USDT contract address in an old commit; not a credential |
+| Captured Chrome profile | **0** — directory deleted and refs pruned |
 
-All 28 remaining findings are inside `.rea-cathode/chrome-profile/**`, reachable
-only from local `refs/cline/checkpoints/*` commits — never pushed. The former
-false positive on the public USDT contract address is now scoped out by
-`.gitleaks.toml`; a real key in the same file would still be reported.
+No API key, JWT, service-role key or private key is present in the current tree.
+Older commits still contain the deleted security report, the old house address in
+two test files and the QR blob; purging them requires a history rewrite (§8).
 
----
+### Dependency and licence checks
 
-## 4. Findings by severity
-
-### Critical
-
-1. **Real-money gambling is still implemented.** Crypto deposits, custody-style
-   coin balances pegged at $1 = 100 coins, USDT/BTC/ETH/SOL/XRP deposit rails,
-   USDT withdrawals with a fee, 15% house cut, IB commission desk, on-chain
-   verification. This contradicts the free-to-play release rule and creates
-   legal exposure in most jurisdictions. See §6.
-
-### High
-
-1. **Live USDT-BEP20 house address committed** in
-   `src/lib/economy/__tests__/economy.test.ts:75` and
-   `etherscan.test.ts:15` (on `main` since `8354e50`), and in
-   `public/deposit-qr-usdt-bep20.jpg`.
-2. **Captured Chrome profile** (Cookies, Login Data, Web Data, History, Local
-   State) in `.rea-cathode/` and in two local checkpoint commits. 74 MB / 589
-   files. Not on origin; must never be mirror-pushed.
-3. **Copyrighted audio:** `public/mw3-lobby.mp3` is described in
-   `src/components/terminal/sound.ts` as the official MW3 lobby asset.
-4. **Third-party brand and affiliate:** EC Markets logo hotlink and an IB
-   referral link in `src/app/play/page.tsx` (line ~2339).
-5. **Open database authorization holes:** `player_balances` is world-readable
-   and world-writable (`supabase/setup.sql:261-266`, PD-003);
-   `player_friends` is world-writable (PD-004).
-6. **The security audit is already on `origin/main`.** It documents PD-003,
-   PD-004, PD-006 and the money RPCs. Publishing the repository publishes the
-   exploit notes.
-
-### Medium
-
-1. Local `.env` / `.env.local` contain a Supabase service-role JWT, the anon JWT,
-   an Etherscan key and the live deposit address. Ignored by git, never
-   committed; keep them out of archives.
-2. Etherscan key is unused by the application; revoke it.
-3. Asset provenance unknown for `lobby-arena-bg.jpg/.webp`,
-   `match-ticket-bg.avif`, `coin.png`, `default-avatar.png`, `favicon.ico`.
-4. Admin console and legal pages still describe deposits, KYC and gambling.
-5. `src/middleware.ts` is a no-op; `/admin` is client-guarded only (PD-008).
-6. The admin console ships in the public tree; hiding it is not security, but it
-   widens the attack surface.
-
-### Low
-
-1. Invite text displays a hardcoded `pipduel.com` instead of the real origin
-   (`friends-panel.tsx:622`).
-2. `LeaderboardTab` exists but is not routed; the footer `/leaderboard` link 404s.
-3. "tv" attribution badge is text-only and must not imply TradingView
-   endorsement.
-4. `AGENTS.md` (agent instructions) ships in the repo.
-5. 51 ESLint warnings remain (unused vars, `<img>` usage, compiler advisories).
-6. `SECURITY_AUDIT_REPORT.md` and `AGENTS.md` are root-level clutter for a public
-   repo; consider moving the former to the private repo.
+- `npm audit --omit=dev`: **0 vulnerabilities**.
+- Production licences remain AGPL-3.0-compatible; see `THIRD_PARTY_NOTICES.md`.
+- `LICENSE` is the official AGPL-3.0 text; `package.json` declares
+  `AGPL-3.0-only`.
 
 ---
 
-## 5. Keys and credentials
+## 4. Findings resolved
+
+| Severity | Finding | Resolution |
+|---|---|---|
+| Critical | Real-money gambling feature set | Removed; coins are virtual credits |
+| High | Live USDT-BEP20 address in tests + QR | Removed with the money tests and QR |
+| High | Captured Chrome profile in local refs | Directory deleted; refs pruned |
+| High | Official MW3 lobby audio | Asset and loader removed |
+| High | EC Markets logo + IB affiliate link | Banner and link removed |
+| High | World-writable wallet/friends | RLS scoped to `auth.uid()` |
+| High | Security audit with open exploit notes | File deleted from the tree; history decision in §8 |
+| Medium | Local Etherscan/service-role/deposit env | Removed from local env; rotate keys |
+| Medium | Unknown-origin art/favicon | Removed; original SVG replacements |
+| Medium | Public admin console / no-op middleware | Removed |
+| Medium | Money-era legal and marketing copy | Rewritten |
+
+**Low items left as-is:** 47 ESLint warnings (unused vars, `<img>` advisories),
+the `tv` attribution badge, and `AGENTS.md`. They are not release blockers.
+
+---
+
+## 5. Keys to rotate
 
 | Credential | Status | Action |
 |---|---|---|
-| Etherscan API key | Local `.env:21`, `.env.local:19`; unused by code | **Revoke** |
-| USDT-BEP20 house deposit address | Tests + QR + local env | **Retire and replace**; treat as public forever |
-| Supabase **service-role** key | Local `.env:4`, `.env.local:4`; not in git | **Rotate if** the file or the captured Chrome profile ever left the machine. The app does not use it |
-| Supabase **anon** key | Local env; public by design | Not a secret; rotate only to invalidate sessions |
-| Accounts logged into the captured Chrome profile | Local `.rea-cathode/` | Sign out everywhere / rotate |
-| Any API keys in the money modules | None found in code; chain reads use public RPC | — |
-
-**No API key, JWT, private key or bearer token was found in public git history.**
-Only `.env.example` (placeholders) was ever committed.
+| Etherscan API key | Removed from local env; no code uses it | **Revoke** |
+| USDT-BEP20 house address | Removed from code, tests and QR | **Retire**; create a new address only if a private money product continues |
+| Supabase service-role key | Removed from local env | **Rotate if** it ever left the machine |
+| Supabase anon key | Still in local env; public by design | No rotation required |
+| Accounts in the captured Chrome profile | Profile deleted | Sign out / rotate sessions if the profile left the machine |
 
 ---
 
-## 6. Removal list (not executed)
+## 6. Removal list — executed
 
-Flagged, not deleted. Full detail in [OSS_AUDIT.md](OSS_AUDIT.md) §8.
+RM-01 to RM-12 from the audit are now deleted or rewritten:
 
-| ID | Area |
-|---|---|
-| RM-01 | Coin peg, USD packs, withdrawal fee, house cut, payout rails (`src/lib/economy/config.ts`) |
-| RM-02 | Deposit flow and store (`economy/deposit*.ts`, `wallet/deposit-form.tsx`) |
-| RM-03 | Withdrawal flow and store (`economy/withdraw*.ts`, `wallet/withdraw-form.tsx`) |
-| RM-04 | On-chain verification (`economy/etherscan.ts`, `/api/chain/tx`, `onchain-check.tsx`) |
-| RM-05 | Admin money desks (`/admin/deposits`, `/admin/withdrawals`, `/admin/ledger`) |
-| RM-06 | Wallet RPC wrappers, referrals/IB, `transferDeskToWallet` |
-| RM-07 | Money SQL migrations + `setup.sql` money sections (`crypto_*`, `wallet_ledger`, `ib_*`) |
-| RM-08 | `public/deposit-qr-usdt-bep20.jpg` |
-| RM-09 | Deposit env vars in `.env.example` (already removed from the template) and local `.env` |
-| RM-10 | AML/KYC, responsible-trading, money claims in legal pages and README |
-| RM-11 | Live stake charging / pot payout in `src/app/play/page.tsx`, `economy/stakes.ts` |
-| RM-12 | Money details in `SECURITY_AUDIT_REPORT.md` |
+- economy config/peg/packs/fees, deposit and withdrawal stores, chain reader,
+  wallet forms, admin money desks, referrals/IB, money SQL migrations, deposit
+  QR, deposit env vars, AML/KYC page, money marketing copy and the money sections
+  of the legal pages.
 
-Keep the virtual ticket split, fees in coins, bots, ranks and progression once
-coins cannot be bought or cashed out.
+**Kept:** the deterministic engine, virtual tickets, the 15% sink, bots,
+progression, leaderboard data, private tables, friends and mail.
 
 ---
 
 ## 7. `TODO_REPLACE_ME` placeholders
 
-| Placeholder | Files | Fill with |
-|---|---|---|
-| `TODO_REPLACE_ME_MAINTAINER_NAME` | `docs/OSS_AUDIT.md` | Your name / handle |
-| `TODO_REPLACE_ME_MAINTAINER_EMAIL` | `README.md`, `TRADEMARK.md` | Public contact email |
-| `TODO_REPLACE_ME_SECURITY_EMAIL` | `SECURITY.md` | Private security inbox |
-| `TODO_REPLACE_ME_GITHUB_OWNER` | `.github/CODEOWNERS`, `.github/ISSUE_TEMPLATE/config.yml`, `scripts/setup-github.sh` | GitHub user/org handle |
-| `TODO_REPLACE_ME_REPO` | `.github/ISSUE_TEMPLATE/config.yml`, `scripts/setup-github.sh` | Repository name |
-| `TODO_REPLACE_ME_GITHUB_REPO_URL` | `README.md`, `CONTRIBUTING.md`, `SECURITY.md` | Full HTTPS clone URL |
-| `TODO_REPLACE_ME_DOMAIN` | `docs/OSS_AUDIT.md` | Public domain (currently `pipduel.com` in code) |
-| `TODO_REPLACE_ME_DISCUSSIONS_URL` | `README.md`, `.github/ISSUE_TEMPLATE/config.yml` | GitHub Discussions URL |
-| `TODO_REPLACE_ME_TELEGRAM_URL` | `README.md`, `.github/ISSUE_TEMPLATE/config.yml` | Community invite (currently `t.me/forexwala`) |
-| `TODO_REPLACE_ME_COC_CONTACT` | `CODE_OF_CONDUCT.md:40` | CoC enforcement contact |
-| `TODO_REPLACE_ME_TRADEMARK_OWNER` | `TRADEMARK.md` | Legal owner of the mark |
-| `TODO_REPLACE_ME_lobby/terminal/result` | `README.md` screenshot table | Screenshot file names under `docs/assets/` |
+| Placeholder | Files |
+|---|---|
+| `TODO_REPLACE_ME_MAINTAINER_NAME` | `docs/OSS_AUDIT.md` |
+| `TODO_REPLACE_ME_MAINTAINER_EMAIL` | `README.md`, `TRADEMARK.md` |
+| `TODO_REPLACE_ME_SECURITY_EMAIL` | `SECURITY.md` |
+| `TODO_REPLACE_ME_GITHUB_OWNER` | `.github/CODEOWNERS`, `.github/ISSUE_TEMPLATE/config.yml`, `scripts/setup-github.sh` |
+| `TODO_REPLACE_ME_REPO` | `.github/ISSUE_TEMPLATE/config.yml`, `scripts/setup-github.sh` |
+| `TODO_REPLACE_ME_GITHUB_REPO_URL` | `README.md`, `CONTRIBUTING.md`, `SECURITY.md` |
+| `TODO_REPLACE_ME_DOMAIN` | `docs/OSS_AUDIT.md` |
+| `TODO_REPLACE_ME_DISCUSSIONS_URL` | `README.md`, `.github/ISSUE_TEMPLATE/config.yml` |
+| `TODO_REPLACE_ME_TELEGRAM_URL` | `README.md`, `.github/ISSUE_TEMPLATE/config.yml` |
+| `TODO_REPLACE_ME_COC_CONTACT` | `CODE_OF_CONDUCT.md` |
+| `TODO_REPLACE_ME_TRADEMARK_OWNER` | `TRADEMARK.md` |
+
+Screenshot placeholders remain in the README table.
 
 ---
 
 ## 8. Manual steps, in order
 
-1. **Rotate / revoke.**
-   - Revoke the Etherscan key.
-   - Stop using the current USDT-BEP20 deposit wallet; create a new address only
-     if the paid product continues privately.
-   - Rotate the Supabase service-role key if `.env*` or the captured Chrome
-     profile ever left your machine.
-   - Sign out accounts used in the captured Chrome profile.
-2. **Decide history cleanup.** No API key/JWT is in public history, so a rewrite
-   is not required for credentials. It *is* the only way to remove the committed
-   house address (tests + QR). If you choose to:
-   - back up the repo (including all refs),
-   - `git filter-repo --path public/deposit-qr-usdt-bep20.jpg --invert-paths`,
-   - replace the address in the two test files before rewriting, or use
-     `--replace-text`,
+1. **Rotate/revoke:** Etherscan key; retire the old BEP20 address; rotate the
+   Supabase service-role key if it was ever shared or synced. Sign out any
+   account that used the captured profile.
+2. **Decide on history cleanup.** No API key/JWT is in history, so a rewrite is
+   not required for credentials. It is the only way to remove the deleted
+   security report, the old house address in test files and the QR blob from old
+   commits. If you choose to:
+   - back up the repository (all refs),
+   - use `git filter-repo --path SECURITY_AUDIT_REPORT.md --invert-paths`,
+     remove the QR/tests or `--replace-text` the address,
    - force-push and tell every collaborator to re-clone.
-   This is destructive; it has **not** been run.
-3. **Prune local evidence (destructive, local only).** After a backup:
-   `git update-ref -d refs/cline/checkpoints/1793291227023_i75dx/1`,
-   the same for `/2`, then `git reflog expire --expire=now --all` and
-   `git gc --prune=now`. Delete `.rea-cathode/`. Do this before any
-   `git push --mirror`.
-4. **Remove or move the real-money stack** (RM-01…RM-12) and replace the test
-   addresses with dummies. If you keep the paid product, create a private
-   `pipduel-server` repository and move the wallet, chain, admin money desks and
-   money SQL there, then strip them from the public tree.
-5. **Remove the third-party assets:** `mw3-lobby.mp3`, the EC Markets banner and
-   referral link; replace or license the lobby/ticket art.
-6. **Fix or explicitly accept PD-003/PD-004**, and decide whether
-   `SECURITY_AUDIT_REPORT.md` ships. Recommended: keep it private until those
-   are closed.
-7. **Fill the placeholders** in §7.
-8. **Run the GitHub setup.** Edit `OWNER`/`REPO` in
-   `scripts/setup-github.sh`, review it, then run it. It creates labels and the
-   12 starter issues and prints the branch-protection command.
-9. **Push the branch and open a PR.** CI must be green: lint, typecheck, tests,
-   build, DCO and gitleaks. Merge only after review.
-10. **Enable branch protection** with the printed `gh api` command. Confirm the
-    check names (`quality`, `DCO sign-off`, `gitleaks`) on the first PR.
-11. **Make the repository public** only after §11 passes.
-12. **Announce** with the Discussions link and the roadmap.
+   This is destructive and has **not** been run.
+3. **Fill the placeholders** in §7 and add the three screenshots.
+4. **Confirm the local cleanup:** `.rea-cathode/` is gone and
+   `git for-each-ref refs/cline` is empty. Re-run `git gc --prune=now` if you
+   want to compact the object store.
+5. **Push the branch** and open a PR. Confirm CI (`quality`, `DCO sign-off`,
+   `gitleaks`) is green.
+6. **Run the GitHub setup:** edit `OWNER`/`REPO` in `scripts/setup-github.sh`,
+   review it, run it, then run its printed branch-protection command.
+7. **Make the repository public** only after the PR is merged and the
+   placeholders are filled.
+8. **Announce** with the Discussions/Telegram links.
 
 ---
 
-## 9. CI notes
+## 9. Go / no-go
 
-- **Workflows:** `ci.yml` (Node 22, `npm ci`, lint, typecheck, test, build),
-  `dco.yml` (Signed-off-by on every non-merge commit), `secret-scan.yml`
-  (gitleaks action), `dependabot.yml` (npm + actions, weekly).
-- `ci.yml` uses placeholder Supabase env values; the app treats them as “no
-  backend”, so the build needs no secrets.
-- The DCO check is the enforcement mechanism. GitHub's “require signed commits”
-  is GPG signing, not DCO.
-- `gitleaks-action@v2` is free for personal accounts; an organization-owned repo
-  needs a `GITLEAKS_LICENSE` secret (commented in the workflow).
-- No Playwright specs exist yet, so CI does not run e2e. Adding the first spec
-  is a listed starter issue.
-- Local lint still reports 51 warnings (0 errors). CI does not fail on warnings.
+**Go**, conditional on §8 steps 1–3. The tree no longer contains money features,
+third-party assets, a public admin console or the captured profile. The remaining
+work is configuration and key hygiene, not code.
+
+Do not re-add deposits, withdrawals, cash-out or paid value. If a monetised
+product is ever built, keep it in a separate private deployment and re-run the
+audit.
 
 ---
 
-## 10. Commit authorship
+## 10. Limitations
 
-The local git `user.name` is unset, so commits were made with a one-off identity,
-**Pip Duel Maintainers**, using the email already configured in git. All commits
-are signed off (`git commit -s`). Before pushing:
-
-```bash
-git config user.name "Your Name"
-# Re-author only this branch's commits, not the published base history.
-git rebase --exec 'git commit --amend --reset-author --no-edit' 98e985e
-```
-
-`98e985e` is the branch point. Do **not** use `--root`: that would rewrite the
-published history and force a coordinated force-push.
-
----
-
-## 11. Go / no-go
-
-**No-go today.** The repository can be published the day these are true:
-
-- [ ] Money modules, money SQL, deposit UI, chain verification, QR asset and
-      house addresses are removed from the public tree (or moved private).
-- [ ] The two test files use dummy addresses.
-- [ ] `mw3-lobby.mp3` and the EC Markets banner/referral link are gone; the
-      remaining art is original or licensed.
-- [ ] PD-003 and PD-004 are fixed or accepted in writing; PD-008 is understood.
-- [ ] `.rea-cathode/` is deleted and local checkpoint refs are pruned; a final
-      `gitleaks git --all` shows only known, accepted findings.
-- [ ] All placeholders are filled; `scripts/setup-github.sh` has been reviewed
-      and run; branch protection is on.
-- [ ] A clean clone passes lint, typecheck, tests and build; the first PR is
-      green on CI.
-- [ ] Legal review of the free-to-play claim (no cash value, no payouts).
-
-Until then, keep the repository private and do not deploy this snapshot as a
-money service.
-
----
-
-## 12. Limitations
-
-- No production Supabase access: RLS findings are static-review only.
-- Asset provenance cannot be verified without the owner; unknown-origin assets
-  are flagged, not cleared.
-- The captured Chrome profile was not opened; its sensitivity is based on file
-  names and size.
-- `setup-github.sh` was not executed and `bash` was unavailable for a local
-  syntax check.
-- The theme commit contains pre-existing uncommitted UI edits from before this
-  task; authorship is preserved as one maintainer commit.
+- No production Supabase instance was available; `setup.sql` was reviewed
+  statically and the app was built with placeholder credentials. Apply the schema
+  to a staging project before launch.
+- The SQL rewrite removes money tables from new installs but does not drop them
+  from an existing database; archive/drop those manually.
+- `git gc` exited 128 in the sandbox; refs are pruned but unreachable objects may
+  remain until it is re-run locally.
+- Older history still contains the removed report/address/QR until a rewrite.
+- `scripts/setup-github.sh` was not executed and `bash` is unavailable locally.
