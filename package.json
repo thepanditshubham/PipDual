@@ -2,11 +2,17 @@
   "name": "pip-duel",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=20.9"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "seed": "node scripts/seed-sample-data.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test"

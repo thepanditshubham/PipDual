@@ -55,3 +55,6 @@ next-env.d.ts
 /.rea-cathode/
 .tmp-*.png
 *.bak
+
+# generated sample data (scripts/seed-sample-data.mjs)
+/data/
