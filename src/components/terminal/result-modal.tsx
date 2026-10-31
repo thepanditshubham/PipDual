@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Trophy, Share2, RotateCcw, Home, Check, Swords, Shield, ExternalLink, Zap, Coins } from 'lucide-react';
+import { Trophy, Share2, RotateCcw, Home, Check, ChevronDown, Coins, Shield } from 'lucide-react';
 import type { ScoreResult, Trade } from '@/lib/engine/types';
 import type { RewardPacket } from '@/lib/progress/types';
 import { netFor, type DuelOutcome } from '@/lib/economy';
+import { HOUSE_CUT } from '@/lib/economy/config';
 
 interface ResultModalProps {
   won: boolean;
@@ -49,7 +50,6 @@ export function ResultModal({
   revealedMarket,
   onRematch,
   isForfeit = false,
-  forfeitWinner,
   battleSeconds = 180,
   rewards = null,
   pot = null,
@@ -68,7 +68,6 @@ export function ResultModal({
       try {
         await navigator.share(shareData);
       } catch {
-        // Fallback to copy link
         copyToClipboard();
       }
     } else {
@@ -78,13 +77,13 @@ export function ResultModal({
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(
-      `Pip Duel Match Result: ${won ? 'I WON' : 'Match settled'} with $${userScore.pnl} P&L against ${rivalName}! Play here: ${window.location.origin}/play`
+      `Pip Duel Match Result: ${won ? 'I WON' : 'Match settled'} with $${userScore.pnl} P&L against ${rivalName}! Play here: ${window.location.origin}/play`,
     );
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Build dual equity overlay SVG curves
+  // Dual equity overlay: the same geometry as before, drawn into a shorter box.
   const maxEq = Math.max(...userEquity, ...rivalEquity, 10200);
   const minEq = Math.min(...userEquity, ...rivalEquity, 9800);
   const range = maxEq - minEq || 1;
@@ -104,6 +103,7 @@ export function ResultModal({
 
   const userPath = toSvgPath(userEquity);
   const rivalPath = toSvgPath(rivalEquity);
+  const signedPnl = (pnl: number) => `${pnl < 0 ? '-' : '+'}$${Math.abs(pnl).toFixed(2)}`;
 
   const bannerTitle = isForfeit
     ? won
@@ -119,338 +119,222 @@ export function ResultModal({
     ? won
       ? `${rivalName} exited the duel. Victory awarded to you!`
       : 'You exited the duel early. Defeat conceded.'
-    : `Verified By Server Engine • ${battleSeconds}s Live Window`;
+    : `Verified By Server Engine · ${battleSeconds}s Live Window`;
 
-  // Live pot bookkeeping for the panel: entry is spent, collected is what landed.
   const potOutcome: DuelOutcome = won ? 'win' : isDraw ? 'draw' : 'loss';
   const showPot = Boolean(pot && pot.stake > 0);
   const potStake = pot?.stake ?? 0;
   const potPayout = pot?.payout ?? 0;
   const potNet = netFor(potOutcome, potStake);
 
+  const tone = won
+    ? { banner: 'from-[var(--term-buy-3)]/20 border-[var(--term-buy-3)]/40 text-[var(--term-buy)]', icon: 'border-[var(--term-buy)]/50 text-[var(--term-buy)]' }
+    : isDraw
+      ? { banner: 'from-[var(--term-border-hi)]/30 border-[var(--term-border-hi)] text-[var(--term-strong)]', icon: 'border-[var(--term-border-hi)] text-[var(--term-strong)]' }
+      : { banner: 'from-[var(--term-sell)]/20 border-[var(--term-sell)]/40 text-[var(--term-sell)]', icon: 'border-[var(--term-sell)]/50 text-[var(--term-sell)]' };
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-2xl bg-[var(--term-panel)] border border-[var(--term-border)] rounded-2xl shadow-2xl overflow-hidden my-8 animate-slide-up">
-        {/* Banner */}
-        <div
-          className={`p-6 text-center border-b ${
-            won
-              ? 'bg-gradient-to-b from-[var(--term-buy-3)]/20 to-transparent border-[var(--term-buy-3)]/40 text-[var(--term-buy)]'
-              : isDraw
-                ? 'bg-gradient-to-b from-[var(--term-border-hi)]/40 to-transparent border-[var(--term-border-hi)] text-[var(--term-strong)]'
-                : 'bg-gradient-to-b from-[var(--term-sell)]/20 to-transparent border-[var(--term-sell)]/40 text-[var(--term-sell)]'
-          }`}
-        >
-          <div
-            className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center border mb-3 shadow-lg ${
-              won
-                ? 'bg-[var(--term-panel)] border-[var(--term-buy)]/50 text-[var(--term-buy)]'
-                : isDraw
-                  ? 'bg-[var(--term-panel)] border-[var(--term-border-hi)] text-[var(--term-strong)]'
-                  : 'bg-[var(--term-panel)] border-[var(--term-sell)]/50 text-[var(--term-sell)]'
-            }`}
-          >
-            <Trophy size={32} />
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/80 p-3 backdrop-blur-md sm:p-4">
+      <div className="my-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-[var(--term-border)] bg-[var(--term-panel)] shadow-2xl animate-slide-up">
+        {/* Compact banner */}
+        <div className={`shrink-0 border-b bg-gradient-to-b to-transparent px-4 py-4 text-center ${tone.banner}`}>
+          <div className={`mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl border bg-[var(--term-panel)] ${tone.icon}`}>
+            <Trophy size={20} />
           </div>
-          <h2 className="text-3xl md:text-4xl font-extrabold uppercase tracking-tight text-[var(--term-strong)]">
+          <h2 className="text-xl font-extrabold uppercase tracking-tight text-[var(--term-strong)] sm:text-2xl">
             {bannerTitle}
           </h2>
-          <p className="text-xs uppercase tracking-widest text-[var(--term-soft)] mt-1 font-medium">
+          <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-[var(--term-soft)]">
             {bannerSubtitle}
           </p>
         </div>
 
-        <div className="p-6 md:p-8 space-y-6">
-          {/* Live pot: what the entry cost and what the arena paid out */}
-          {showPot && (
-            <div className="bg-[var(--term-panel-deep)] border border-[var(--term-border-hi)] rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--term-soft)] flex items-center gap-1.5">
-                  <Coins size={12} className="text-[var(--term-soft)]" /> Live Pot
-                </span>
-                <span className="text-[10px] font-mono text-[var(--term-muted)]">
-                  {isDraw ? 'Draw — entries refunded' : won ? 'Winner takes the pot' : 'Pot collected by rival'}
-                </span>
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+          {/* Scoreboard first: the outcome is the card */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="relative overflow-hidden rounded-lg border border-[var(--term-border)] bg-[var(--term-panel-deep)] p-3 text-center">
+              <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[var(--term-buy)] to-[var(--term-buy-bright)]" />
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--term-buy)]">You</span>
+              <div className={`font-mono text-xl font-extrabold tabular-nums ${userScore.pnl >= 0 ? 'text-[var(--term-buy)]' : 'text-[var(--term-sell)]'}`}>
+                {signedPnl(userScore.pnl)}
               </div>
-
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg bg-[var(--term-raised)] border border-[var(--term-border)] py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-[var(--term-muted)]">Entry</p>
-                  <p className="text-sm font-bold font-mono text-[var(--term-sell)]">−{potStake.toLocaleString()}</p>
-                </div>
-                <div className="rounded-lg bg-[var(--term-raised)] border border-[var(--term-border)] py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-[var(--term-muted)]">Collected</p>
-                  <p className="text-sm font-bold font-mono text-[var(--term-strong)]">+{potPayout.toLocaleString()}</p>
-                </div>
-                <div className="rounded-lg bg-[var(--term-raised)] border border-[var(--term-border)] py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-[var(--term-muted)]">Net</p>
-                  <p
-                    className={`text-sm font-bold font-mono ${
-                      potNet > 0 ? 'text-[var(--term-buy)]' : potNet < 0 ? 'text-[var(--term-sell)]' : 'text-[var(--term-strong)]'
-                    }`}
-                  >
-                    {potNet > 0 ? '+' : ''}
-                    {potNet.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              <p className="text-[10px] font-mono text-[var(--term-muted)]">
-                Both entries pool, the arena burns 10%, the winner collects the rest.
-              </p>
-            </div>
-          )}
-
-          {/* Live settlement: XP, RP, coins and ladder movement */}
-          {rewards && (
-            <div className="bg-[var(--term-panel-deep)] border border-[var(--term-border)] rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--term-soft)] flex items-center gap-1.5">
-                  <Shield size={12} className="text-[var(--term-buy)]" /> Live Rewards
-                </span>
-                <span className="text-[10px] font-mono text-[var(--term-muted)]">
-                  {rewards.rankAfter.tierLabel}
-                  {rewards.rankAfter.ceiling !== null && ` · ${rewards.rankAfter.intoDivision}/${rewards.rankAfter.needed} RP`}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg bg-[var(--term-raised)] border border-[var(--term-border)] py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-[var(--term-muted)]">XP</p>
-                  <p className="text-sm font-bold font-mono text-[var(--term-strong)]">+{rewards.xp.toLocaleString()}</p>
-                </div>
-                <div className="rounded-lg bg-[var(--term-raised)] border border-[var(--term-border)] py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-[var(--term-muted)]">RP</p>
-                  <p
-                    className={`text-sm font-bold font-mono ${
-                      rewards.rp > 0 ? 'text-[var(--term-buy)]' : rewards.rp < 0 ? 'text-[var(--term-sell)]' : 'text-[var(--term-strong)]'
-                    }`}
-                  >
-                    {rewards.rp > 0 ? '+' : ''}{rewards.rp}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-[var(--term-raised)] border border-[var(--term-border)] py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-[var(--term-muted)]">Coins</p>
-                  <p className="text-sm font-bold font-mono text-[var(--term-strong)]">+{rewards.coins}</p>
-                </div>
-              </div>
-
-              {(rewards.promoted ||
-                rewards.demoted ||
-                rewards.shielded ||
-                rewards.placementDone ||
-                rewards.levelAfter > rewards.levelBefore) && (
-                <div className="flex flex-wrap gap-1.5">
-                  {rewards.promoted && (
-                    <span className="px-2 py-0.5 rounded-full bg-[var(--term-buy)]/15 border border-[var(--term-buy)]/40 text-[10px] font-bold uppercase tracking-wider text-[var(--term-buy)]">
-                      Promoted
-                    </span>
-                  )}
-                  {rewards.demoted && (
-                    <span className="px-2 py-0.5 rounded-full bg-[var(--term-sell)]/15 border border-[var(--term-sell)]/40 text-[10px] font-bold uppercase tracking-wider text-[var(--term-sell)]">
-                      Demoted
-                    </span>
-                  )}
-                  {rewards.shielded && (
-                    <span className="px-2 py-0.5 rounded-full bg-[var(--term-primary)]/15 border border-[var(--term-primary)]/40 text-[10px] font-bold uppercase tracking-wider text-[var(--term-primary-hi)]">
-                      Rank shield used
-                    </span>
-                  )}
-                  {rewards.placementDone && (
-                    <span className="px-2 py-0.5 rounded-full bg-[var(--term-raised)] border border-[var(--term-border-hi)] text-[10px] font-bold uppercase tracking-wider text-[var(--term-soft)]">
-                      Placements complete
-                    </span>
-                  )}
-                  {rewards.levelAfter > rewards.levelBefore && (
-                    <span className="px-2 py-0.5 rounded-full bg-[var(--term-raised)] border border-[var(--term-border-hi)] text-[10px] font-bold uppercase tracking-wider text-[var(--term-strong)]">
-                      Level {rewards.levelAfter}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {(rewards.missionIds.length > 0 || rewards.achievementIds.length > 0) && (
-                <p className="text-[10px] font-mono text-[var(--term-muted)]">
-                  Progress updated: {rewards.missionIds.length} mission{rewards.missionIds.length === 1 ? '' : 's'},{' '}
-                  {rewards.achievementIds.length} achievement{rewards.achievementIds.length === 1 ? '' : 's'}
-                </p>
-              )}
-
-              <Link href="/play" className="text-[10px] font-mono text-[var(--term-soft)] hover:text-[var(--term-strong)] transition-colors">
-                View full progress in the lobby ›
-              </Link>
-            </div>
-          )}
-
-          {/* Comparison Scoreboard */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* You */}
-            <div className="bg-[var(--term-panel-deep)] border border-[var(--term-border)] rounded-xl p-4 text-center space-y-1 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[var(--term-buy)] to-[var(--term-buy-bright)]" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--term-buy)]">You (Player)</span>
-              <div
-                className={`text-3xl font-extrabold font-mono tabular-nums ${
-                  userScore.pnl >= 0 ? 'text-[var(--term-buy)]' : 'text-[var(--term-sell)]'
-                }`}
-              >
-                {userScore.pnl >= 0 ? '+' : ''}${userScore.pnl.toFixed(2)}
-              </div>
-              <div className="text-[11px] text-[var(--term-soft)] space-y-0.5 pt-2 border-t border-[var(--term-border)]">
-                <div className="flex justify-between">
-                  <span>Score:</span> <strong className="text-[var(--term-strong)] font-mono">{userScore.score.toFixed(2)}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Max DD:</span> <strong className="text-[var(--term-strong)] font-mono">${userScore.maxDrawdown.toFixed(2)}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Trades:</span> <strong className="text-[var(--term-strong)] font-mono">{userScore.tradeCount}</strong>
-                </div>
+              <div className="mt-1.5 space-y-0.5 border-t border-[var(--term-border)] pt-1.5 text-[10px] text-[var(--term-soft)]">
+                <div className="flex justify-between"><span>Score</span><strong className="font-mono text-[var(--term-strong)]">{userScore.score.toFixed(2)}</strong></div>
+                <div className="flex justify-between"><span>Max DD</span><strong className="font-mono text-[var(--term-strong)]">${userScore.maxDrawdown.toFixed(2)}</strong></div>
+                <div className="flex justify-between"><span>Trades</span><strong className="font-mono text-[var(--term-strong)]">{userScore.tradeCount}</strong></div>
               </div>
             </div>
 
-            {/* Rival */}
-            <div className="bg-[var(--term-panel-deep)] border border-[var(--term-border)] rounded-xl p-4 text-center space-y-1 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[var(--term-gem)] to-[var(--term-border-hi)]" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--term-gem)]">{rivalName}</span>
-              <div
-                className={`text-3xl font-extrabold font-mono tabular-nums ${
-                  rivalScore.pnl >= 0 ? 'text-[var(--term-buy)]' : 'text-[var(--term-sell)]'
-                }`}
-              >
-                {rivalScore.pnl >= 0 ? '+' : ''}${rivalScore.pnl.toFixed(2)}
+            <div className="relative overflow-hidden rounded-lg border border-[var(--term-border)] bg-[var(--term-panel-deep)] p-3 text-center">
+              <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[var(--term-gem)] to-[var(--term-border-hi)]" />
+              <span className="block truncate text-[10px] font-semibold uppercase tracking-wider text-[var(--term-gem)]">{rivalName}</span>
+              <div className={`font-mono text-xl font-extrabold tabular-nums ${rivalScore.pnl >= 0 ? 'text-[var(--term-buy)]' : 'text-[var(--term-sell)]'}`}>
+                {signedPnl(rivalScore.pnl)}
               </div>
-              <div className="text-[11px] text-[var(--term-soft)] space-y-0.5 pt-2 border-t border-[var(--term-border)]">
-                <div className="flex justify-between">
-                  <span>Score:</span> <strong className="text-[var(--term-strong)] font-mono">{rivalScore.score.toFixed(2)}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Max DD:</span> <strong className="text-[var(--term-strong)] font-mono">${rivalScore.maxDrawdown.toFixed(2)}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Trades:</span> <strong className="text-[var(--term-strong)] font-mono">{rivalScore.tradeCount}</strong>
-                </div>
+              <div className="mt-1.5 space-y-0.5 border-t border-[var(--term-border)] pt-1.5 text-[10px] text-[var(--term-soft)]">
+                <div className="flex justify-between"><span>Score</span><strong className="font-mono text-[var(--term-strong)]">{rivalScore.score.toFixed(2)}</strong></div>
+                <div className="flex justify-between"><span>Max DD</span><strong className="font-mono text-[var(--term-strong)]">${rivalScore.maxDrawdown.toFixed(2)}</strong></div>
+                <div className="flex justify-between"><span>Trades</span><strong className="font-mono text-[var(--term-strong)]">{rivalScore.tradeCount}</strong></div>
               </div>
             </div>
           </div>
 
-          {/* Overlaid Equity Curve Graph */}
-          <div className="bg-[var(--term-panel-deep)] p-4 rounded-xl border border-[var(--term-border)] space-y-2">
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-[var(--term-soft)] font-semibold uppercase tracking-wider text-[11px]">Equity Curves Overlaid:</span>
-              <div className="flex items-center gap-4 text-[11px]">
-                <span className="flex items-center gap-1.5 text-[var(--term-buy)] font-bold">
-                  <span className="w-2.5 h-1 rounded-full bg-[var(--term-buy)]" /> You
-                </span>
-                <span className="flex items-center gap-1.5 text-[var(--term-gem)] font-bold">
-                  <span className="w-2.5 h-1 rounded-full bg-[var(--term-gem)]" /> {rivalName}
-                </span>
+          {/* Pot + rewards: compact strips side by side on wider phones */}
+          {(showPot || rewards) && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {showPot && (
+                <div className="rounded-lg border border-[var(--term-border)] bg-[var(--term-panel-deep)] p-2.5">
+                  <div className="flex items-center justify-between gap-1 text-[9px] font-semibold uppercase tracking-wider text-[var(--term-soft)]">
+                    <span className="flex items-center gap-1"><Coins size={11} /> Live pot</span>
+                    <span className="normal-case tracking-normal text-[var(--term-muted)]">
+                      {isDraw ? 'refunded' : won ? 'won' : 'lost'}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 grid grid-cols-3 gap-1 text-center">
+                    <div>
+                      <p className="text-[9px] uppercase text-[var(--term-muted)]">Entry</p>
+                      <p className="font-mono text-[11px] font-bold text-[var(--term-sell)]">−{potStake.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase text-[var(--term-muted)]">Back</p>
+                      <p className="font-mono text-[11px] font-bold text-[var(--term-strong)]">+{potPayout.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase text-[var(--term-muted)]">Net</p>
+                      <p className={`font-mono text-[11px] font-bold ${potNet > 0 ? 'text-[var(--term-buy)]' : potNet < 0 ? 'text-[var(--term-sell)]' : 'text-[var(--term-strong)]'}`}>
+                        {potNet > 0 ? '+' : ''}{potNet.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-1 text-[9px] font-mono text-[var(--term-muted)]">
+                    {Math.round(HOUSE_CUT * 100)}% of the pool is removed as a sink.
+                  </p>
+                </div>
+              )}
+
+              {rewards && (
+                <div className="rounded-lg border border-[var(--term-border)] bg-[var(--term-panel-deep)] p-2.5">
+                  <div className="flex items-center justify-between gap-1 text-[9px] font-semibold uppercase tracking-wider text-[var(--term-soft)]">
+                    <span className="flex items-center gap-1"><Shield size={11} className="text-[var(--term-buy)]" /> Rewards</span>
+                    <span className="normal-case tracking-normal text-[var(--term-muted)]">{rewards.rankAfter.tierLabel}</span>
+                  </div>
+                  <div className="mt-1.5 grid grid-cols-3 gap-1 text-center">
+                    <div>
+                      <p className="text-[9px] uppercase text-[var(--term-muted)]">XP</p>
+                      <p className="font-mono text-[11px] font-bold text-[var(--term-strong)]">+{rewards.xp.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase text-[var(--term-muted)]">RP</p>
+                      <p className={`font-mono text-[11px] font-bold ${rewards.rp > 0 ? 'text-[var(--term-buy)]' : rewards.rp < 0 ? 'text-[var(--term-sell)]' : 'text-[var(--term-strong)]'}`}>
+                        {rewards.rp > 0 ? '+' : ''}{rewards.rp}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase text-[var(--term-muted)]">Coins</p>
+                      <p className="font-mono text-[11px] font-bold text-[var(--term-strong)]">+{rewards.coins}</p>
+                    </div>
+                  </div>
+                  {(rewards.promoted || rewards.demoted || rewards.shielded || rewards.placementDone || rewards.levelAfter > rewards.levelBefore) && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {rewards.promoted && <span className="rounded-full border border-[var(--term-buy)]/40 bg-[var(--term-buy)]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--term-buy)]">Promoted</span>}
+                      {rewards.demoted && <span className="rounded-full border border-[var(--term-sell)]/40 bg-[var(--term-sell)]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--term-sell)]">Demoted</span>}
+                      {rewards.shielded && <span className="rounded-full border border-[var(--term-primary)]/40 bg-[var(--term-primary)]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--term-primary-hi)]">Shield</span>}
+                      {rewards.placementDone && <span className="rounded-full border border-[var(--term-border-hi)] bg-[var(--term-raised)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--term-soft)]">Placements</span>}
+                      {rewards.levelAfter > rewards.levelBefore && <span className="rounded-full border border-[var(--term-border-hi)] bg-[var(--term-raised)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--term-strong)]">Level {rewards.levelAfter}</span>}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Equity sparkline */}
+          <div className="rounded-lg border border-[var(--term-border)] bg-[var(--term-panel-deep)] px-3 py-2">
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="font-semibold uppercase tracking-wider text-[var(--term-soft)]">Equity</span>
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1 font-bold text-[var(--term-buy)]"><span className="h-1 w-2 rounded-full bg-[var(--term-buy)]" /> You</span>
+                <span className="flex items-center gap-1 font-bold text-[var(--term-gem)]"><span className="h-1 w-2 rounded-full bg-[var(--term-gem)]" /> {rivalName}</span>
               </div>
             </div>
-
-            <div className="h-28 w-full relative">
-              <svg viewBox="0 0 360 100" className="w-full h-full overflow-visible" aria-hidden="true">
-                {/* Horizontal midpoint reference */}
+            <div className="relative mt-1 h-16 w-full">
+              <svg viewBox="0 0 360 100" className="h-full w-full overflow-visible" aria-hidden="true">
                 <line x1="0" y1="50" x2="360" y2="50" stroke="var(--term-border)" strokeDasharray="3 3" />
-
-                {/* Rival curve */}
                 {rivalPath && (
-                  <polyline
-                    fill="none"
-                    stroke="var(--term-gem)"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeDasharray="4 2"
-                    points={rivalPath}
-                  />
+                  <polyline fill="none" stroke="var(--term-gem)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4 2" points={rivalPath} />
                 )}
-
-                {/* User curve */}
                 {userPath && (
-                  <polyline
-                    fill="none"
-                    stroke="var(--term-buy-bright)"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    points={userPath}
-                  />
+                  <polyline fill="none" stroke="var(--term-buy-bright)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={userPath} />
                 )}
               </svg>
             </div>
           </div>
 
-          {/* Revealed Market Info */}
-          <div className="p-4 bg-[var(--term-raised)] border border-[var(--term-border)] rounded-xl flex items-center justify-between text-xs">
-            <div>
-              <span className="text-[var(--term-soft)] uppercase font-semibold tracking-wider block text-[10px]">
-                Market Revealed:
-              </span>
-              <span className="text-[var(--term-strong)] font-bold text-sm">{revealedMarket.title}</span>
-              <span className="text-[var(--term-soft)] ml-2 font-mono">({revealedMarket.asset})</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {revealedMarket.tags.map((tg) => (
-                <span key={tg} className="px-2.5 py-0.5 rounded-full bg-[var(--term-panel)] text-[var(--term-soft)] border border-[var(--term-border-hi)] text-[10px] uppercase font-semibold">
-                  {tg}
-                </span>
-              ))}
-              <span className="text-[var(--term-muted)] font-mono text-[10px]">{revealedMarket.session}</span>
-            </div>
+          {/* Market, one line */}
+          <div
+            className="flex items-center justify-between gap-2 rounded-lg border border-[var(--term-border)] bg-[var(--term-raised)] px-3 py-2 text-[10px]"
+            title={`${revealedMarket.title} (${revealedMarket.asset}) · ${revealedMarket.session}`}
+          >
+            <span className="min-w-0 truncate text-[var(--term-soft)]">
+              <span className="uppercase tracking-wider text-[var(--term-muted)]">Market </span>
+              <strong className="text-[var(--term-strong)]">{revealedMarket.title}</strong>
+            </span>
+            <span className="shrink-0 font-mono text-[var(--term-muted)]">{revealedMarket.asset}</span>
           </div>
 
-          {/* User Trade Log Details */}
+          {/* Executions, collapsed by default */}
           {userTrades.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--term-soft)]">Your Executions:</h4>
-              <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 text-xs font-mono">
+            <details className="group rounded-lg border border-[var(--term-border)] bg-[var(--term-panel-deep)]">
+              <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--term-soft)]">
+                <span>Executions ({userTrades.length})</span>
+                <ChevronDown size={12} className="text-[var(--term-muted)] transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="max-h-32 space-y-1 overflow-y-auto border-t border-[var(--term-border)] p-2 font-mono text-[10px]">
                 {userTrades.map((t, idx) => (
-                  <div key={idx} className="p-2.5 bg-[var(--term-panel-deep)] rounded-lg border border-[var(--term-border)] flex justify-between items-center">
-                    <div>
-                      <span className={t.direction === 'long' ? 'text-[var(--term-buy)] font-bold' : 'text-[var(--term-sell)] font-bold'}>
+                  <div key={idx} className="flex items-center justify-between gap-2 rounded border border-[var(--term-border)] bg-[var(--term-panel)] px-2 py-1">
+                    <div className="min-w-0 truncate">
+                      <span className={t.direction === 'long' ? 'font-bold text-[var(--term-buy)]' : 'font-bold text-[var(--term-sell)]'}>
                         {t.direction.toUpperCase()} x{t.size}
                       </span>{' '}
-                      <span className="text-[var(--term-soft)] text-[11px]">
-                        t{t.entryTick} ({t.entryPrice.toFixed(2)}) → t{t.exitTick} ({t.exitPrice.toFixed(2)})
+                      <span className="text-[var(--term-soft)]">
+                        {t.entryTick}→{t.exitTick}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-[var(--term-raised)] text-[var(--term-soft)] border border-[var(--term-border)]">
-                        {t.reason}
-                      </span>
-                      <span className={t.pnl >= 0 ? 'text-[var(--term-buy)] font-bold' : 'text-[var(--term-sell)] font-bold'}>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span className="rounded-full border border-[var(--term-border)] bg-[var(--term-raised)] px-1.5 py-0.5 text-[9px] uppercase text-[var(--term-soft)]">{t.reason}</span>
+                      <span className={t.pnl >= 0 ? 'font-bold text-[var(--term-buy)]' : 'font-bold text-[var(--term-sell)]'}>
                         {t.pnl >= 0 ? '+' : ''}${t.pnl.toFixed(2)}
                       </span>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </details>
           )}
 
           {/* Actions */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+          <div className="grid grid-cols-3 gap-2 pt-0.5">
             <button
               onClick={onRematch}
-              className="py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-[var(--term-strong)] flex items-center justify-center gap-1.5 shadow-lg hover:opacity-95 transition-all cursor-pointer"
+              className="flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-opacity hover:opacity-95"
               style={{ background: 'linear-gradient(315deg, var(--term-buy-3) 0%, var(--term-buy-bright) 100%)', color: 'var(--term-canvas)' }}
             >
-              <RotateCcw size={14} className="stroke-[2.5]" /> Rematch
+              <RotateCcw size={12} className="stroke-[2.5]" /> Rematch
             </button>
 
             <button
               onClick={handleShare}
-              className="py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-[var(--term-strong)] bg-[var(--term-raised)] border border-[var(--term-border)] hover:border-[var(--term-border-hi)] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              className="flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[var(--term-border)] bg-[var(--term-raised)] text-[10px] font-bold uppercase tracking-wider text-[var(--term-strong)] transition-colors hover:border-[var(--term-border-hi)]"
             >
-              {copied ? <Check size={14} className="text-[var(--term-buy)]" /> : <Share2 size={14} />}
-              {copied ? 'Link Copied!' : 'Share Result'}
+              {copied ? <Check size={12} className="text-[var(--term-buy)]" /> : <Share2 size={12} />}
+              {copied ? 'Copied' : 'Share'}
             </button>
 
             <Link
               href="/play"
-              className="py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-[var(--term-soft)] hover:text-[var(--term-strong)] bg-[var(--term-panel-deep)] border border-[var(--term-border)] flex items-center justify-center gap-1.5 text-center transition-colors"
+              className="flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[var(--term-border)] bg-[var(--term-panel-deep)] text-[10px] font-bold uppercase tracking-wider text-[var(--term-soft)] transition-colors hover:text-[var(--term-strong)]"
             >
-              <Home size={14} /> Arena Lobby
+              <Home size={12} /> Lobby
             </Link>
           </div>
         </div>
