@@ -15,7 +15,10 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   const isDedicated =
     pathname === '/' ||
     isSitePath(pathname) ||
-    pathname.startsWith('/play') ||
+    // `/player/...` is a public profile and keeps the site chrome; only the
+    // terminal itself (`/play` and its rooms) is full-screen.
+    pathname === '/play' ||
+    pathname.startsWith('/play/') ||
     pathname.startsWith('/lobby') ||
     pathname.startsWith('/terminal') ||
     pathname.startsWith('/legal') ||

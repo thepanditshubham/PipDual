@@ -382,7 +382,7 @@ function PlayRoomContent() {
         outcome,
         pipMargin: pipMarginBetween(finalUser.pnl, finalRival.pnl, price),
         opponentRp: rivalRating,
-        opponentKey: rivalName.toLowerCase(),
+        opponentKey: rivalName,
         actions: userActions,
         trades: finalUser.trades,
         equity: finalUser.equity,

@@ -2475,7 +2475,11 @@ function PlayLobbyContent() {
                             <p className="text-xs leading-relaxed text-[var(--term-label)] whitespace-pre-line">{item.body}</p>
                             <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-mono uppercase tracking-wide">
                               <span className="text-[var(--term-muted)]">
-                                {item.category === 'system' ? 'Arena system' : 'Legacy record'}
+                                {item.category === 'system'
+                                  ? 'Arena system'
+                                  : item.category === 'player'
+                                    ? 'Player message'
+                                    : 'Legacy record'}
                               </span>
                               {hasCoins && <span className="font-bold text-[var(--term-amber)]">{coins.toLocaleString()} C</span>}
                               <span className="flex items-center gap-1 text-[var(--term-buy)]">

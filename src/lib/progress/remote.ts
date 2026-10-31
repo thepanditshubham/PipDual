@@ -53,6 +53,7 @@ export async function syncSettlement(
         discipline_score: packet.discipline,
         pip_margin: record.pipMargin,
         opponent_rp: record.opponentRp,
+        opponent_key: record.opponentKey ?? null,
         created_at: record.createdAt,
       },
       { onConflict: 'match_id,user_id', ignoreDuplicates: true },

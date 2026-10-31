@@ -39,7 +39,8 @@ Screenshots are added at release time. Placeholders to fill:
 - **Lobby** — match ticket, posted challenges, private tables with invite codes,
   friends list, mailbox, announcements.
 - **Progression** — XP, ranks, seasons, daily/weekly missions, achievements,
-  in-app leaderboard and profile pages.
+  in-app leaderboard and `/player/[username]` profiles with privacy controls,
+  battle history, endorsements and a self-reported portfolio.
 - **Result screen** — settled P&L, score, dual equity curves, shareable result.
 - **Free-to-play economy** — coins are virtual score-keeping units, Demo is
   always free, and Live tickets use virtual coins only.

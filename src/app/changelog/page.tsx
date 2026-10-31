@@ -65,7 +65,7 @@ const ENTRIES: { date: string; title: string; items: string[] }[] = [
     items: [
       'Divisions and rating points, with placement matches and a slow decay for idle accounts.',
       'Missions, achievements and a profile showcase.',
-      'Public player cards at /u/[username].',
+      'Public trader profiles at /player/[username], with privacy controls and battle history.',
     ],
   },
   {

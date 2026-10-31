@@ -123,7 +123,7 @@ export function AuthForm({ initialMode }: { initialMode: 'login' | 'signup' }) {
         try {
           const { data: profileData } = await supabase
             .from('profiles')
-            .select('*')
+            .select('id, username, display_name, avatar_url, rating, risk_rating, role, created_at')
             .eq('id', authData.user.id)
             .single();
           profile = profileData;
