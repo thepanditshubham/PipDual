@@ -39,9 +39,10 @@ the complete licence text for every npm package is shipped in its
 - UI icons: `lucide-react` (ISC), see above.
 - The synthetic market generator and all sample candles are original to this
   project and covered by AGPL-3.0-only.
-- Any art, audio or screenshot added to `public/` must have its licence and
-  source recorded here before it is merged. Assets with unknown provenance are
-  listed in `docs/OSS_AUDIT.md` and must be replaced or cleared.
+- The app icon (`src/app/icon.svg`) and the fallback avatar (inline SVG in
+  `src/lib/auth/avatar.ts`) are original to this project.
+- `public/` ships no third-party art or audio. Any asset added later must have its
+  licence and source recorded here before it is merged.
 
 ## Security audit of licences
 

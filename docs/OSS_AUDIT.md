@@ -3,16 +3,41 @@
 **Date:** 2026-10-31
 **Branch:** `chore/open-source-prep` (created from `security/audit-2026-10-29`)
 **Scope:** the whole working tree, every local ref, and the reachable git history.
-**Status:** internal working document — contains pre-publication risk notes. Do not publish it as-is.
+**Status:** audit snapshot, later remediated — see the update below.
 
 > No secret value is reproduced in this document. Findings name the file, line and
 > secret type only, which is enough to rotate or remove it.
 
 ---
 
-## 0. Verdict
+## Remediation update (2026-10-31)
 
-**No-go for a public release today.**
+The Critical, High and Medium items below were actioned on `chore/open-source-prep`:
+
+| Finding | Resolution |
+|---|---|
+| Critical: real-money feature set | Deposits, withdrawals, chain verification, the deposit QR, IB/referral commissions, the money admin desks and the money SQL were removed. Coins are virtual credits earned by playing; new accounts start with 1,000. |
+| High: live house address in tests and QR | The money tests and the QR asset were deleted; the address-bearing code is gone. |
+| High: captured Chrome profile in local refs | `.rea-cathode/` was deleted and the two local `refs/cline/*` checkpoint refs were pruned. |
+| High: official MW3 audio | The MP3 and all loader/playback code were removed; hover uses the synthesized tick. |
+| High: EC Markets logo and affiliate link | The banner block and referral link were removed. |
+| High: world-writable wallet and friends | `player_balances` and `player_friends` policies are scoped to `auth.uid()`; guest balances stay in local storage. |
+| High: security audit on `origin/main` | `SECURITY_AUDIT_REPORT.md` was deleted from the working tree. It remains in older commits; decide whether to rewrite history (see the release report). |
+| Medium: local service-role/Etherscan/deposit env vars | Removed from the local `.env`/`.env.local`; only the Supabase URL, anon key and site URL remain. Rotate the keys yourself. |
+| Medium: unknown-origin art and favicon | The images, audio and Next.js favicon were deleted; the app icon and fallback avatar are original SVGs. |
+| Medium: admin console and middleware | The public admin routes, admin components, admin data module and no-op middleware were deleted. |
+| Medium: money-era legal/admin copy | Rewritten across marketing, legal and FAQ pages; the pricing page is now a free-to-play page. |
+
+Still manual: key rotation, placeholder replacement, and the decision about purging
+the deleted security report/address from older history. The full go/no-go is in
+[docs/OSS_RELEASE_REPORT.md](OSS_RELEASE_REPORT.md).
+
+---
+
+## 0. Original verdict (superseded)
+
+**No-go for a public release at the time of the audit.** The findings below are
+kept as the evidence trail; their remediation is summarised above.
 
 The public branches contain no API keys, JWTs or private keys, but they do contain:
 

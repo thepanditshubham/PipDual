@@ -9,7 +9,6 @@ social and matchmaking state.
 ┌──────────────── Browser ────────────────┐        ┌──────────── Next.js ────────────┐
 │ Next.js App Router (React 19)            │        │ /api/auth/callback              │
 │  ├─ src/lib/engine  (deterministic)      │        │ /api/matches/submit             │
-│  ├─ Zustand stores (auth, progress)      │  HTTP  │ /api/chain/tx   (money, remove) │
 │  └─ Supabase JS (anon key)               │ ─────► └─────────────────────────────────┘
 │                                           │
 │  Realtime: presence / broadcast           │        ┌──────────────── Supabase ───────┐
@@ -49,8 +48,7 @@ social and matchmaking state.
 5. Both terminals simulate the same market window locally and post the trade log
    to `/api/matches/submit`. The handler re-derives the window, re-simulates and
    returns `verified` plus the score. **It persists nothing today.**
-6. The result modal renders both equity curves. In this snapshot the browser also
-   settles the pot locally; server-side settlement is a roadmap item.
+6. The result modal renders both equity curves. The entry and the virtual pot are settled in the browser; server-side settlement is a roadmap item.
 
 ## Realtime channels
 
@@ -73,12 +71,10 @@ must survive a refresh. There is no custom WebSocket server.
 |---|---|---|
 | `src/app/api/auth/callback/route.ts` | Exchange the Supabase OAuth code for a session | Needed for Google sign-in |
 | `src/app/api/matches/submit/route.ts` | Validate the submitted action log, re-derive the market, score it | Unauthenticated, in-memory rate limit; persists nothing |
-| `src/app/api/chain/tx/route.ts` | Read a USDT transfer from a public EVM RPC | **Real-money code; removal list** |
 
 Database work is done from the browser through PostgREST with the anon key. The
-real authorization boundary is therefore **RLS plus `SECURITY DEFINER` RPCs**, not
-the UI. `src/lib/supabase/admin.ts` only wraps queries and RPC calls; it does not
-use a service-role key.
+real authorization boundary is therefore **RLS**, not the UI. Operator tools are
+not part of this repository and would live in a private deployment.
 
 ## Data model
 
@@ -86,47 +82,39 @@ Core game tables in `supabase/setup.sql`:
 
 ```text
 profiles              player identity, role, rating, status
-player_balances       coin balance (client-authoritative today — see audit)
+player_balances       virtual coin balance, scoped to auth.uid()
 player_friends        friendship pairs
 seasons, player_progress, rank_state
 match_results, matches, match_actions, trade_events, match_flags
 missions_catalog, user_missions
 achievements_catalog, user_achievements
 leaderboard_snapshots, ratings_history
-segments              admin-managed market segments
+segments              market segments (read-only for players)
 player_mails, announcements
-```
-
-Real-money tables (removal list):
-
-```text
-wallet_ledger, crypto_deposits, crypto_withdrawals
-ib_config, ib_tiers, referrals, ib_balances, ib_earnings, ib_adjustments
 ```
 
 ## Trust boundaries
 
 - **Browser → PostgREST.** The anon key is public. Every table grant and policy is
-  the API. Anything writable by `authenticated` is writable from the console.
-- **Browser → definer functions.** Functions that move value gate on `is_admin()`;
-  the F2P build should have no such functions.
-- **`player_balances`.** Deliberately client-authoritative for guest/offline play.
-  It is not a trustworthy record of value; the audit flags it (PD-003).
+  the API. Anything writable by `authenticated` is writable from the console, so
+  policies scope rows to `auth.uid()`.
+- **`player_balances`.** A game credit, not money. RLS scopes reads and writes to
+  the signed-in player; guests keep their balance on the device.
 - **`/api/matches/submit`.** Re-simulates but does not persist. Do not build
   settlement on it until submissions are bound to a server-issued ticket.
-- **Admin UI.** Guarded client-side; `/admin` is not protected by middleware. RLS
-  is the real guard (audit PD-008).
+- **Operator tools.** Not part of the public build. There is no `/admin` route and
+  no admin RPC in `supabase/setup.sql`; publishing and moderation live in the
+  private deployment.
 
 ## Public vs private
 
 | Public repository | Operator-only / private |
 |---|---|
-| Engine, bot, terminal, lobby, progress, friends, private tables, marketing, docs | Real-money wallet, deposits, withdrawals, chain verification, IB payouts |
-| F2P core schema (after stripping money tables) | Production RLS/RPC hardening, settlement service, anti-abuse tuning |
+| Engine, bot, terminal, lobby, progress, friends, private tables, marketing, docs, F2P schema | Operator console, production RLS/RPC hardening, settlement service, anti-abuse tuning |
 | Tests, sample-data script, CI | Deployment configs, secrets, runbooks, security audit internals |
 
-The public contract is the game and a local schema. Anything that touches value,
-identity verification or payment belongs to a separate, private deployment.
+The public contract is the game and a local schema. Operator tooling, production
+hardening and any future monetisation belong to a separate, private deployment.
 
 ## Running without a backend
 

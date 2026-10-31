@@ -68,6 +68,8 @@ reasonable window to fix the issue before disclosure.
 
 ## Before you deploy
 
-This snapshot is being prepared for a public release. Do not deploy it as a
-money service. See [docs/OSS_RELEASE_REPORT.md](docs/OSS_RELEASE_REPORT.md) for
-open security items and [docs/OSS_AUDIT.md](docs/OSS_AUDIT.md) for the audit.
+- Apply `supabase/setup.sql` and confirm RLS is enabled on every table.
+- Never put a service-role key in a `NEXT_PUBLIC_*` variable or a client component.
+- Keep this build free-to-play: no deposits, withdrawals, cash-out or paid value.
+- Read [docs/OSS_RELEASE_REPORT.md](docs/OSS_RELEASE_REPORT.md) for the release
+  record and [docs/OSS_AUDIT.md](docs/OSS_AUDIT.md) for the audit.

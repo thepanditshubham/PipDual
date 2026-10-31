@@ -8,13 +8,11 @@ $10,000 practice balance, and the server re-scores the winner from the trade log
 It is a game about reading price and managing risk — not a broker, not an
 investment product, and not connected to any live order book.
 
-> **Project status: pre-public-release.**
-> This snapshot is being prepared for an open-source release. It is
-> **free-to-play and virtual-currency only by design**; the paid crypto wallet
-> modules that still exist in this tree are scheduled for removal and are **not**
-> part of the public scope. Do not deploy this snapshot as a money service.
-> See [docs/OSS_RELEASE_REPORT.md](docs/OSS_RELEASE_REPORT.md) for the release
-> blockers and [docs/OSS_AUDIT.md](docs/OSS_AUDIT.md) for the audit.
+> **Free-to-play. Virtual currency only.**
+> Coins are earned by playing and in missions; they are never bought, transferred
+> or cashed out. This repository has no deposits, withdrawals, wallet addresses or
+> payment rails. See [docs/OSS_AUDIT.md](docs/OSS_AUDIT.md) for the audit and
+> [docs/OSS_RELEASE_REPORT.md](docs/OSS_RELEASE_REPORT.md) for the release record.
 
 ---
 
