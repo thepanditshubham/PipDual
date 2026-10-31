@@ -146,7 +146,7 @@ begin
     );
   end;
 
-  -- Every account opens with a zero-coin wallet row.
+  -- Every account opens with its 1,000-coin starting balance.
   insert into public.player_balances (player_id)
   values (new.id::text)
   on conflict (player_id) do nothing;
@@ -787,7 +787,7 @@ group by p.id, p.username, p.display_name, p.avatar_url, p.rating, p.risk_rating
 order by wins desc, p.rating desc;
 
 -- =====================================================================
--- 6. ADMIN PREDICATE  (used by the review functions and policies)
+-- 6. ADMIN PREDICATE  (kept for the announcements read policy)
 -- =====================================================================
 
 create or replace function public.is_admin()
@@ -805,10 +805,9 @@ as $$
 $$;
 
 -- 11. PLAYER MAILBOX
---    Every money event writes one company letter to that player's inbox
---    in the same transaction. Clients can read their own mail, mark it
---    read and delete letters they clear out; they cannot insert or
---    rewrite it.
+--    Operator and match events write one letter to that player's inbox in the
+--    same transaction. Clients can read their own mail, mark it read and delete
+--    letters they clear out; they cannot insert or rewrite it.
 -- =====================================================================
 
 create table if not exists public.player_mails (
