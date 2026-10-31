@@ -1,0 +1,39 @@
+name: DCO
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  signoff:
+    name: DCO sign-off
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify every commit is signed off
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for commit in $(git rev-list --no-merges "$BASE_SHA..$HEAD_SHA"); do
+            if git log -1 --format=%B "$commit" | grep -qiE '^Signed-off-by: .+ <.+>$'; then
+              echo "OK   $commit"
+            else
+              echo "::error::Commit $commit has no DCO sign-off. Run: git rebase --signoff origin/main (or git commit --amend -s)"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Every commit must carry a Signed-off-by line. See CONTRIBUTING.md."
+            exit 1
+          fi
+          echo "All commits are signed off."

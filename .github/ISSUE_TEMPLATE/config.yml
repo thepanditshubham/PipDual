@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/TODO_REPLACE_ME_GITHUB_OWNER/TODO_REPLACE_ME_REPO/discussions
+    about: Ask a question or float an idea before opening an issue.
+  - name: Community chat
+    url: https://TODO_REPLACE_ME_TELEGRAM_URL
+    about: Chat with contributors and players.
+  - name: Security report
+    url: https://github.com/TODO_REPLACE_ME_GITHUB_OWNER/TODO_REPLACE_ME_REPO/security/advisories/new
+    about: Report a vulnerability privately. Never open a public issue for security.

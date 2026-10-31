@@ -1,0 +1,80 @@
+name: Bug report
+description: Something in the game is broken or behaves unexpectedly.
+title: "[Bug]: "
+labels:
+  - bug
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Do **not** paste secrets, API keys, `.env`
+        contents, other players' data or live exploit details here. Security
+        issues go through [SECURITY.md](../SECURITY.md).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: I pressed Find Match in Demo mode and the ready check never advanced.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      placeholder: The arena should open after both sides arm.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps, including the route and mode.
+      placeholder: |
+        1. Open /play as a guest
+        2. Choose Demo, 5 min
+        3. Press Find Match in two tabs
+        4. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Lobby / matchmaking
+        - Trading terminal / chart
+        - Engine / scoring
+        - Progression / missions
+        - Auth / account
+        - Marketing / legal pages
+        - Build / tooling
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, OS, Node version, and whether Supabase was configured.
+      placeholder: Chrome 140 / Windows 11 / Node 22 / no Supabase
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output or screenshots
+      description: Redact tokens, emails and wallet addresses.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: I removed secrets and personal data from this report.
+          required: true

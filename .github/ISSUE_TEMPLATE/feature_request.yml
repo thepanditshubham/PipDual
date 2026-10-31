@@ -1,0 +1,59 @@
+name: Feature request
+description: Propose a feature or a change in behaviour.
+title: "[Feature]: "
+labels:
+  - enhancement
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Pip Duel is free-to-play and virtual-currency only. Proposals that add
+        payments, deposits, withdrawals or real-money value will be closed.
+        Check the [roadmap](../ROADMAP.md) first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is hard, missing or confusing today?
+      placeholder: A player cannot review how their P&L moved after the match ends.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: The smallest useful version of the idea.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches, and why they are worse.
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Lobby / matchmaking
+        - Trading terminal / chart
+        - Engine / scoring
+        - Progression / missions
+        - Auth / account
+        - Marketing / legal pages
+        - Developer experience
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Before submitting
+      options:
+        - label: This is not a real-money feature and does not add cash-out value.
+          required: true
+        - label: I searched existing issues and the roadmap.
+          required: true
