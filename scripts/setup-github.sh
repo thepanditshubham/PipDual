@@ -64,12 +64,12 @@ Files: src/components/lobby/friends-panel.tsx
 Acceptance: displayed and copied URLs match; no hydration mismatch."
 
 gh issue create --repo "$REPO_SLUG" \
-  --title "Add a gitleaks allowlist for the USDT contract address" \
-  --label "good first issue,security" \
-  --body "The public BSC USDT contract address trips the generic-api-key rule. See docs/GOOD_FIRST_ISSUES.md #2.
+  --title "Add a --check mode to the sample-data generator" \
+  --label "good first issue" \
+  --body "The generator writes candles but never validates them. See docs/GOOD_FIRST_ISSUES.md #2.
 
-Files: .gitleaks.toml, .github/workflows/secret-scan.yml
-Acceptance: only that exact address is allowlisted; gitleaks is clean on src."
+Files: scripts/seed-sample-data.mjs
+Acceptance: --check validates OHLC invariants and exits 1 on bad data; generation is unchanged."
 
 gh issue create --repo "$REPO_SLUG" \
   --title "Clear the unused-import lint warnings" \

@@ -27,22 +27,24 @@ self-hosted deployment the two disagree.
 
 ---
 
-## 2. Add a gitleaks allowlist for the USDT contract address
+## 2. Add a `--check` mode to the sample-data generator
 
-**Label:** `good first issue` · **Difficulty:** easy · **Files:** new
-`.gitleaks.toml`, `.github/workflows/secret-scan.yml`
+**Label:** `good first issue` · **Difficulty:** easy–medium · **Files:**
+`scripts/seed-sample-data.mjs`
 
-**Problem:** `src/lib/economy/etherscan.ts:44` contains the public BSC USDT
-contract address. Gitleaks reports it as a `generic-api-key` false positive,
-which hides real findings.
+**Problem:** The generator writes OHLCV candles but has no way to validate a
+file it produced. A corrupted or hand-edited sample fails silently.
 
 **Acceptance criteria**
 
-- A `.gitleaks.toml` extends the default rules and allowlists only that exact
-  address (not the whole file, not a regex that matches any 40-hex string).
-- `gitleaks dir src --redact` returns zero findings on a clean tree.
-- The workflow picks the config up automatically (gitleaks reads
-  `.gitleaks.toml` from the repo root).
+- `node scripts/seed-sample-data.mjs --check data/sample-candles.json` reads the
+  file and verifies, for every candle: `h >= max(o, c)`, `l <= min(o, c)`,
+  timestamps strictly increasing, and `meta.synthetic === true`.
+- Exit code `1` and a clear message on the first invalid candle; exit `0` when
+  the file is valid.
+- Default generation is unchanged and still byte-for-byte deterministic for the
+  same seed.
+- The README documents the flag.
 
 ---
 
