@@ -376,7 +376,7 @@ html:has(.term-theme[data-theme='paper']) ::-webkit-scrollbar-thumb:hover {
   --font-heading: var(--font-plex, 'IBM Plex Mono'), ui-monospace, 'Courier New', monospace;
   --font-body: var(--font-plex, 'IBM Plex Mono'), ui-monospace, 'Courier New', monospace;
   /* One family for the whole product. `font-mono` is kept as a semantic hook for
-     figures and identifiers, but it resolves to the same Inter stack so nothing
+     figures and identifiers, but it resolves to the same mono stack so nothing
      looks like a second, bolted-on design. */
   --font-mono: var(--font-plex, 'IBM Plex Mono'), ui-monospace, 'Courier New', monospace;
 }
@@ -853,6 +853,7 @@ html[data-theme='paper'] .bg-grid {
   inset: 0;
   z-index: 40;
   display: flex;
+  justify-content: center;
   overflow: hidden;
   background: var(--fin-black);
   font-family: var(--font-body);
@@ -898,7 +899,7 @@ html[data-theme='paper'] .bg-grid {
 .auth-left {
   position: relative;
   z-index: 1;
-  display: flex;
+  display: none;
   flex: 1;
   min-width: 0;
   align-items: center;
@@ -994,23 +995,23 @@ html[data-theme='paper'] .bg-grid {
   z-index: 1;
   display: flex;
   flex-shrink: 0;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  width: 500px;
+  width: 100%;
   overflow-y: auto;
-  background: rgba(35, 35, 58, 0.55);
+  background: transparent;
 }
 
 .auth-right-inner {
   width: 100%;
   max-width: 400px;
-  margin: auto 0;
+  margin: 0;
   padding: 28px;
   animation: authFadeInUp 0.5s ease 0.15s both;
 }
 
 .auth-mobile-logo {
-  display: none;
+  display: block;
   margin-bottom: 20px;
   text-align: center;
 }
@@ -1608,6 +1609,37 @@ html[data-theme='paper'] .bg-grid {
   .auth-submit { padding: 9px 0; font-size: 11px; }
   .auth-terms { margin-bottom: 10px; }
 }
+
+/* Larger type — bumps the whole account screen up a step. Scoped to the
+   AuthShell root so other surfaces that reuse `.auth-*` are unaffected, and
+   placed after the responsive blocks so it wins on short screens too. */
+[data-auth] .auth-mobile-logo strong { font-size: 17px; }
+[data-auth] .auth-mobile-logo span { font-size: 11px; }
+[data-auth] .auth-welcome-kicker { font-size: 12px; }
+[data-auth] .auth-welcome-title { font-size: 22px; }
+[data-auth] .auth-welcome-copy { font-size: 12px; }
+[data-auth] .auth-tab { font-size: 13px; }
+[data-auth] .auth-label { font-size: 11px; }
+[data-auth] .auth-input { font-size: 14px; }
+[data-auth] .auth-otp-digit { font-size: 22px; }
+[data-auth] .auth-hint { font-size: 11px; }
+[data-auth] .auth-options,
+[data-auth] .auth-remember { font-size: 12px; }
+[data-auth] .auth-submit,
+[data-auth] .auth-google { font-size: 14px; }
+[data-auth] .auth-divider { font-size: 12px; }
+[data-auth] .auth-error,
+[data-auth] .auth-note { font-size: 12px; }
+[data-auth] .auth-form-section-label { font-size: 11px; }
+[data-auth] .auth-strength-label { font-size: 11px; }
+[data-auth] .auth-terms { font-size: 12px; }
+[data-auth] .auth-footer,
+[data-auth] .auth-info { font-size: 11px; }
+[data-auth] .auth-back { font-size: 12px; }
+[data-auth] .auth-otp-title { font-size: 16px; }
+[data-auth] .auth-otp-subtitle { font-size: 12px; }
+[data-auth] .auth-otp-email { font-size: 13px; }
+[data-auth] .auth-otp-action { font-size: 12px; }
 
 /* ---------------------------------------------------------------------
    LANDING PAGE — the public front door

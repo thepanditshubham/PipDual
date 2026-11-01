@@ -71,15 +71,10 @@ must survive a refresh. There is no custom WebSocket server.
 |---|---|---|
 | `src/app/api/auth/callback/route.ts` | Exchange the Supabase OAuth code for a session | Needed for Google sign-in |
 | `src/app/api/matches/submit/route.ts` | Validate the submitted action log, re-derive the market, score it | Unauthenticated, in-memory rate limit; persists nothing |
-| `src/app/api/player/[username]/route.ts` | Read the public profile projection and save owner edits | Bearer session; ownership re-checked; stats never accepted |
-| `src/app/api/player/[username]/actions/route.ts` | Follow, connect, endorse, skills and inbox messages | Rate-limited; privacy checked through SQL helpers |
-| `src/app/api/player/[username]/media/route.ts` | Validate and upload avatar/cover images | Magic-byte check, 2/5 MB caps, owner-scoped storage path |
 
 Database work is done from the browser through PostgREST with the anon key. The
-real authorization boundary is therefore **RLS**, not the UI. Profile routes
-use the caller's bearer token, so they run as that user and add validation and
-rate limits without introducing a service-role key. Operator tools are not part
-of this repository and would live in a private deployment.
+real authorization boundary is therefore **RLS**, not the UI. Operator tools are
+not part of this repository and would live in a private deployment.
 
 ## Data model
 
@@ -87,10 +82,6 @@ Core game tables in `supabase/setup.sql`:
 
 ```text
 profiles              player identity, role, rating, status
-profile_details       bio, cover, privacy switches, verification, last seen
-profile_portfolio     self-reported trading background and social links
-profile_follows       follower graph
-profile_skills        declared skills; profile_skill_endorsements holds counts
 player_balances       virtual coin balance, scoped to auth.uid()
 player_friends        friendship pairs
 seasons, player_progress, rank_state
@@ -111,10 +102,6 @@ player_mails, announcements
   the signed-in player; guests keep their balance on the device.
 - **`/api/matches/submit`.** Re-simulates but does not persist. Do not build
   settlement on it until submissions are bound to a server-issued ticket.
-- **`get_player_profile()`.** A SECURITY DEFINER projection is the only path to
-  another player's aggregates, achievements, skills and portfolio. It applies
-  visibility/privacy rules and never returns trade events or private profile
-  columns. The underlying tables stay owner-scoped.
 - **Operator tools.** Not part of the public build. There is no `/admin` route and
   no admin RPC in `supabase/setup.sql`; publishing and moderation live in the
   private deployment.

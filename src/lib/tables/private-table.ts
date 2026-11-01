@@ -13,8 +13,8 @@
  *   seed and the shared startAt, broadcasts `table_start` to the guest, then
  *   both fire onMatchFound and the lobby's ordinary MATCH FOUND reveal runs.
  * - READY CHECK: both tabs broadcast `table_ready` for the room, the same beat
- *   the queue and the challenge board use, so the entry is only charged once
- *   both terminals have actually armed.
+ *   the queue and the challenge board use, so the arena only opens once both
+ *   terminals have actually armed. Private tables are free.
  * - `broadcast: { self: false }` keeps each sender from hearing its own event,
  *   so the host fires onMatchFound directly and the guest fires on the reply.
  */
@@ -43,7 +43,7 @@ export interface PrivateTableOptions {
   code: string;
   role: 'host' | 'guest';
   me: PrivateTablePlayer;
-  /** Host's stake; the guest learns it from `table_start`. */
+  /** Always 0 for private tables; carried so the match payload stays shared. */
   stake: number;
   duration: MatchDurationId;
   /** Host only: a rival showed up and was seated. */

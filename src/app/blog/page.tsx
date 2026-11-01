@@ -90,7 +90,7 @@ export default function BlogPage() {
 
       <CtaBand
         title="Read less, play more."
-        copy="The demo tables show every idea on this page better than an article can."
+        copy="The Free tables show every idea on this page better than an article can."
       />
     </SitePage>
   );

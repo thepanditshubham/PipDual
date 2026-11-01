@@ -39,7 +39,7 @@ export default function AboutPage() {
               list: [
                 `${SYNTH_PAIRS.length} instruments, from gold and euro to crude, bitcoin and an index`,
                 'Fifteen-second through four-hour timeframes on the public terminal',
-                'Live, Demo and versus-bot tables with identical rules',
+                'Paid, Free and versus-bot tables with identical rules',
               ],
             },
             {
@@ -60,7 +60,7 @@ export default function AboutPage() {
               heading: 'What we are not',
               body: [
                 'We are not a broker, an exchange, or an investment adviser. No claim on this site promises returns, and none of the prices are real market data.',
-                'A duel is a competitive format with money at stake. That is a real cost and a real risk, and if losing an entry would hurt, the Demo tables and the public market exist exactly for that.',
+                'A duel is a competitive format with money at stake. That is a real cost and a real risk, and if losing an entry would hurt, the Free tables and the public market exist exactly for that.',
               ],
             },
           ]}

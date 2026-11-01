@@ -6,7 +6,7 @@ import { MAX_ORDERS_PER_MATCH } from '@/lib/engine/constants';
 
 export const metadata = {
   title: 'You have been invited',
-  description: 'Open a Pip Duel account with an invite code and start with a free demo table.',
+  description: 'Open a Pip Duel account with an invite code and start with a Free table.',
 };
 
 const cheapest = Math.min(...Object.values(LIVE_FEES));
@@ -55,7 +55,7 @@ export default async function InvitePage({ params }: { params: Promise<{ code: s
         <div className="lp-features">
           <article className="lp-feature">
             <div className="lp-feature-icon"><Check size={16} /></div>
-            <h3 className="lp-feature-title">A free demo table, immediately</h3>
+            <h3 className="lp-feature-title">A Free table, immediately</h3>
             <p className="lp-feature-desc">
               No top-up to start. Practice duels use the same chart, the same spread and the same{' '}
               {MAX_ORDERS_PER_MATCH}-entry cap as a ranked table.

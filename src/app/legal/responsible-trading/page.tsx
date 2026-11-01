@@ -24,7 +24,7 @@ export default function ResponsiblePlayPage() {
           </>
         }
         lead="The format is short and the entry is small, which is exactly what makes it easy to stop noticing how often you press the button. This page lists the limits that are built in, and the ones you have to set yourself."
-        meta={['18+ only', 'Applies to all Live tables']}
+        meta={['18+ only', 'Applies to all Paid tables']}
       />
 
       <section className="lp-section">
@@ -36,7 +36,7 @@ export default function ResponsiblePlayPage() {
                 `An entry caps the loss on a duel at ${cheapest} coins or whatever that table costs — there is no way to lose more than the entry.`,
                 `Each duel allows ${MAX_ORDERS_PER_MATCH} entries, so a session is a series of discrete results rather than an endless stream.`,
                 'Every duel has a clock. It ends whether you are winning or losing, which removes the “one more trade” loop.',
-                'Demo tables cost nothing and use the same rules, so you can play the format without staking anything.',
+                'Free tables cost nothing and use the same rules, so you can play the format without staking anything.',
               ],
             },
             {

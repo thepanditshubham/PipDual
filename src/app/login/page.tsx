@@ -5,7 +5,7 @@ import { AuthForm } from '@/components/auth/auth-form';
 export const metadata: Metadata = {
   title: 'Log in | Pip Duel',
   description:
-    'Sign in to Pip Duel, or switch to the sign-up tab without leaving the page. Free demo tables, coins for Live duels.',
+    'Sign in to Pip Duel, or switch to the sign-up tab without leaving the page. Free tables, coins for Paid duels.',
 };
 
 export default function LoginPage() {

@@ -86,7 +86,7 @@ export default function DisclaimerPage() {
             Pip Duel is a web-based competitive game built to demonstrate market dynamics, reaction speed and
             discipline through duel mechanics. Every chart and trade inside it is simulated — no real order
             book is touched. Coins, though, are bought with crypto you send and can be paid back out in
-            crypto, so a Live duel stakes real value. Play it as you would stake money you can afford to lose.
+            crypto, so a Paid duel stakes those coins. Play it as you would stake money you can afford to lose.
           </p>
         </div>
 

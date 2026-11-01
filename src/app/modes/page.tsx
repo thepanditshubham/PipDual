@@ -7,15 +7,31 @@ import { potFor } from '@/lib/economy/stakes';
 export const metadata = {
   title: 'Game modes | Pip Duel',
   description:
-    'Live duels with a virtual coin pot, free Practice duels, and three scoring rule sets: Standard P&L, Risk-adjusted, and Versus Bot.',
+    'Paid duels with a virtual coin pot, Free duels, and three scoring rule sets: Standard P&L, Risk-adjusted, and Versus Bot.',
 };
 
 const cheapest = Math.min(...Object.values(LIVE_FEES));
 
 const ENTRY_MODES = [
   {
+    id: 'demo',
+    name: 'Free',
+    tagline: 'Nothing at stake',
+    icon: <Play size={18} />,
+    points: [
+      'No entry fee, no pot and no coin movement at any length',
+      'XP and missions still count — the ladder and the wallet do not',
+      'Paired only against other Free players, so a Free table never meets a Paid one',
+      'The right place to learn the order panel and stop-loss brackets',
+    ],
+    href: '/play?mode=demo',
+    cta: 'Play a Free duel',
+    featured: true,
+    soon: false,
+  },
+  {
     id: 'live',
-    name: 'Live',
+    name: 'Paid',
     tagline: 'Coins on the table',
     icon: <Coins size={18} />,
     points: [
@@ -28,23 +44,9 @@ const ENTRY_MODES = [
       'A draw refunds each player their own entry',
     ],
     href: '/play?mode=live',
-    cta: 'Find a Live match',
-    featured: true,
-  },
-  {
-    id: 'demo',
-    name: 'Demo',
-    tagline: 'Nothing at stake',
-    icon: <Play size={18} />,
-    points: [
-      'No entry fee, no pot and no coin movement at any length',
-      'XP and missions still count — the ladder and the wallet do not',
-      'Paired only against other Demo players, so a free table never meets a paid one',
-      'The right place to learn the order panel and stop-loss brackets',
-    ],
-    href: '/play?mode=demo',
-    cta: 'Play a Demo duel',
+    cta: 'Paid tables coming soon',
     featured: false,
+    soon: true,
   },
 ];
 
@@ -104,7 +106,7 @@ const ROADMAP: { title: string; desc: string; live: boolean; href?: string }[] =
   },
   {
     title: 'Tournaments & brackets',
-    desc: 'Single-elimination weekend brackets for up to 64 traders, with a community ladder and profile badges.',
+    desc: 'Single-elimination weekend brackets for up to 64 traders, with a community ladder.',
     live: false,
   },
   {
@@ -126,10 +128,10 @@ export default function ModesPage() {
             <em>then what it tests.</em>
           </>
         }
-        lead="Every duel runs the identical hidden market on a synchronized clock. First decide what is at stake — Live puts a coin pot on the table, Demo keeps it free — then pick the rule set that scores it."
+        lead="Every duel runs the identical hidden market on a synchronized clock. First decide what is at stake — Paid puts a coin pot on the table, Free stakes nothing — then pick the rule set that scores it."
         meta={[
-          `Live from ${cheapest} coins`,
-          'Demo free',
+          `Paid from ${cheapest} coins`,
+          'Free mode',
           '5 / 10 / 15 minute tables',
         ]}
         actions={
@@ -149,7 +151,7 @@ export default function ModesPage() {
       <section className="lp-section">
         <div className="lp-head">
           <span className="lp-kicker">01 · What is at stake</span>
-          <h2 className="lp-h2">Live or Demo</h2>
+          <h2 className="lp-h2">Free or Paid</h2>
           <p className="lp-sub">
             The chart, the spread and the entry cap are identical. The only difference is whether an
             entry costs coins.
@@ -159,7 +161,7 @@ export default function ModesPage() {
         <div className="pg-cols-2">
           {ENTRY_MODES.map((mode) => (
             <article key={mode.id} className={`lp-table${mode.featured ? ' lp-table--featured' : ''}`}>
-              {mode.featured && <span className="lp-table-badge">Stakes coins</span>}
+              <span className="lp-table-badge">{mode.soon ? 'Coming soon' : 'Play now'}</span>
               <div className="lp-table-k" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span className="lp-feature-icon" style={{ width: 28, height: 28, marginBottom: 0 }}>
                   {mode.icon}
@@ -167,10 +169,11 @@ export default function ModesPage() {
                 {mode.name} · {mode.tagline}
               </div>
               <div className="lp-table-v">
-                {mode.featured ? cheapest : 0} <small>{mode.featured ? 'coins to enter' : 'coins'}</small>
+                {mode.id === 'live' ? cheapest : 0}{' '}
+                <small>{mode.id === 'live' ? 'coins to enter' : 'coins'}</small>
               </div>
               <p className="lp-table-note">
-                {mode.featured
+                {mode.id === 'live'
                   ? `${cheapest.toLocaleString()} virtual coins. Coins are earned by playing and never bought or cashed out.`
                   : 'Same rules, no coin movement.'}
               </p>
@@ -182,10 +185,20 @@ export default function ModesPage() {
                   </li>
                 ))}
               </ul>
-              <Link href={mode.href} className={mode.featured ? 'lp-btn' : 'lp-btn lp-btn--ghost'}>
-                {mode.cta}
-                <ArrowRight size={13} />
-              </Link>
+              {mode.soon ? (
+                <span
+                  className="lp-btn lp-btn--ghost"
+                  aria-disabled="true"
+                  style={{ opacity: 0.55, cursor: 'not-allowed' }}
+                >
+                  {mode.cta}
+                </span>
+              ) : (
+                <Link href={mode.href} className="lp-btn">
+                  {mode.cta}
+                  <ArrowRight size={13} />
+                </Link>
+              )}
             </article>
           ))}
         </div>
@@ -197,7 +210,7 @@ export default function ModesPage() {
           <span className="lp-kicker">02 · What it tests</span>
           <h2 className="lp-h2">Three scoring rule sets</h2>
           <p className="lp-sub">
-            The same rules decide the winner whether you play for coins or for free.
+            The same rules decide the winner whether you play Paid or Free.
           </p>
         </div>
 
@@ -303,8 +316,8 @@ export default function ModesPage() {
       </section>
 
       <CtaBand
-        title={`Start free, or take the ${cheapest}-coin table.`}
-        copy="The demo tables cost nothing and use the same chart. Coins only move when you choose a Live entry."
+        title="Start on Free. Paid tables are coming soon."
+        copy="The Free tables cost nothing and use the same chart. Coins only move when Paid tables open."
       />
     </SitePage>
   );

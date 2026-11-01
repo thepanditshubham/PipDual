@@ -19,7 +19,7 @@ export default function RiskPage() {
           <>
             Risk disclosure
             <br />
-            <em>Read before your first Live entry.</em>
+            <em>Read before your first Paid entry.</em>
           </>
         }
         lead="This page exists because a duel has stakes — virtual ones. Read it before you spend coins."

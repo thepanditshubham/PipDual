@@ -13,7 +13,7 @@ const TERMS: { term: string; def: string }[] = [
   { term: 'Tick', def: `A price print inside a bar. ${TICKS_PER_BAR} ticks build one candle, so a candle grows instead of appearing whole.` },
   { term: 'Window', def: 'The stretch of the series a duel trades. Fixed by the ticket start time before either player sees it.' },
   { term: 'Ticket', def: 'The row that pairs two players, carries the stake and the start time, and is what the server settles against.' },
-  { term: 'Entry', def: 'One market order placed during a duel, and also the coins a Live duel costs. Context decides which.' },
+  { term: 'Entry', def: 'One market order placed during a duel, and also the coins a Paid duel costs. Context decides which.' },
   { term: 'Entry cap', def: `${MAX_ORDERS_PER_MATCH} per duel. Hitting the cap means no more orders, including the entry side of a reverse.` },
   { term: 'Close', def: 'The last price of a bar. Results settle on closes, never on how the candle animated.' },
   { term: 'Spread', def: 'The bid/ask gap around the synthetic mid — part of the simulation and identical for both players.' },
@@ -67,7 +67,7 @@ export default function GlossaryPage() {
 
       <CtaBand
         title="Read a term, then watch it decide a duel."
-        copy="Open a free account and play the demo tables — every term here is a mechanic there."
+        copy="Open a free account and play the Free tables — every term here is a mechanic there."
       />
     </SitePage>
   );

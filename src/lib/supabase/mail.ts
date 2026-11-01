@@ -10,7 +10,7 @@ import { getSupabase } from './client';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Legacy categories are tolerated so old rows still render; new mail is system. */
-export type MailCategory = 'deposit' | 'withdrawal' | 'system' | 'player';
+export type MailCategory = 'deposit' | 'withdrawal' | 'system';
 
 export interface PlayerMail {
   id: string;

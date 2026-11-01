@@ -51,7 +51,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
       <CtaBand
         title="The argument is better with a chart."
-        copy="Open a free account and take a demo duel — same chart, same rules, nothing at stake."
+        copy="Open a free account and take a Free duel — same chart, same rules, nothing at stake."
       />
     </SitePage>
   );

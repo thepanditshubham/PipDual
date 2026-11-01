@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   Swords, Bot, BarChart3, HelpCircle, Crosshair,
   Settings as SettingsIcon, Mail, Headphones,
-  Coins, ChevronDown, ChevronUp, Flame,
+  Coins, ChevronDown, ChevronUp,
   Volume2, VolumeX, Clock, ArrowLeft, AlertCircle, CheckCircle2,
   ExternalLink, User, Ticket, LogIn, LogOut,
   AlertTriangle, Info, X
@@ -18,7 +18,6 @@ import { sound } from '@/components/terminal/sound';
 import { joinMatchmakingQueue, generateRoomCode, type QueuePlayer, type QueueScope, type MatchFoundPayload } from '@/lib/matchmaking/matchmaker';
 import {
   joinChallengeBoard, makeChallengeId,
-  withDemoChallenges, isDemoChallenge,
   type DuelChallenge, type ChallengeBoardHandle, type ChallengeMatchPayload,
 } from '@/lib/challenges/challenge-board';
 import { MATCH_DURATIONS, DEFAULT_MATCH_DURATION, type MatchDurationId } from '@/lib/engine/constants';
@@ -30,7 +29,7 @@ import { AnnouncementBar } from '@/components/announcement-bar';
 import { TerminalModeToggle, useTerminalMode } from '@/components/terminal/theme-mode';
 import { ProgressCelebrations, StatsPanel } from '@/components/progress';
 import { useProgressStore } from '@/lib/progress/store';
-import { liveFeeFor, potFor, houseBurnFor } from '@/lib/economy/stakes';
+import { liveFeeFor, potFor } from '@/lib/economy/stakes';
 import { HOUSE_CUT } from '@/lib/economy/config';
 import {
   deleteMails,
@@ -175,68 +174,6 @@ function prevStakeChip(n: number): number {
   return 0;
 }
 
-/*
- * Challenge board colour tiers, painted with the terminal's warm heat ramp
- * (--term-heat-1..4) so the board re-inks itself with the light/dark
- * switch like the rest of the lobby. The ticket graphics read one small
- * table: a full gradient rail, a matching badge and Accept button, and a
- * glow that only the top rung lights. Classes (never inline colours) so
- * /35 tints stay theme-aware.
- */
-type StakeTier = {
-  key: 'standard' | 'elevated' | 'hot' | 'whale';
-  label: string;    // tooltip copy
-  rail: string;     // left gradient rail + meter fill
-  text: string;     // the stake figure
-  chip: string;     // avatar initial tile
-  glow: string;     // whale-only warm aura behind the card
-  action: string;   // Accept button
-};
-const STAKE_TIERS: StakeTier[] = [
-  {
-    key: 'standard',
-    label: 'Standard',
-    rail: 'bg-[linear-gradient(180deg,var(--term-heat-1),var(--term-heat-2))]',
-    text: 'text-[var(--term-heat-1)]',
-    chip: 'text-[var(--term-heat-1)] ring-[var(--term-heat-1)]/30',
-    glow: '',
-    action: 'border-[var(--term-heat-1)]/45 bg-[var(--term-heat-1)]/10 text-[var(--term-heat-1)] hover:bg-[var(--term-heat-1)]/18',
-  },
-  {
-    key: 'elevated',
-    label: 'Elevated',
-    rail: 'bg-[linear-gradient(180deg,var(--term-heat-1),var(--term-heat-2))]',
-    text: 'text-[var(--term-heat-2)]',
-    chip: 'text-[var(--term-heat-2)] ring-[var(--term-heat-2)]/30',
-    glow: '',
-    action: 'border-[var(--term-heat-2)]/45 bg-[var(--term-heat-2)]/10 text-[var(--term-heat-2)] hover:bg-[var(--term-heat-2)]/18',
-  },
-  {
-    key: 'hot',
-    label: 'Hot',
-    rail: 'bg-[linear-gradient(180deg,var(--term-heat-2),var(--term-heat-3))]',
-    text: 'text-[var(--term-heat-3)]',
-    chip: 'text-[var(--term-heat-3)] ring-[var(--term-heat-3)]/30',
-    glow: '',
-    action: 'border-[var(--term-heat-3)]/45 bg-[var(--term-heat-3)]/10 text-[var(--term-heat-3)] hover:bg-[var(--term-heat-3)]/18',
-  },
-  {
-    key: 'whale',
-    label: 'Whale',
-    rail: 'bg-[linear-gradient(180deg,var(--term-heat-3),var(--term-heat-4))]',
-    text: 'text-[var(--term-heat-4)]',
-    chip: 'text-[var(--term-heat-4)] ring-[var(--term-heat-4)]/40',
-    glow: 'shadow-[0_0_22px_-8px_var(--term-heat-4)]',
-    action: 'border-[var(--term-heat-4)]/50 bg-[var(--term-heat-4)]/12 text-[var(--term-heat-4)] hover:bg-[var(--term-heat-4)]/20',
-  },
-];
-function stakeTierFor(stake: number, ticketFee: number): StakeTier {
-  if (stake >= 10_000) return STAKE_TIERS[3];
-  if (stake >= ticketFee * 5) return STAKE_TIERS[2];
-  if (stake >= ticketFee * 2) return STAKE_TIERS[1];
-  return STAKE_TIERS[0];
-}
-
 /** "3m ago" / "just now" — how long a card has been sitting open. */
 function elapsedStamp(createdAt: number, now: number): string {
   const secs = Math.max(0, Math.floor((now - createdAt) / 1000));
@@ -259,13 +196,12 @@ function PlayLobbyContent() {
    *  raising it onto the chip ladder (100, 200, then 500s) turns the button into
    *  a challenge post. */
   const [stakeInput, setStakeInput] = useState('100');
-  /** Live charges a coin entry and pays the pot; Demo and bot are free. */
-  const [mode, setMode] = useState<'live' | 'demo' | 'bot'>('live');
+  /** Paid will charge a coin entry and pay the pot; Free and bot cost nothing.
+   *  Paid tables are coming soon, so the lobby opens on Free. */
+  const [mode, setMode] = useState<'live' | 'demo' | 'bot'>('demo');
   const [roomCodeInput, setRoomCodeInput] = useState('');
-  /* Private table. The coins are frozen the moment the code is minted, so the
-     invite link and the host's own seat always quote the same stake. */
-  const [tableCoinsInput, setTableCoinsInput] = useState('');
-  const [table, setTable] = useState<{ code: string; stake: number; duration: MatchDurationId } | null>(null);
+  /* Private table. Free to open and free to join — no coins ride the code. */
+  const [table, setTable] = useState<{ code: string; duration: MatchDurationId } | null>(null);
   const [tableCopied, setTableCopied] = useState<'code' | 'link' | null>(null);
   /* The table code this tab is knocking on as a guest. Non-null means we are
      waiting for the host to seat us, which is what the join half paints. */
@@ -275,7 +211,7 @@ function PlayLobbyContent() {
   const tableChannelRef = useRef<ReturnType<typeof openPrivateTable> | null>(null);
   /* Seat carried by a `?table=` invite link — the whole code, not just the
      first five characters, so the link lands on the table it names. */
-  const [linkTable, setLinkTable] = useState<{ code: string; stake: number; duration: MatchDurationId } | null>(null);
+  const [linkTable, setLinkTable] = useState<{ code: string; duration: MatchDurationId } | null>(null);
 
   // Matchmaking Queue
   const [queueing, setQueueing] = useState(false);
@@ -330,6 +266,38 @@ function PlayLobbyContent() {
     alertTimersRef.current.forEach(clearTimeout);
     alertTimersRef.current.clear();
   }, []);
+
+  /* Keep the fixed challenge dock pinned to the visual bottom of the sticky
+     header. The header slides down when an announcement or alert strip is
+     present, so a static `top-14` would put the dock underneath the menu bar. */
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const sync = () => {
+      const header = headerRef.current;
+      if (!header) return;
+      const bottom = Math.max(56, Math.round(header.getBoundingClientRect().bottom));
+      root.style.setProperty('--lobby-dock-top', `${bottom}px`);
+    };
+
+    sync();
+    window.addEventListener('scroll', sync, { passive: true });
+    window.addEventListener('resize', sync);
+
+    const observer = new ResizeObserver(sync);
+    for (const el of [headerRef.current, alertsRef.current, announcementRef.current]) {
+      if (el) observer.observe(el);
+    }
+
+    return () => {
+      window.removeEventListener('scroll', sync);
+      window.removeEventListener('resize', sync);
+      observer.disconnect();
+      root.style.removeProperty('--lobby-dock-top');
+    };
+  }, [alerts.length]);
+
   const [matchedRival, setMatchedRival] = useState<QueuePlayer | null>(null);
   const [activeQueueCount, setActiveQueueCount] = useState<number>(0);
   const [matchFoundData, setMatchFoundData] = useState<{ payload: import('@/lib/matchmaking/matchmaker').MatchFoundPayload; mode: string } | null>(null);
@@ -355,17 +323,22 @@ function PlayLobbyContent() {
   // Live lobby online count via Supabase Realtime Presence
   const [onlineCount, setOnlineCount] = useState<number>(0);
 
+  // Top chrome (announcement + alert stack + sticky header) drives the fixed
+  // challenge dock's offset, so the dock never slides under the menu bar.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLElement | null>(null);
+  const alertsRef = useRef<HTMLDivElement | null>(null);
+  const announcementRef = useRef<HTMLDivElement | null>(null);
+
   // Challenge board — open duels above the fixed Live entry, published on the
   // same Realtime channel the queue uses. `challenges` is the shared board;
   // `myChallenge` is this tab's own posted card (null when nothing is open).
   // Seeded with demo opponents so an empty board still reads as a busy lobby.
-  const [challenges, setChallenges] = useState<DuelChallenge[]>(() => withDemoChallenges([]));
+  const [challenges, setChallenges] = useState<DuelChallenge[]>([]);
   const [myChallenge, setMyChallenge] = useState<DuelChallenge | null>(null);
   // id of the challenge this tab has asked to accept, while we await the host.
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const boardRef = useRef<ChallengeBoardHandle | null>(null);
-  // Pending simulated accept against a demo opponent (no real host to answer).
-  const demoAcceptRef = useRef<NodeJS.Timeout | null>(null);
 
   // Center column tab: the Match Ticket, the Stats screen, or one of the
   // utility screens the rail opens.
@@ -413,7 +386,7 @@ function PlayLobbyContent() {
   const bindProgress = useProgressStore((s) => s.bindUser);
 
   /*
-   * Live prices the ticket, Demo never does. The entry is charged the moment a
+   * Paid prices the ticket, Free never does. The entry is charged the moment a
    * rival is matched (before the room opens), so queueing while broke is free —
    * and the affordability check below stops that player from queueing at all.
    */
@@ -590,10 +563,11 @@ function PlayLobbyContent() {
     setQueueing(false);
 
     const modeParam = searchParams.get('mode');
-    // Older links carry friendly/ranked; they map onto Demo/Live. 'standard' and
+    // Older links carry friendly/ranked; they map onto Free/Paid. 'standard' and
     // 'risk' name the scoring rules, not the staking table, so they are ignored.
     if (modeParam === 'demo' || modeParam === 'friendly') setMode('demo');
-    if (modeParam === 'live' || modeParam === 'ranked') setMode('live');
+    // Paid tables are coming soon — old live/ranked links land on Free.
+    if (modeParam === 'live' || modeParam === 'ranked') setMode('demo');
     if (modeParam === 'bot') setMode('bot');
 
     // `?table=CODE&stake=…&duration=…` is a private-table invite. The code is
@@ -606,7 +580,6 @@ function PlayLobbyContent() {
         setRoomCodeInput(code);
         setLinkTable({
           code,
-          stake: Math.max(0, Math.floor(Number(searchParams.get('stake') ?? 0)) || 0),
           duration: (durationParam && durationParam in MATCH_DURATIONS
             ? durationParam
             : DEFAULT_MATCH_DURATION) as MatchDurationId,
@@ -788,7 +761,7 @@ function PlayLobbyContent() {
     // Read latest values from refs (stable — won't cause re-runs)
     const currentUser = userRef.current;
 
-    // Live and Demo never share a queue: a coin pot must not settle against an
+    // Paid and Free never share a queue: a coin pot must not settle against an
     // opponent who chose the free table.
     const scope: QueueScope = modeRef.current === 'demo' ? 'demo' : 'live';
     const entry = scope === 'live' ? liveFeeFor(selectedDuration) : 0;
@@ -827,7 +800,7 @@ function PlayLobbyContent() {
            */
           if (entry > 0 && !spendCoins(entry)) {
             setQueueNotice(
-              `Live entry needs ${entry.toLocaleString()} coins and your balance fell short. Earn coins in missions or drop to Practice.`,
+              `Paid entry needs ${entry.toLocaleString()} coins and your balance fell short. Earn coins in missions or drop to Free.`,
             );
             setQueueing(false);
             return;
@@ -897,14 +870,37 @@ function PlayLobbyContent() {
   const handleLaunchBotMatch = () => {
     sound.playClick();
     const botRoom = generateRoomCode();
-    // Practice matches always run the 5-minute format, whatever the ticket says.
-    stashRoomSession(botRoom, {
+    const botRival: QueuePlayer = {
+      id: 'bot_rival',
+      username: 'Momentum Bot',
+      rating: 1250,
+      duration: selectedDuration,
+      joinedAt: epochMs(),
+    };
+
+    // Practice goes through the same MATCH FOUND reveal as a queued duel,
+    // then drops straight into the room once the terminals finish loading.
+    sound.playAlert();
+    setCenterTab('ticket');
+    setMatchFoundData({
+      payload: { roomCode: botRoom, seed: 0, startAt: epochMs(), rival: botRival },
       mode: 'standard',
-      opponent: 'bot',
-      duration: DEFAULT_MATCH_DURATION,
-      ranked: false,
     });
-    router.push(`/play/${botRoom}`);
+    beginReveal(
+      botRoom,
+      () => {
+        stashRoomSession(botRoom, {
+          mode: 'standard',
+          opponent: 'bot',
+          duration: selectedDuration,
+          rivalName: botRival.username,
+          rivalRating: botRival.rating,
+          ranked: false,
+        });
+        router.push(`/play/${botRoom}`);
+      },
+      true,
+    );
   };
 
   /** Who this tab is, in the shape the table channel publishes. */
@@ -916,17 +912,17 @@ function PlayLobbyContent() {
   });
 
   /** Open the realtime room and wait there; nothing is charged while waiting. */
-  const startHostingTable = (entry: { code: string; stake: number; duration: MatchDurationId }) => {
+  const startHostingTable = (entry: { code: string; duration: MatchDurationId }) => {
     tableChannelRef.current?.leave();
     tableChannelRef.current = openPrivateTable({
       code: entry.code,
       role: 'host',
       me: tableIdentity(),
-      stake: entry.stake,
+      stake: 0,
       duration: entry.duration,
       onRivalJoined: (rival) =>
         setQueueNotice(`${rival.username} sat down at your table — arming the match…`, 'success'),
-      onMatchFound: (match) => startChallengeMatch(match),
+      onMatchFound: (match) => startChallengeMatch(match, false, false),
       onRivalReady: handleRivalReady,
       onError: (err) => console.warn('Private table error:', err),
     });
@@ -946,23 +942,10 @@ function PlayLobbyContent() {
     }
 
     /* Short code: the old free room, kept for links minted before tables had a
-       full ten-character code. */
+       full ten-character code. Private tables are always free. */
     if (compact.length === 5) {
-      const seat = activeLinkTable?.stake ?? 0;
       const duration = activeLinkTable?.duration ?? selectedDuration;
-      if (seat > 0) {
-        if (seat > userCoins) {
-          setQueueNotice(`That seat costs ${seat.toLocaleString()} coins — you hold ${userCoins.toLocaleString()}.`);
-          return;
-        }
-        if (!spendCoins(seat)) {
-          setQueueNotice('That table needs more coins than you hold — earn coins in missions first.');
-          return;
-        }
-        stashRoomSession(code, { mode: 'standard', opponent: 'live', duration, ranked: true, stake: seat });
-      } else {
-        stashRoomSession(code, { duration, ranked: false });
-      }
+      stashRoomSession(code, { duration, ranked: false });
       router.push(`/play/${code}`);
       return;
     }
@@ -972,8 +955,8 @@ function PlayLobbyContent() {
       return;
     }
 
-    /* Full table code: knock and wait here. The host names the stake, the seed
-       and the shared start, then the ordinary MATCH FOUND reveal takes over. */
+    /* Full table code: knock and wait here. The host names the seed and the
+       shared start, then the ordinary MATCH FOUND reveal takes over. */
     setQueueNotice(null);
     // One tab, one seat: drop any table we were hosting before knocking.
     if (table) {
@@ -991,7 +974,7 @@ function PlayLobbyContent() {
       duration: selectedDuration,
       onMatchFound: (match) => {
         setTableJoinCode(null);
-        startChallengeMatch(match);
+        startChallengeMatch(match, false, false);
       },
       onRivalReady: handleRivalReady,
       onError: (err) => console.warn('Private table error:', err),
@@ -1000,26 +983,19 @@ function PlayLobbyContent() {
     handle.knock();
   };
 
-  /* Mint a private table at a chip-ladder stake and start waiting on it. The
-     seat only leaves the wallet when a rival actually sits down, so a table
-     nobody joins costs nothing. */
+  /* Mint a free private table and start waiting on it. */
   const handleGenerateTableCode = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     sound.playClick();
-    const stake = clampStake(Number(tableCoinsInput) || ticketFee);
-    setTableCoinsInput(String(stake));
-    const entry = { code: generateRoomCode(), stake, duration: selectedDuration };
+    const entry = { code: generateRoomCode(), duration: selectedDuration };
     setTable(entry);
     setTableCopied(null);
     startHostingTable(entry);
-    setQueueNotice(
-      `Table open at ${stake.toLocaleString()} coins — waiting for a rival. Nothing is charged until someone joins.`,
-      'info',
-    );
+    setQueueNotice(`Table open for ${selectedDuration} — waiting for a rival.`, 'info');
   };
 
-  const tableInviteLink = (entry: { code: string; stake: number; duration: MatchDurationId }) =>
-    `${window.location.origin}/play?table=${entry.code}&stake=${entry.stake}&duration=${entry.duration}`;
+  const tableInviteLink = (entry: { code: string; duration: MatchDurationId }) =>
+    `${window.location.origin}/play?table=${entry.code}&duration=${entry.duration}`;
 
   const copyTableValue = (kind: 'code' | 'link') => {
     if (!table) return;
@@ -1046,7 +1022,7 @@ function PlayLobbyContent() {
     setTable(null);
     setTableCopied(null);
     setTableJoinCode(null);
-    setQueueNotice('Table closed — no coins were charged.', 'info');
+    setQueueNotice('Table closed.', 'info');
   };
 
   const handleFindMatch = () => {
@@ -1059,7 +1035,7 @@ function PlayLobbyContent() {
     // cannot pay for — the charge itself happens on pairing.
     if (mode === 'live' && !canAffordEntry) {
       setQueueNotice(
-        `Live entry is ${entryFee.toLocaleString()} coins · you hold ${userCoins.toLocaleString()}. Earn coins in missions or drop to Practice.`,
+        `Paid entry is ${entryFee.toLocaleString()} coins · you hold ${userCoins.toLocaleString()}. Earn coins in missions or drop to Free.`,
       );
       return;
     }
@@ -1071,16 +1047,13 @@ function PlayLobbyContent() {
      CHALLENGE BOARD — post a stake above the Live entry, accept another
      trader's, and drop straight into a duel at that stake (no queue).
   ────────────────────────────────────────────────────────── */
-  // Stake that starts a duel: reuse the Match Found reveal, then charge both
-  // entrants and open the room. Everything here is stable setters/refs, so the
-  // board can capture it once without going stale.
+  // Match that starts outside the queue: reuse the Match Found reveal, then
+  // charge a ranked stake (if any) and open the room. Everything here is stable
+  // setters/refs, so the board can capture it once without going stale.
   // `simulatedRival` is set for a demo opponent — there is no second tab to
   // answer the ready check, so the reveal does not wait for one.
-  const startChallengeMatch = (match: ChallengeMatchPayload, simulatedRival = false) => {
-    if (demoAcceptRef.current) {
-      clearTimeout(demoAcceptRef.current);
-      demoAcceptRef.current = null;
-    }
+  // `ranked` is false for free private tables, which never touch the wallet.
+  const startChallengeMatch = (match: ChallengeMatchPayload, simulatedRival = false, ranked = true) => {
     // Leave the normal queue if one is running: the challenge owns the reveal
     // timer now, and we must not be paired into two matches at once.
     setQueueing(false);
@@ -1107,9 +1080,9 @@ function PlayLobbyContent() {
     beginReveal(
       match.roomCode,
       () => {
-        // The stake is only charged here — backing out (or a short wallet) before
-        // this point costs nothing, mirroring the Live queue.
-        if (!spendCoins(match.stake)) {
+        // A ranked stake is only charged here — backing out (or a short wallet)
+        // before this point costs nothing. Free private tables never charge.
+        if (ranked && !spendCoins(match.stake)) {
           stopReadyCheck();
           setMatchFoundData(null);
           setQueueNotice(
@@ -1126,8 +1099,8 @@ function PlayLobbyContent() {
           duration: match.duration,
           rivalName: match.rival.username,
           rivalRating: match.rival.rating,
-          ranked: true,
-          stake: match.stake,
+          ranked,
+          stake: ranked ? match.stake : undefined,
         });
         setMyChallenge(null);
         boardRef.current?.retract();
@@ -1137,48 +1110,29 @@ function PlayLobbyContent() {
     );
   };
 
-  const handlePostChallengeFromTicket = () => {
+  const handlePostChallenge = () => {
     sound.playClick();
-    const stake = ticketStake;
-    // Snap a hand-typed value back onto the chip ladder before anything else.
-    if (Number.isFinite(stake) && stake > ticketFee && !stakeLadderHas(stake)) {
-      setStakeInput(String(clampStake(stake)));
-      setQueueNotice('Bets move on the chip ladder: 100, 200, then 500s.', 'warn');
-      return;
-    }
-    if (!challengeValid) {
-      setQueueNotice(
-        challengeAffordable
-          ? `A challenge must beat the ${ticketFee.toLocaleString()}-coin entry.`
-          : `A challenge runs at most to your whole balance — ${userCoins.toLocaleString()} coins.`,
-        'warn',
-      );
-      return;
-    }
-    if (!challengeAffordable) {
-      setQueueNotice(
-        `You hold ${userCoins.toLocaleString()} coins — a ${stake.toLocaleString()}-coin challenge is out of reach.`,
-      );
-      return;
-    }
     if (!boardRef.current) {
       setQueueNotice('The challenge board is offline right now.');
       return;
     }
-    setQueueNotice(null);
+    if (myChallenge) {
+      setQueueNotice('You already have a challenge on the board.', 'warn');
+      return;
+    }
     const challenge: DuelChallenge = {
       id: makeChallengeId(),
       posterId: sessionId,
       username: user?.username || 'Trader_' + sessionId.slice(-4),
       rating: user?.rating || 1200,
-      stake,
+      stake: 0,
       duration: selectedDuration,
       createdAt: epochMs(),
     };
     boardRef.current.post(challenge);
     setChallengeTimer(0);
     setMyChallenge(challenge);
-    setQueueNotice(`Challenge posted — ${stake.toLocaleString()} coins on the board.`, 'success');
+    setQueueNotice(`Free challenge posted for ${selectedDuration} — waiting for a rival.`, 'success');
   };
 
   const handleCancelChallenge = () => {
@@ -1216,37 +1170,11 @@ function PlayLobbyContent() {
 
   const handleAcceptChallenge = (challenge: DuelChallenge) => {
     sound.playClick();
-    if (challenge.stake > userCoins) {
-      setQueueNotice(
-        `Accepting needs ${challenge.stake.toLocaleString()} coins · you hold ${userCoins.toLocaleString()}.`,
-      );
-      return;
-    }
-    setQueueNotice(null);
-
-    // Demo opponents have no real tab to answer — simulate the host accepting
-    // back after a short beat so the whole flow can be exercised solo.
-    if (isDemoChallenge(challenge.id)) {
-      setAcceptingId(challenge.id);
-      if (demoAcceptRef.current) clearTimeout(demoAcceptRef.current);
-      demoAcceptRef.current = setTimeout(() => {
-        demoAcceptRef.current = null;
-        startChallengeMatch({
-          roomCode: generateRoomCode(),
-          seed: Math.floor(100000 + Math.random() * 900000),
-          startAt: epochMs() + 13000,
-          stake: challenge.stake,
-          duration: challenge.duration,
-          rival: { username: challenge.username, rating: challenge.rating },
-        }, true);
-      }, 1400);
-      return;
-    }
-
     if (!boardRef.current) {
       setQueueNotice('The challenge board is offline right now.');
       return;
     }
+    setQueueNotice(null);
     setAcceptingId(challenge.id);
     boardRef.current.accept(challenge);
   };
@@ -1262,8 +1190,8 @@ function PlayLobbyContent() {
         username: user.username || 'Trader_' + sessionId.slice(-4),
         rating: user.rating || 1200,
       },
-      onBoard: (live) => setChallenges(withDemoChallenges(live)),
-      onMatchFound: startChallengeMatch,
+      onBoard: setChallenges,
+      onMatchFound: (match) => startChallengeMatch(match, false, false),
       onRivalReady: handleRivalReady,
       onError: (err) => console.warn('Challenge board error:', err),
     });
@@ -1271,10 +1199,6 @@ function PlayLobbyContent() {
     return () => {
       handle.close();
       boardRef.current = null;
-      if (demoAcceptRef.current) {
-        clearTimeout(demoAcceptRef.current);
-        demoAcceptRef.current = null;
-      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, user?.id, user?.username, user?.rating]);
@@ -1332,6 +1256,7 @@ function PlayLobbyContent() {
 
   return (
     <div
+      ref={rootRef}
       data-theme={themeMode}
       data-lobby
       className="term-theme relative isolate min-h-screen w-full text-[var(--term-text)] flex flex-col select-none text-sm overflow-x-clip font-sans"
@@ -1340,13 +1265,15 @@ function PlayLobbyContent() {
       <div className="fixed inset-0 bg-[var(--term-canvas)] -z-10" />
 
       {/* ── Announcement strip — the first thing on the page, above the header ── */}
-      <AnnouncementBar />
+      <div ref={announcementRef}>
+        <AnnouncementBar />
+      </div>
 
       {/* ── Alert bars — above the menu bar: one solid gradient stripe per
           notice, coloured by what happened, white copy centred, cross on the
           right edge ── */}
       {alerts.length > 0 && (
-        <div className="relative z-40 space-y-px">
+        <div ref={alertsRef} className="relative z-40 space-y-px">
           {alerts.map((a) => {
             const { bar, Icon } = ALERT_TONES[a.tone];
             return (
@@ -1374,7 +1301,7 @@ function PlayLobbyContent() {
       {/* ── Top bar — a social shell rather than a terminal strip: brand pinned
           left, section nav centred, account cluster right, and a 2px underline
           marking the screen the center column is showing. ── */}
-      <header className="h-14 shrink-0 sticky top-0 z-30 border-b border-[var(--term-border)] bg-[var(--term-surface)]/95 backdrop-blur-xl">
+      <header ref={headerRef} className="h-14 shrink-0 sticky top-0 z-30 border-b border-[var(--term-border)] bg-[var(--term-surface)]/95 backdrop-blur-xl">
         <div className="mx-auto flex h-full w-full max-w-[1180px] items-center justify-between gap-3 px-3 md:px-4">
           <Link href="/" className="flex shrink-0 items-center gap-2 group">
             <div className="w-8 h-8 rounded bg-[var(--term-accent)]/20 text-[var(--term-accent)] border border-[var(--term-accent)]/40 flex items-center justify-center font-black">
@@ -1560,9 +1487,6 @@ function PlayLobbyContent() {
                     </button>
                   );
                 })}
-                <span className="ml-auto hidden items-center pr-4 text-[10px] font-mono text-[var(--term-dim)] sm:flex">
-                  Season 1 · Live
-                </span>
               </div>
             </div>
 
@@ -1752,34 +1676,61 @@ function PlayLobbyContent() {
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         {DURATIONS.map((d) => {
-                          // Only the 5-min ticket ships today; longer brackets
-                          // are reserved and shown as "coming soon" so the
-                          // queue and the battle timer never promise a length
-                          // the engine will not start.
-                          const soon = d.id !== '5m';
                           const active = selectedDuration === d.id;
                           return (
                             <button
                               key={d.id}
-                              aria-disabled={soon}
                               onClick={() => {
                                 sound.playClick();
-                                if (soon) {
-                                  setQueueNotice(`${d.label} matches are coming soon — pick 5 min to duel now.`);
-                                  return;
-                                }
                                 setSelectedDuration(d.id);
                                 setQueueNotice(null);
                               }}
-                              className={`relative h-9 rounded text-sm font-bold font-mono transition-all duration-150 ${
+                              className={`h-9 rounded text-sm font-bold font-mono transition-all duration-150 cursor-pointer ${
+                                active
+                                  ? 'bg-[var(--term-accent)]/12 text-[var(--term-strong)] border border-[var(--term-accent)]'
+                                  : 'bg-[var(--term-bg)] text-[var(--term-muted)] border border-[var(--term-border)] hover:border-[var(--term-accent)]/50 hover:text-[var(--term-accent-text)]'
+                              }`}
+                            >
+                              {d.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* MODE: Free / Paid (coming soon) */}
+                    <div className="space-y-2.5">
+                      <label className="block text-xs font-bold text-[var(--term-label)] uppercase tracking-wider font-mono leading-none">
+                        MODE
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { id: 'demo', label: 'Free' },
+                          { id: 'live', label: 'Paid' },
+                        ].map((m) => {
+                          const active = mode === m.id;
+                          const soon = m.id === 'live';
+                          return (
+                            <button
+                              key={m.id}
+                              disabled={soon}
+                              aria-disabled={soon}
+                              title={soon ? 'Paid tables are coming soon — play Free for now.' : undefined}
+                              onClick={() => {
+                                sound.playClick();
+                                if (soon) return;
+                                setMode(m.id as 'live' | 'demo' | 'bot');
+                                setQueueNotice(null);
+                              }}
+                              className={`relative h-9 rounded text-sm font-semibold transition-all duration-150 ${
                                 soon
                                   ? 'cursor-not-allowed bg-[var(--term-bg)] text-[var(--term-dim)] border border-dashed border-[var(--term-border)]'
                                   : active
-                                    ? 'bg-[var(--term-accent)]/12 text-[var(--term-strong)] border border-[var(--term-accent)] cursor-pointer'
-                                    : 'bg-[var(--term-bg)] text-[var(--term-muted)] border border-[var(--term-border)] hover:border-[var(--term-accent)]/50 hover:text-[var(--term-accent-text)] cursor-pointer'
+                                    ? 'cursor-pointer bg-[var(--term-primary)]/10 text-[var(--term-strong)] border border-[var(--term-primary)]/70'
+                                    : 'cursor-pointer bg-[var(--term-bg)] text-[var(--term-muted)] border border-[var(--term-border)] hover:border-[var(--term-primary)]/40 hover:text-[var(--term-primary)]'
                               }`}
                             >
-                              <span className={soon ? 'opacity-60' : undefined}>{d.label}</span>
+                              <span className={soon ? 'opacity-60' : undefined}>{m.label}</span>
                               {soon && (
                                 <span className="absolute top-1 right-1.5 text-[8px] font-mono uppercase tracking-wider text-[var(--term-dim)]">
                                   Soon
@@ -1789,51 +1740,11 @@ function PlayLobbyContent() {
                           );
                         })}
                       </div>
-                    </div>
 
-                    {/* MODE: Live (coin entry) / Demo (free) */}
-                    <div className="space-y-2.5">
-                      <label className="block text-xs font-bold text-[var(--term-label)] uppercase tracking-wider font-mono leading-none">
-                        MODE
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { id: 'live', label: 'Live (coin entry)' },
-                          { id: 'demo', label: 'Demo (free)' },
-                        ].map((m) => {
-                          const active = mode === m.id;
-                          const isLive = m.id === 'live';
-                          return (
-                            <button
-                              key={m.id}
-                              onClick={() => {
-                                sound.playClick();
-                                setMode(m.id as 'live' | 'demo' | 'bot');
-                                setQueueNotice(null);
-                              }}
-                              className={`h-9 rounded text-sm font-semibold transition-all duration-150 cursor-pointer ${
-                                active
-                                  ? isLive
-                                    ? 'bg-[var(--term-buy)]/10 text-[var(--term-strong)] border border-[var(--term-buy)]/70'
-                                    : 'bg-[var(--term-primary)]/10 text-[var(--term-strong)] border border-[var(--term-primary)]/70'
-                                  : isLive
-                                    ? 'bg-[var(--term-bg)] text-[var(--term-muted)] border border-[var(--term-border)] hover:border-[var(--term-buy)]/40 hover:text-[var(--term-buy)]'
-                                    : 'bg-[var(--term-bg)] text-[var(--term-muted)] border border-[var(--term-border)] hover:border-[var(--term-primary)]/40 hover:text-[var(--term-primary)]'
-                              }`}
-                            >
-                              {m.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* The live ticket stays quiet — no stake warnings, no
-                          matching notice. Only Demo gets a one-line explanation. */}
-                      {mode !== 'live' && (
-                        <p className="text-[11px] font-mono text-[var(--term-soft)]">
-                          No coins at risk. Demo pays XP only — no rank RP and no pot.
-                        </p>
-                      )}
+                      <p className="text-[11px] font-mono text-[var(--term-soft)]">
+                        No coins at risk. Free pays XP only — no rank RP and no pot. Paid tables are
+                        coming soon.
+                      </p>
                     </div>
 
                     {/* STAKE: the default Live entry, or a bigger challenge on
@@ -1930,8 +1841,8 @@ function PlayLobbyContent() {
                                 handleAcceptChallenge(rival);
                                 return;
                               }
-                              handlePostChallengeFromTicket();
-                              return;
+handlePostChallenge();
+                                return;
                             }
                             handleFindMatch();
                           }}
@@ -1955,8 +1866,8 @@ function PlayLobbyContent() {
                                 {mode === 'bot'
                                   ? 'Practice vs Bot'
                                   : mode === 'live'
-                                    ? 'Find Live Match'
-                                    : 'Find Demo Match'}
+                                    ? 'Find Paid Match'
+                                    : 'Find Free Match'}
                               </span>
                             </>
                           )}
@@ -2005,8 +1916,7 @@ function PlayLobbyContent() {
             {/* Private table — the code door, under the ticket. The left half
                 knocks on a table code and waits there; the right half mints a
                 code and waits for a rival. Neither side opens the arena until
-                both tabs are on the channel, and the seat is charged only when
-                the rival actually sits down. */}
+                both tabs are on the channel. Private tables are free. */}
             {centerTab === 'ticket' && !matchFoundData && (
               <div className="bg-[var(--term-panel)] border border-[var(--term-border)] rounded-lg overflow-hidden animate-in fade-in duration-200">
                 <div className="flex items-center justify-between border-b border-[var(--term-border)] px-4 py-2.5">
@@ -2014,7 +1924,7 @@ function PlayLobbyContent() {
                     Private table
                   </span>
                   <span className="text-[10px] font-mono text-[var(--term-soft)]">
-                    Code · coins ride the link
+                    Code · invite link
                   </span>
                 </div>
 
@@ -2043,7 +1953,7 @@ function PlayLobbyContent() {
                           Cancel
                         </button>
                         <p className="text-[10px] font-mono text-[var(--term-soft)]">
-                          The host seats you and the match opens — the entry is charged only then.
+                          The host seats you and the match opens.
                         </p>
                       </div>
                     ) : (
@@ -2070,9 +1980,7 @@ function PlayLobbyContent() {
                         </form>
                         <p className="text-[10px] font-mono text-[var(--term-soft)]">
                           {activeLinkTable
-                            ? activeLinkTable.stake > 0
-                              ? `Invite · ${activeLinkTable.stake.toLocaleString()} coins · ${activeLinkTable.duration} — charged when the host seats you.`
-                              : `Invite · free · ${activeLinkTable.duration}.`
+                            ? `Invite · free · ${activeLinkTable.duration}.`
                             : 'Paste the whole table code — the dash is optional. A five-character code still opens a free room.'}
                         </p>
                       </>
@@ -2113,9 +2021,7 @@ function PlayLobbyContent() {
                             onClick={() => copyTableValue('link')}
                             className="h-10 flex-1 min-w-0 bg-[var(--term-raised)] hover:bg-[var(--term-raised-hi)] border border-[var(--term-border)] text-[var(--term-text)] hover:text-[var(--term-strong)] text-xs font-semibold rounded cursor-pointer transition-colors"
                           >
-                            {tableCopied === 'link'
-                              ? 'Link copied'
-                              : `Copy ${table.stake.toLocaleString()}-coin link`}
+                            {tableCopied === 'link' ? 'Link copied' : 'Copy invite link'}
                           </button>
                         </div>
                         {/* The host stays here, on the code, until a rival
@@ -2127,39 +2033,24 @@ function PlayLobbyContent() {
                           </span>
                         </div>
                         <p className="text-[10px] font-mono text-[var(--term-soft)]">
-                          {table.duration} · {table.stake.toLocaleString()} coins a seat · charged only when someone joins.
+                          {table.duration} · Free table · opens only when someone joins.
                         </p>
                       </>
                     ) : (
                       <>
-                        <label
-                          htmlFor="table-coins-input"
-                          className="block text-[10px] font-mono uppercase tracking-wider text-[var(--term-label)]"
-                        >
-                          Coins to play for
-                        </label>
-                        <form onSubmit={handleGenerateTableCode} className="flex items-stretch gap-2">
-                          <div className="relative flex-1 min-w-0">
-                            <Coins size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--term-muted)]" />
-                            <input
-                              id="table-coins-input"
-                              type="text"
-                              inputMode="numeric"
-                              value={tableCoinsInput}
-                              onChange={(e) => setTableCoinsInput(e.target.value.replace(/[^0-9]/g, ''))}
-                              placeholder={String(ticketFee)}
-                              className="w-full h-10 bg-[var(--term-bg)] border border-[var(--term-border)] focus:border-[var(--term-primary)] rounded pl-8 pr-3 text-sm font-mono font-bold text-[var(--term-strong)] placeholder:text-[var(--term-muted)] focus:outline-none transition-colors"
-                            />
-                          </div>
+                        <span className="block text-[10px] font-mono uppercase tracking-wider text-[var(--term-label)]">
+                          Create a table
+                        </span>
+                        <form onSubmit={handleGenerateTableCode}>
                           <button
                             type="submit"
-                            className="h-10 px-4 shrink-0 rounded border border-[var(--term-primary)]/55 bg-[var(--term-primary)]/10 text-[var(--term-strong)] font-bold text-xs uppercase tracking-wider transition-colors hover:bg-[var(--term-primary)]/18 cursor-pointer"
+                            className="h-10 w-full rounded border border-[var(--term-primary)]/55 bg-[var(--term-primary)]/10 text-[var(--term-strong)] font-bold text-xs uppercase tracking-wider transition-colors hover:bg-[var(--term-primary)]/18 cursor-pointer"
                           >
                             Generate code
                           </button>
                         </form>
                         <p className="text-[10px] font-mono text-[var(--term-soft)]">
-                          Chips: 100, 200, then 500s. Same chart and length for both seats.
+                          Free private table · {selectedDuration} · same chart for both seats.
                         </p>
                       </>
                     )}
@@ -2475,11 +2366,7 @@ function PlayLobbyContent() {
                             <p className="text-xs leading-relaxed text-[var(--term-label)] whitespace-pre-line">{item.body}</p>
                             <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-mono uppercase tracking-wide">
                               <span className="text-[var(--term-muted)]">
-                                {item.category === 'system'
-                                  ? 'Arena system'
-                                  : item.category === 'player'
-                                    ? 'Player message'
-                                    : 'Legacy record'}
+                                {item.category === 'system' ? 'Arena system' : 'Legacy record'}
                               </span>
                               {hasCoins && <span className="font-bold text-[var(--term-amber)]">{coins.toLocaleString()} C</span>}
                               <span className="flex items-center gap-1 text-[var(--term-buy)]">
@@ -2526,11 +2413,11 @@ function PlayLobbyContent() {
                 <div className="space-y-2">
                   <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">Match Flow</p>
                   {[
-                    { n: '01', title: 'Configure Your Ticket', desc: 'Choose a game duration (5 / 10 / 15 min) and a mode — Live charges a coin entry and pays the pot to the winner, Demo is free and stakes nothing.' },
+                    { n: '01', title: 'Configure Your Ticket', desc: 'Choose a game duration (5 / 10 / 15 min) and a mode — Paid charges a coin entry and pays the pot to the winner, Free stakes nothing.' },
                     { n: '02', title: 'Enter the Queue', desc: 'Hit Find Match. The engine pairs you with a rival of similar ELO rating within seconds. Both traders see an identical price feed — one global market series, and the duel trades the window that opens on the minute it fires, live on the clock.' },
                     { n: '03', title: '1-Minute Lobby Prep', desc: 'Once matched, a 60-second prep window starts. Study the chart, plan your bias — long or short — and set your first order before the clock hits zero.' },
                     { n: '04', title: 'Trade to Win More Pips', desc: 'Use Market, Limit, or Stop orders. Open and close positions freely. The trader with the highest net pip P&L when the timer expires wins the duel.' },
-                    { n: '05', title: 'Claim Your ELO & Rewards', desc: 'Win → gain ELO and the Live pot. Lose → lose ELO and your entry. Draw → no change, entry returned. Coins are earned by playing and in missions; they are never bought and cannot be cashed out.' },
+                    { n: '05', title: 'Claim Your ELO & Rewards', desc: 'Win → gain ELO and the Paid pot. Lose → lose ELO and your entry. Draw → no change, entry returned. Coins are earned by playing and in missions; they are never bought and cannot be cashed out.' },
                   ].map((s) => (
                     <div key={s.n} className="flex gap-3 px-3 py-2.5 rounded-md bg-[var(--term-bg)] border border-[var(--term-border)]">
                       <span className="w-5 h-5 rounded bg-[var(--term-accent)]/12 border border-[var(--term-accent)]/25 text-[var(--term-accent-text)] shrink-0 mt-px flex items-center justify-center text-[10px] font-black font-mono">
@@ -2562,9 +2449,9 @@ function PlayLobbyContent() {
                   ))}
                 </div>
 
-                {/* Live Pot Rules — what an entry buys and pays out */}
+                {/* Paid Pot Rules — what an entry buys and pays out */}
                 <div className="space-y-2">
-                  <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">Live Pot Rules</p>
+                  <p className="text-[10px] font-mono uppercase tracking-widest text-[var(--term-label)]">Paid Pot Rules</p>
                   <div className="space-y-2 rounded-md bg-[var(--term-bg)] border border-[var(--term-border)] px-3 py-2.5">
                     <ul className="space-y-1.5 text-[11px] font-mono text-[var(--term-soft)]">
                       <li className="flex gap-1.5">
@@ -2581,7 +2468,7 @@ function PlayLobbyContent() {
                       </li>
                       <li className="flex gap-1.5">
                         <span className="text-[var(--term-muted)] shrink-0">▸</span>
-                        Demo pays XP only: no entry, no pot, no rank RP.
+                        Free pays XP only: no entry, no pot, no rank RP.
                       </li>
                     </ul>
                     <p className="text-[10px] font-mono text-[var(--term-dim)] pt-1.5 border-t border-[var(--term-border)]">
@@ -2605,22 +2492,17 @@ function PlayLobbyContent() {
               1480px, where the layout leaves a free gutter for it. */}
           <aside className="order-3 w-full shrink-0 space-y-3 md:grid md:grid-cols-2 md:gap-3 md:space-y-0 lg:block lg:w-[300px] lg:space-y-3 xl:sticky xl:top-[72px] xl:max-h-[calc(100vh-88px)] xl:overflow-y-auto xl:pr-1">
 
-            {/* Challenges — first in the dock: a stake above the fixed Live
-                entry, published to every online trader; accept one to duel at
-                that stake at once. Warm colour carries the size of the ask:
-                amber at the entry, orange from 2×, ember red from 5×, deep red
-                from the 10k table — and the meter under each stake shows how
-                far it sits up the ladder. */}
+            {/* Challenges — free tickets posted to every online trader;
+                accept one to open the MATCH FOUND card and duel immediately. */}
             {/* On a wide monitor the board tears out of the rail and pins to
                 the window's right edge, in the empty gutter beside the 1180px
                 column — the way a game parks its friend list. 256px is the
                 widest it can be and still clear a centred column, so the
                 panel only detaches once the window reaches 1670px; below that
                 it stays the rail's first card and nothing is covered. */}
-            <div data-challenge-dock className="min-[1670px]:fixed min-[1670px]:right-0 min-[1670px]:top-14 min-[1670px]:bottom-0 min-[1670px]:z-20 min-[1670px]:w-[256px] min-[1670px]:overflow-y-auto min-[1670px]:border-l min-[1670px]:border-[var(--term-border-hi)] min-[1670px]:bg-[var(--term-panel)]/95 min-[1670px]:p-2.5 min-[1670px]:backdrop-blur-xl">
+            <div data-challenge-dock className="min-[1670px]:fixed min-[1670px]:right-0 min-[1670px]:top-[var(--lobby-dock-top,3.5rem)] min-[1670px]:bottom-0 min-[1670px]:z-20 min-[1670px]:w-[256px] min-[1670px]:overflow-y-auto min-[1670px]:border-l min-[1670px]:border-[var(--term-border-hi)] min-[1670px]:bg-[var(--term-panel)]/95 min-[1670px]:p-2.5 min-[1670px]:backdrop-blur-xl">
               <div className="rounded-lg border border-[var(--term-border)] bg-[var(--term-panel)]/90 backdrop-blur-md overflow-hidden min-[1670px]:rounded-none min-[1670px]:border-0 min-[1670px]:bg-transparent">
-              {/* Header — the rail colours speak for the tiers; hover a ticket
-                  for the full pot maths */}
+              {/* Header */}
               <div className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-[var(--term-border)] min-[1670px]:sticky min-[1670px]:top-0 min-[1670px]:z-10 min-[1670px]:bg-[var(--term-panel)]/95 min-[1670px]:backdrop-blur-md">
                 <div className="flex items-center gap-2 min-w-0">
                   <Swords size={15} className="text-[var(--term-accent)] shrink-0" />
@@ -2638,54 +2520,40 @@ function PlayLobbyContent() {
               <div className="space-y-1.5 px-2 pt-2 pb-2 border-t border-[var(--term-border)]">
                 {challenges.length === 0 ? (
                   <p className="px-3 py-6 text-center text-[11px] font-mono text-[var(--term-muted)]">
-                    No open challenges. Post one to invite a bigger duel.
+                    No open challenges. Post a free one below.
                   </p>
                 ) : (
                   challenges.slice(0, 8).map((c) => {
                     const mine = c.posterId === sessionId;
                     const waiting = acceptingId === c.id;
-                    const short = !mine && c.stake > userCoins;
-                    const tier = stakeTierFor(c.stake, ticketFee);
-                    const demo = isDemoChallenge(c.id);
                     return (
                       <div
                         key={c.id}
-                        title={`pot ${potFor(c.stake).toLocaleString()} · −${houseBurnFor(c.stake).toLocaleString()} burn${c.duration ? ` · ${c.duration}` : ''}`}
-                        className={`group relative overflow-hidden rounded-md border pl-3 pr-1.5 py-1.5 flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-300 transition-all cursor-default ${mine ? '' : tier.glow} ${
+                        className={`group relative overflow-hidden rounded-md border pl-3 pr-1.5 py-1.5 flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-300 transition-all cursor-default ${
                           mine
                             ? 'border-[var(--term-accent)]/45 bg-[var(--term-accent)]/10 hover:bg-[var(--term-accent)]/15 hover:border-[var(--term-accent)]/60'
                             : 'border-[var(--term-border)] bg-[var(--term-raised)]/40 hover:bg-[var(--term-raised)]/70 hover:border-[var(--term-border-hi)]'
-                        } ${demo ? 'opacity-80' : ''}`}
+                        }`}
                       >
-                        {/* Full-height rail — blue on your own card, tier
-                            gradient on everyone else's */}
+                        {/* Full-height rail — accent on your own card, quiet blue on
+                            everyone else's */}
                         <span
                           aria-hidden
                           className={`absolute left-0 top-0 bottom-0 w-1 ${
-                            mine ? 'bg-[var(--term-accent)]' : tier.rail
+                            mine ? 'bg-[var(--term-accent)]' : 'bg-[var(--term-primary)]/60'
                           }`}
                         />
 
                         <span className={`grid place-items-center w-6 h-6 min-[1670px]:w-5 min-[1670px]:h-5 shrink-0 rounded font-mono text-[10px] font-bold bg-[var(--term-raised)] ring-1 ${
-                          mine ? 'text-[var(--term-accent-text)] ring-[var(--term-accent)]/40' : tier.chip
+                          mine ? 'text-[var(--term-accent-text)] ring-[var(--term-accent)]/40' : 'text-[var(--term-primary)] ring-[var(--term-primary)]/30'
                         }`}>
                           {(c.username.charAt(0) || '?').toUpperCase()}
                         </span>
 
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <p className="text-[11px] font-bold text-[var(--term-strong)] truncate">{c.username}</p>
-                            {!mine && tier.key !== 'standard' && (
-                              tier.key === 'whale'
-                                ? <Flame size={10} className={`${tier.text} shrink-0 animate-pulse`} />
-                                : <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${tier.rail}`} />
-                            )}
-                          </div>
-                          {/* Under the name: just the wait, no meter */}
+                          <p className="text-[11px] font-bold text-[var(--term-strong)] truncate">{c.username}</p>
                           <p className="text-[9px] font-mono text-[var(--term-dim)] leading-[14px] truncate">
-                            {elapsedStamp(c.createdAt, boardNow)}
-                            {c.duration ? ` · ${c.duration}` : ''}
-                            {demo ? ' · demo' : ''}
+                            {elapsedStamp(c.createdAt, boardNow)} · {c.duration} · free
                           </p>
                         </div>
 
@@ -2714,22 +2582,11 @@ function PlayLobbyContent() {
                           ) : (
                             <button
                               onClick={() => handleAcceptChallenge(c)}
-                              disabled={short}
-                              className={`flex items-center justify-center gap-1 h-6 w-full rounded text-[10px] font-mono font-bold cursor-pointer transition-all ${
-                                short
-                                  ? 'bg-[var(--term-bg)] text-[var(--term-muted)] border border-[var(--term-border)] cursor-not-allowed'
-                                  : `border ${tier.action}`
-                              }`}
-                              title={`Accept the ${c.stake.toLocaleString()}-coin duel`}
+                              className="flex items-center justify-center gap-1 h-6 w-full rounded border border-[var(--term-primary)]/45 bg-[var(--term-primary)]/10 text-[10px] font-mono font-bold text-[var(--term-primary)] cursor-pointer transition-all hover:bg-[var(--term-primary)]/18"
+                              title="Accept this free duel"
                             >
-                              {short ? (
-                                `Short ${(c.stake - userCoins).toLocaleString()}`
-                              ) : (
-                                <>
-                                  <Swords size={12} />
-                                  <span className="tabular-nums">{c.stake.toLocaleString()}</span>
-                                </>
-                              )}
+                              <Swords size={12} />
+                              Duel
                             </button>
                           )}
                         </span>
@@ -2737,6 +2594,21 @@ function PlayLobbyContent() {
                     );
                   })
                 )}
+
+                <div className="pt-1">
+                  {myChallenge ? (
+                    <p className="px-2 py-1 text-center text-[10px] font-mono text-[var(--term-accent-text)]">
+                      Your free challenge is on the board.
+                    </p>
+                  ) : (
+                    <button
+                      onClick={handlePostChallenge}
+                      className="w-full h-8 rounded border border-[var(--term-primary)]/45 bg-[var(--term-primary)]/10 text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--term-strong)] cursor-pointer transition-colors hover:bg-[var(--term-primary)]/18"
+                    >
+                      Post a free challenge
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
             </div>

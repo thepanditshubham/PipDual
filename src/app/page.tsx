@@ -134,7 +134,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="lp-lead">
-            Take on one rival in a five-minute market call. Identical synthetic candles, four entries
+            Take on one rival in a 5, 10 or 15-minute market call. Identical synthetic candles, four entries
             each, and a result the server re-checks — so the only thing that decides it is how you
             read the chart.
           </p>
@@ -150,7 +150,7 @@ export default function LandingPage() {
           </div>
 
           <p className="lp-hero-note">
-            <Check size={11} /> Free demo, no card · Live tables from {CHEAPEST_COINS} coins ·
+            <Check size={11} /> Free mode, no card · Paid tables coming soon ·
             24/7 market
           </p>
 
@@ -189,7 +189,7 @@ export default function LandingPage() {
           <span className="lp-kicker">The duel, minute by minute</span>
           <h2 className="lp-h2">What happens between the ticket and the payout</h2>
           <p className="lp-sub">
-            Five minutes of market time, four decisions, one settled result. This is the whole loop.
+            Five, ten or fifteen minutes of market time, four decisions, one settled result. This is the whole loop.
           </p>
         </div>
 
@@ -226,16 +226,16 @@ export default function LandingPage() {
       <section className="lp-section lp-section--panel">
         <div className="lp-head">
           <span className="lp-kicker">Choose a table</span>
-          <h2 className="lp-h2">Practise free, or put coins on it</h2>
+          <h2 className="lp-h2">Play Free, or put coins on it</h2>
           <p className="lp-sub">
-            The chart is the same at both tables. What changes is what a win is worth.
+            The chart is the same at both tables. Paid tables are coming soon.
           </p>
         </div>
 
         <div className="pg-cols-2">
-          <article className="lp-table lp-table--featured">
-            <span className="lp-table-badge">Stakes coins</span>
-            <div className="lp-table-k">Live duel</div>
+          <article className="lp-table">
+            <span className="lp-table-badge">Coming soon</span>
+            <div className="lp-table-k">Paid duel</div>
             <div className="lp-table-v">
               {CHEAPEST_COINS} <small>coins to enter</small>
             </div>
@@ -247,26 +247,31 @@ export default function LandingPage() {
               <li><Check size={12} /> {TABLE_MINUTES.join(', ')} minute tables</li>
               <li><Check size={12} /> No cash value, no withdrawal</li>
             </ul>
-            <Link href="/play" className="lp-btn">
+            <span
+              className="lp-btn lp-btn--ghost"
+              aria-disabled="true"
+              style={{ opacity: 0.55, cursor: 'not-allowed' }}
+            >
               <Swords size={13} />
-              Enter a duel
-            </Link>
+              Paid tables coming soon
+            </span>
           </article>
 
-          <article className="lp-table">
-            <div className="lp-table-k">Demo duel</div>
+          <article className="lp-table lp-table--featured">
+            <span className="lp-table-badge">Play now</span>
+            <div className="lp-table-k">Free duel</div>
             <div className="lp-table-v">
               0 <small>coins</small>
             </div>
             <p className="lp-table-note">Ranked nothing. Teaches everything.</p>
             <ul className="lp-list">
               <li><Check size={12} /> The same candles and entry cap</li>
-              <li><Check size={12} /> Practise a setup before you take it ranked</li>
+              <li><Check size={12} /> Practise a setup before you take it Paid</li>
               <li><Check size={12} /> Instant match against a bot or a human</li>
             </ul>
-            <Link href="/modes" className="lp-btn lp-btn--ghost">
+            <Link href="/play?mode=demo" className="lp-btn">
               <Trophy size={13} />
-              See the modes
+              Play a Free duel
             </Link>
           </article>
         </div>
@@ -358,8 +363,8 @@ export default function LandingPage() {
       <section className="lp-cta">
         <h2>Bring your read. We&apos;ll bring the rival.</h2>
         <p>
-          Open a free demo, or take the {CHEAPEST_COINS}-coin table. The clock starts when the ticket
-          does.
+          Open a free account and play the Free tables. Paid tables are coming soon. The clock starts
+          when the ticket does.
         </p>
         <div className="lp-cta-actions">
           <Link href="/register" className="lp-btn lp-btn--lg">

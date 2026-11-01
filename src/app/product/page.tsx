@@ -138,7 +138,7 @@ export default function ProductPage() {
             them changes what a duel is testing: a read of price over a short window.
           </p>
           <p>
-            The demo tables at <Link href="/modes">/modes</Link> run the same chart with the order
+            The Free tables at <Link href="/modes">/modes</Link> run the same chart with the order
             ticket attached, so you can learn the layout before staking anything.
           </p>
 
@@ -153,7 +153,7 @@ export default function ProductPage() {
 
       <CtaBand
         title="Look at it before you sign up."
-        copy="A free account opens the demo tables — same chart, same rules, no coins at stake."
+        copy="A free account opens the Free tables — same chart, same rules, no coins at stake."
       />
     </SitePage>
   );

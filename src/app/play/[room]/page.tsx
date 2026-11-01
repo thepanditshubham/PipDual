@@ -382,7 +382,7 @@ function PlayRoomContent() {
         outcome,
         pipMargin: pipMarginBetween(finalUser.pnl, finalRival.pnl, price),
         opponentRp: rivalRating,
-        opponentKey: rivalName,
+        opponentKey: rivalName.toLowerCase(),
         actions: userActions,
         trades: finalUser.trades,
         equity: finalUser.equity,
@@ -808,10 +808,10 @@ function PlayRoomContent() {
           </div>
         </div>
 
-        {/* Center: DEMO Badge & Battle Timer */}
+        {/* Center: FREE Badge & Battle Timer */}
         <div className="flex items-center gap-2">
           <div className="hidden sm:block px-2.5 py-0.5 rounded bg-[var(--term-raised)] border border-[var(--term-border)] text-[11px] font-bold text-[var(--term-label)] uppercase tracking-wider">
-            DEMO
+            FREE
           </div>
 
           {/* Which slice of the global market this duel is trading — the same one every
@@ -835,9 +835,9 @@ function PlayRoomContent() {
             <Swords size={11} />{' '}
             {isRankedMatch
               ? liveStake > 0
-                ? `Live · ${liveStake.toLocaleString()} coin entry`
-                : 'Live Duel'
-              : 'Demo Duel'}
+                ? `Paid · ${liveStake.toLocaleString()} coin entry`
+                : 'Paid Duel'
+              : 'Free Duel'}
           </span>
 
           {/* Phone: the result and the clock own the top-right corner. No P&L

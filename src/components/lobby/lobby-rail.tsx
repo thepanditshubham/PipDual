@@ -3,8 +3,8 @@
 /**
  * lobby-rail.tsx
  * The lobby's left rail, laid out the way a social profile rail reads: a
- * cover-and-avatar identity card, the season snapshot under it, a one-line
- * one hairline list of every screen the rail can open.
+ * name-and-headline identity card (no cover, no avatar), the career snapshot
+ * under it, a one-line one hairline list of every screen the rail can open.
  *
  * Pure presentation — the lobby owns the state. Every figure is passed in from
  * the same store read the ticket uses, so the rail can never quote a win rate
@@ -14,7 +14,6 @@ import Link from 'next/link';
 import {
   Settings, Mail, HelpCircle, ChevronRight, Pencil, History,
 } from 'lucide-react';
-import { DEFAULT_AVATAR } from '@/lib/auth/avatar';
 import { ACHIEVEMENTS } from '@/lib/progress/config';
 import { sound } from '@/components/terminal/sound';
 import type { UserProfile } from '@/lib/auth/types';
@@ -67,33 +66,23 @@ export function LobbyLeftRail({
     // up two-across instead of stretching the full width of the page.
     <div className="space-y-3 md:grid md:grid-cols-2 md:gap-3 md:space-y-0 lg:block lg:space-y-3">
       {/* ── Identity ───────────────────────────────────────────────────────
-          Cover, square avatar hanging over it, name and headline, then the
+          Name and headline only — no cover and no profile picture — then the
           dashed action row that a social profile puts under the headline. */}
       <div className="overflow-hidden rounded-lg border border-[var(--term-border)] bg-[var(--term-panel)]/90 backdrop-blur-md">
-        <div className="relative h-14 w-full overflow-hidden bg-[linear-gradient(120deg,var(--term-accent-deep),var(--term-accent))]" />
-
-        <div className="px-4 pb-3">
-          <div className="relative z-10 -mt-7 flex items-end justify-between gap-2">
-            <div className="h-[68px] w-[68px] shrink-0 overflow-hidden border border-[var(--term-border-hi)] bg-[var(--term-panel)]">
-              <img
-                src={user?.avatarUrl || DEFAULT_AVATAR}
-                alt={user?.displayName ?? user?.username ?? 'Player'}
-                className="h-full w-full object-cover"
-              />
-            </div>
+        <div className="px-4 pb-3 pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="truncate text-[15px] font-bold leading-tight text-[var(--term-strong)]">
+              {user?.displayName || 'Trader'}
+            </h3>
             <button
               onClick={() => open('settings')}
               title="Edit profile"
               aria-label="Edit profile"
-              className="mb-0.5 flex h-7 w-7 items-center justify-center rounded border border-[var(--term-border-hi)] bg-[var(--term-raised)] text-[var(--term-label)] transition-colors hover:border-[var(--term-accent)]/50 hover:text-[var(--term-accent)] cursor-pointer"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-[var(--term-border-hi)] bg-[var(--term-raised)] text-[var(--term-label)] transition-colors hover:border-[var(--term-accent)]/50 hover:text-[var(--term-accent)] cursor-pointer"
             >
               <Pencil size={12} />
             </button>
           </div>
-
-          <h3 className="mt-2 truncate text-[15px] font-bold leading-tight text-[var(--term-strong)]">
-            {user?.displayName || 'Trader'}
-          </h3>
           <p className="mt-0.5 text-[12px] leading-snug text-[var(--term-label)]">
             {title ? `“${title}”` : `${winRate}% win rate`}
           </p>
@@ -132,15 +121,14 @@ export function LobbyLeftRail({
         </Link>
       </div>
 
-      {/* ── Season snapshot ────────────────────────────────────────────────
+      {/* ── Career snapshot ────────────────────────────────────────────────
           Three hairline rows, the way a profile-analytics card counts things,
           and one link into the full stats screen. */}
       <div className="overflow-hidden rounded-lg border border-[var(--term-border)] bg-[var(--term-panel)]/90 backdrop-blur-md">
-        <div className="flex items-center justify-between px-4 py-2.5">
+        <div className="flex items-center px-4 py-2.5">
           <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[var(--term-soft)]">
-            Season 1
+            Career
           </span>
-          <span className="text-[10px] font-mono text-[var(--term-dim)]">Live</span>
         </div>
         <div className="divide-y divide-[var(--term-border)] border-t border-[var(--term-border)]">
           {[

@@ -5,7 +5,7 @@ import { AuthForm } from '@/components/auth/auth-form';
 export const metadata: Metadata = {
   title: 'Create account | Pip Duel',
   description:
-    'Open a Pip Duel account — free demo tables, four entries per duel, coins only when you take a Live table.',
+    'Open a Pip Duel account — Free tables, four entries per duel, coins only when you take a Paid table.',
 };
 
 export default function RegisterPage() {

@@ -3,7 +3,6 @@
 import { useEffect, useRef } from 'react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase/client';
-import { touchProfilePresence } from '@/lib/supabase/presence';
 import { useAuthStore } from '@/lib/auth/store';
 
 interface ProfileRow {
@@ -26,8 +25,6 @@ interface ProfileRow {
  */
 export function SupabaseAuthProvider({ children }: { children: React.ReactNode }) {
   const setUser = useAuthStore((s) => s.setUser);
-  const currentUserId = useAuthStore((s) => s.user?.id ?? null);
-  const isGuest = useAuthStore((s) => s.user?.isGuest ?? false);
   // getSession() and the SIGNED_IN event both fire on a fresh login; one
   // profile read is enough for both.
   const hydratedRef = useRef<{ id: string; at: number } | null>(null);
@@ -108,24 +105,6 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Presence heartbeat: refreshes profile_details.last_seen_at so a public
-  // profile can show an honest online window. Guests never hit the table.
-  useEffect(() => {
-    if (!currentUserId || isGuest) return;
-    void touchProfilePresence(currentUserId);
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') void touchProfilePresence(currentUserId);
-    }, 120_000);
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') void touchProfilePresence(currentUserId);
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, [currentUserId, isGuest]);
 
   return <>{children}</>;
 }

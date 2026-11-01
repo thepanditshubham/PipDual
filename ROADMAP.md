@@ -17,7 +17,7 @@ item.
 | Lobby, challenges, private tables | Shipped | Invite codes, knock-to-join |
 | Friends, mail, announcements | Shipped | Supabase Realtime + tables |
 | XP, ranks, seasons, missions, achievements | Shipped | `src/lib/progress/` |
-| Trader profiles and match history | Shipped | `/player/[username]`, `/history` |
+| Profile page and match history | Shipped | `/u/[username]`, `/history` |
 | Result screen with equity curves | Shipped | `result-modal.tsx` |
 | Global leaderboard route | **Partial** | `LeaderboardTab` exists but is not routed; `/leaderboard` is linked in the footer and 404s |
 | Replay a past match | **Partial** | The history "Replay" link opens a fresh bot room; it does not replay the recorded chart |

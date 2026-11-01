@@ -27,7 +27,7 @@ const ROWS: { label: string; cells: (string | boolean)[] }[] = [
   },
   {
     label: 'Cost to start',
-    cells: [`${cheapest} virtual coins · practice free`, '$50–$500 evaluation fee', 'Free', 'Whatever you stake'],
+    cells: [`${cheapest} virtual coins · Free mode`, '$50–$500 evaluation fee', 'Free', 'Whatever you stake'],
   },
   {
     label: 'Market data',
@@ -170,14 +170,14 @@ export default function ComparePage() {
           </p>
           <p>
             It is still money at risk. If losing {cheapest} coins would hurt, watch the market and
-            play the Demo table instead.
+            play the Free table instead.
           </p>
         </div>
       </section>
 
       <CtaBand
-        title="The cheapest way to judge it is to play the demo."
-        copy="No account cost, no stake, and the same chart a Live table uses."
+        title="The cheapest way to judge it is to play Free."
+        copy="No account cost, no stake, and the same chart a Paid table uses."
       />
     </SitePage>
   );

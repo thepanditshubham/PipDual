@@ -185,7 +185,7 @@ export function ResultModal({
               {showPot && (
                 <div className="rounded-lg border border-[var(--term-border)] bg-[var(--term-panel-deep)] p-2.5">
                   <div className="flex items-center justify-between gap-1 text-[9px] font-semibold uppercase tracking-wider text-[var(--term-soft)]">
-                    <span className="flex items-center gap-1"><Coins size={11} /> Live pot</span>
+                    <span className="flex items-center gap-1"><Coins size={11} /> Paid pot</span>
                     <span className="normal-case tracking-normal text-[var(--term-muted)]">
                       {isDraw ? 'refunded' : won ? 'won' : 'lost'}
                     </span>

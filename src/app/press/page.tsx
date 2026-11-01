@@ -12,7 +12,7 @@ const FACTS = [
   ['Format', '5, 10 or 15 minute tables · four entries each · risk-adjusted scoring'],
   ['Instruments', '5 synthetic: XAU/USD, EUR/USD, XTI/USD, BTC/USD, US30'],
   ['Currency', 'Coins only, pegged at 100 coins = $1, bought and paid out in crypto'],
-  ['Entry', 'From 100 coins (about $1) · Demo is free'],
+  ['Entry', 'From 100 coins · Free mode costs nothing'],
   ['Fee', '15% of the pooled pot, published on the pricing page'],
   ['Built by', 'The Forexwala community, Pune, India'],
 ];
@@ -52,8 +52,8 @@ export default function PressPage() {
           <p>
             Pip Duel is a one-to-one trading arena built by the Forexwala community in Pune, India.
             Two players trade an identical synthetic chart over a fixed window of five, ten or fifteen
-            minutes, with the same four-entry limit and a result settled by a server-side replay. Live
-            tables stake coins bought with crypto; Demo tables are free.
+            minutes, with the same four-entry limit and a result settled by a server-side replay. Paid
+            tables stake coins bought with crypto; Free tables cost nothing.
           </p>
           <p>
             <strong>Not:</strong> a broker, an exchange, a prop firm, or a source of real market data.

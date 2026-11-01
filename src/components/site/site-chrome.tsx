@@ -247,7 +247,7 @@ export function PageHero({
 /** A closing call to action, used at the foot of most sub-pages. */
 export function CtaBand({
   title = 'Bring your read. We’ll bring the rival.',
-  copy = 'Open a free demo, or take the 100-coin table. The clock starts when the ticket does.',
+  copy = 'Open a Free duel. Paid tables are coming soon. The clock starts when the ticket does.',
 }: {
   title?: string;
   copy?: string;
